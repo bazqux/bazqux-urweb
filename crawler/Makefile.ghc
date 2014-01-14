@@ -1,0 +1,72 @@
+# -*- mode: Makefile -*-
+# В этом Makefile находятся цели для установки ghc и cabal под линуксом
+# также запуск $(CABAL) с необходимыми путями (и доп опциями для MacOS)
+
+ifeq ($(shell uname), Linux)
+LINUX = 1
+endif
+
+# необходимые для GHC пакеты
+GHC_PACKAGES = libgmp3-dev libffi5
+
+# установка пакетов
+ghc_packages:
+#	sudo apt-get install $(GHC_PACKAGES)
+
+GHC_VER = 7.6.3
+#7.4.1
+#7.2.1
+GHC_ARCHIVE_PATH = http://www.haskell.org/ghc/dist/$(GHC_VER)
+
+ifeq ($(shell uname), Linux)
+ifeq ($(shell uname -m), x86_64)
+	GHC_ARCHIVE = ghc-$(GHC_VER)-x86_64-unknown-linux.tar.bz2
+else
+	GHC_ARCHIVE = ghc-$(GHC_VER)-i386-unknown-linux.tar.bz2
+endif
+else
+	GHC_ARCHIVE = ghc-$(GHC_VER)-x86_64-apple-darwin.tar.bz2
+endif
+GHC_PREFIX = $(HOME)/local
+CABAL_PREFIX = $(HOME)/.cabal
+GHC_PATHS = $(GHC_PREFIX)/bin:$(CABAL_PREFIX)/bin
+
+# sudo apt-get install autoconf libtool ncurses-dev g++ hscolour dblatex docbook-xsl docbook-utils linux-tools
+#
+# локальная установка GHC
+ghc: $(GHC_ARCHIVE) ghc_packages
+	rm -rf ghc-$(GHC_VER)
+	tar xf $(GHC_ARCHIVE)
+	mkdir -p $(GHC_PREFIX)
+	cd ghc-$(GHC_VER) && ./configure --prefix=$(GHC_PREFIX) && make install
+	rm -rf ghc-$(GHC_VER)
+
+$(GHC_ARCHIVE):
+	wget -c $(GHC_ARCHIVE_PATH)/$(GHC_ARCHIVE)
+
+CABAL_INSTALL_VER = 1.18.0.2
+# 0.10.2
+# 1.16.0 -- HTTP конфликтует c Network.URI
+#
+# 0.14.0 не работает с ghc 7.6.1
+CABAL_INSTALL_ARCHIVE_PATH = \
+	http://hackage.haskell.org/packages/archive/cabal-install/$(CABAL_INSTALL_VER)
+CABAL_INSTALL_ARCHIVE = cabal-install-$(CABAL_INSTALL_VER).tar.gz
+CABAL_INSTALL = cabal-install-$(CABAL_INSTALL_VER)
+CABAL_ = PATH=$(CABAL_PATHS)$(GHC_PATHS):$(PATH) cabal
+CABAL = $(CABAL_) $(CABAL_OPTS)
+GHC = PATH=$(CABAL_PATHS)$(GHC_PATHS):$(PATH) ghc
+
+# установка cabal -- пока не работает с ghc 7.0.1
+cabal-install: $(CABAL_INSTALL_ARCHIVE)
+	rm -rf $(CABAL_INSTALL)
+	tar xf $(CABAL_INSTALL_ARCHIVE)
+	cd $(CABAL_INSTALL) && chmod +x ./bootstrap.sh && PATH=$(GHC_PATHS):$(PATH) ./bootstrap.sh
+	rm -rf $(CABAL_INSTALL)
+	$(CABAL) update
+
+cabal-update:
+	$(CABAL) update
+
+$(CABAL_INSTALL_ARCHIVE):
+	wget $(CABAL_INSTALL_ARCHIVE_PATH)/$(CABAL_INSTALL_ARCHIVE)

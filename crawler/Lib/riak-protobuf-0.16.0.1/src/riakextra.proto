@@ -1,0 +1,4 @@
+message RpbPingReq { }
+message RpbGetClientIdReq { }
+message RpbGetServerInfoReq { }
+message RpbListBucketsReq { }

@@ -1,0 +1,54 @@
+#!/bin/bash
+# замена вызова gcc из urweb на ghc
+
+args=
+c=0
+hs_files=
+
+for arg
+do
+    case $arg in
+        -f* | -W* | -pthread | -g | -O* | -D*)
+             # -fnested-functions -pthread -Wimplicit -Werror -Wno-unused-value
+             args="$args-optc$arg "
+             ;;
+        -I)  args="$args-optc$arg"
+             ;;
+        -c)  args="$args$arg "
+             c=1
+             ;;
+        *.hs)hs_files="$hs_files $arg"
+             ;;
+        *)   args="$args$arg "
+             ;;
+    esac
+done
+
+if [ `uname` == "Linux" ]
+then
+    c_args=""
+else
+    c_args="/usr/lib/libiconv.dylib -optl-Wl,-no_pie -optl-Wl,-no_compact_unwind"
+fi
+
+if [ $c != 1 ]; then args="$args $c_args"; fi
+
+
+bp=crawler/dist/build/hslib
+mkdir -p $bp
+
+ghc="ghc -threaded -hidir $bp -odir $bp -stubdir $bp -I$bp -I/usr/local/include/urweb -icrawler -I$bp/Generated -fwarn-incomplete-patterns "
+# -optc-g
+
+if [ `uname` == "Linux" ]
+then
+    ghc="$ghc -O2 -optc-O2"
+fi
+
+cmd="$ghc $args --make -no-hs-main $hs_files"
+#$ghc -c --make -no-hs-main Generated.HsFFI
+#hs_files="Generated.HsFFI"
+#if [ "$hs_files" != "" ]; then echo $ghc -c $hs_files; $ghc -c --make $hs_files; fi;
+# ^ компилим .hs чтобы получить *_stub.*
+echo $cmd
+$cmd #$hs_files

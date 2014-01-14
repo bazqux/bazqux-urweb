@@ -1,0 +1,76 @@
+name:                riak-protobuf
+version:             0.16.0.1
+synopsis:            Haskell types for the Riak protocol buffer API
+description:
+  A set of Haskell types for interacting with the protocol buffer
+  API of the Riak decentralized data store.
+
+homepage:            http://github.com/mailrank/riak-haskell-client
+license:             OtherLicense
+license-file:        LICENSE
+author:              Bryan O'Sullivan <bos@mailrank.com>
+maintainer:          Bryan O'Sullivan <bos@mailrank.com>
+copyright:           Copyright 2011 MailRank, Inc.
+                     Portions copyright 2007-2010 Basho Technologies, Inc.
+category:            Network
+build-type:          Simple
+extra-source-files:
+  README.markdown
+  proto.sh
+  src/riakclient.proto
+  src/riakextra.proto
+
+cabal-version:       >=1.8
+
+library
+  hs-source-dirs: src
+
+  exposed-modules:
+    Network.Riak.Protocol.BucketProps
+    Network.Riak.Protocol.BucketProps.ReplMode
+    Network.Riak.Protocol.CommitHook
+    Network.Riak.Protocol.IndexRequest
+    Network.Riak.Protocol.IndexRequest.IndexQueryType
+    Network.Riak.Protocol.IndexResponse
+    Network.Riak.Protocol.ModFun
+    Network.Riak.Protocol.ResetBucketRequest
+    Network.Riak.Protocol.Content
+    Network.Riak.Protocol.DeleteRequest
+    Network.Riak.Protocol.ErrorResponse
+    Network.Riak.Protocol.GetBucketRequest
+    Network.Riak.Protocol.GetBucketResponse
+    Network.Riak.Protocol.GetClientIDRequest
+    Network.Riak.Protocol.GetClientIDResponse
+    Network.Riak.Protocol.GetRequest
+    Network.Riak.Protocol.GetResponse
+    Network.Riak.Protocol.GetServerInfoRequest
+    Network.Riak.Protocol.Link
+    Network.Riak.Protocol.ListBucketsRequest
+    Network.Riak.Protocol.ListBucketsResponse
+    Network.Riak.Protocol.ListKeysRequest
+    Network.Riak.Protocol.ListKeysResponse
+    Network.Riak.Protocol.MapReduce
+    Network.Riak.Protocol.MapReduceRequest
+    Network.Riak.Protocol.Pair
+    Network.Riak.Protocol.PingRequest
+    Network.Riak.Protocol.PutRequest
+    Network.Riak.Protocol.PutResponse
+    Network.Riak.Protocol.ServerInfo
+    Network.Riak.Protocol.SetBucketRequest
+    Network.Riak.Protocol.SetClientIDRequest
+
+  other-modules:
+    Network.Riak.Protocol
+
+  build-depends:
+    array >= 0.4,
+    base == 4.*,
+    parsec >= 3,
+    protocol-buffers >= 2.0.5,
+    protocol-buffers-descriptor >= 2.0.5
+
+  ghc-options: -Wall -fno-warn-orphans
+
+source-repository head
+  type:     git
+  location: http://github.com/mailrank/riak-haskell-client

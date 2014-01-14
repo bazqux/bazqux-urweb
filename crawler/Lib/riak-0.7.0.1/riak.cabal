@@ -1,0 +1,110 @@
+name:                riak
+version:             0.7.0.1
+synopsis:            A Haskell client for the Riak decentralized data store
+description:
+  A Haskell client library for the Riak decentralized data
+  store, designed for efficiency, ease of use, and flexibility.  Uses
+  the Riak protocol buffers API for speed.
+  .
+  This library is organized to allow a tradeoff between power
+  and ease of use.  If you would like a different degree of
+  automation with storage and conflict resolution, you may want to
+  use one of the following modules (ranked from easiest to most
+  tricky to use):
+  .
+  [Network.Riak] JSON for storage, automatic conflict resolution.
+  This is the easiest module to work with.
+  .
+  [Network.Riak.JSON] JSON for storage, manual conflict resolution.
+  .
+  [Network.Riak.Value.Resolvable] More complex (but still automatic)
+  storage, automatic conflict resolution.
+  .
+  [Network.Riak.Value] More complex (but still automatic) storage,
+  manual conflict resolution.
+  .
+  [Network.Riak.Basic] manual storage, manual conflict resolution.
+  This is the most demanding module to work with, as you must encode
+  and decode data yourself, and handle all conflict resolution
+  yourself.
+
+homepage:            http://github.com/bos/riak-haskell-client
+license:             OtherLicense
+license-file:        LICENSE
+author:              Bryan O'Sullivan <bos@serpentine.com>
+maintainer:          Bryan O'Sullivan <bos@serpentine.com>
+copyright:           Copyright 2011 MailRank, Inc.
+                     Portions copyright 2007-2010 Basho Technologies, Inc.
+category:            Network
+build-type:          Simple
+extra-source-files:
+  README.markdown
+
+cabal-version:       >=1.8
+
+flag debug
+  description: allow debug logging
+  default: True
+
+flag developer
+  description: operate in developer mode
+  default: False
+
+library
+  hs-source-dirs: src
+
+  exposed-modules:     
+    Network.Riak
+    Network.Riak.Basic
+    Network.Riak.Connection
+    Network.Riak.Connection.Pool
+    Network.Riak.Content
+    Network.Riak.Debug
+    Network.Riak.Escape
+    Network.Riak.Functions
+    Network.Riak.JSON
+    Network.Riak.JSON.Resolvable
+    Network.Riak.Request
+    Network.Riak.Resolvable
+    Network.Riak.Response
+    Network.Riak.Types
+    Network.Riak.Value
+    Network.Riak.Value.Resolvable
+
+  other-modules:       
+    Network.Riak.Connection.Internal
+    Network.Riak.Connection.NoPush
+    Network.Riak.Resolvable.Internal
+    Network.Riak.Tag
+    Network.Riak.Types.Internal
+  
+  build-depends:       
+    aeson >= 0.3.2.4,
+    attoparsec >= 0.8.5.3,
+    base == 4.*,
+    binary,
+    blaze-builder,
+    bytestring,
+    containers,
+    network >= 2.3,
+    resource-pool >= 0.1.0.2,
+    protocol-buffers >= 2.0.5,
+    pureMD5,
+    random,
+    riak-protobuf >= 0.16.0.1,
+    text >= 0.11.0.6,
+    time
+
+  if flag(debug)
+    cpp-options: -DASSERTS -DDEBUG
+
+  if flag(developer)
+    ghc-options: -Werror
+    ghc-prof-options: -auto-all
+    cpp-options: -DASSERTS -DDEBUG
+
+  ghc-options: -Wall
+
+source-repository head
+  type:     git
+  location: http://github.com/bos/riak-haskell-client
