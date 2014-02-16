@@ -28,6 +28,7 @@ import qualified Data.Text.Encoding as T
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Internal as B
 import qualified Data.ByteString.Lazy.Char8 as BL
+import qualified Data.ByteString.Short as SB
 import qualified Network.Riak.Types as R
 import Network.Riak.Value.Resolvable (Resolvable(..))
 import Network.Riak.Protocol.GetResponse (GetResponse(..))
@@ -67,6 +68,7 @@ import System.Random
 import System.Remote.Monitoring (getGauge)
 import qualified System.Remote.Gauge as Gauge
 import Lib.Log (logS)
+import Lib.BinaryInstances ()
 
 defragment :: BL.ByteString -> BL.ByteString
 defragment = toLazyByteString . fromLazyByteString
@@ -151,7 +153,7 @@ instance (KV a, Resolvable a) => Resolvable [a] where
 
 -- | Riak, оказывается, зачем-то escape-ит внутри ключи, отчего просто
 -- ограничить длину ключа 255 и добавить SHA1 нельзя, надо считать,
--- сколько набралось escaped символов и получившуюся длину escaped-ключа.
+-- сколько набралось escaped символов и получившуюся длину escaped-ключа
 -- На LevelDB укорачивание ключа и хранение нескольких значений уже не нужно,
 -- но для совместимости остается.
 key :: TextKey a => a -> BL.ByteString
@@ -213,11 +215,20 @@ data Cache_ a
     = Cache_
       { cQueue :: !(IntMap QueueItem) -- !(Queue QueueItem)
       , cMap   :: !(HM.HashMap T.Text (Maybe (CacheItem a), Bool, Int))
+                  -- (item, recached, cQueue index)
       , cSize  :: !Int
       , cCheckTime :: !Int
       , cMaxTime :: !Int
       , cMaxSize :: !Int
-      , cRecached :: !(HM.HashMap T.Text (Int, Int))
+      , cRecached :: !(HM.HashMap SB.ShortByteString Recache)
+      }
+    deriving Show
+
+data Recache
+    = Recache
+      { recacheExpireTime :: {-# UNPACK #-} !UrTime
+      , recacheA :: {-# UNPACK #-} !Int
+      , recacheB :: {-# UNPACK #-} !Int
       }
     deriving Show
 
@@ -247,6 +258,22 @@ ensureCache' flip t size !c
                             , cMap = HM.delete (qiKey qi) (cMap c)
                             , cSize = cSize c - qiSize qi
                             }
+
+removeFromCache :: KV a => a -> IO ()
+removeFromCache x =
+    modifyMVar_ (kvCache x) $ \ c -> do
+       case HM.lookup k (cMap c) of
+            Just (_, _, i) | Just qi <- IntMap.lookup i (cQueue c) ->
+                return $ c { cQueue = IntMap.delete i $ cQueue c
+                           , cMap = HM.delete k (cMap c)
+                           , cSize = cSize c - qiSize qi
+                           , cRecached = HM.delete (tsb k) (cRecached c)
+                           }
+            _ -> return c
+    where k = textKey $ kvKey x
+
+tsb = SB.toShort . T.encodeUtf8
+{-# INLINE tsb #-}
 
 lookupCache :: forall a . KV a => a -> [Key a] -> IO [Maybe (Maybe a)]
 lookupCache x ks = do
@@ -313,11 +340,11 @@ insertCache c xs =
                     c { cMap = HM.insert k (x', rc, i) (cMap c) }
                 Nothing -> do
                     let (plus, rnd, recached) =
-                            case HM.lookup k (cRecached c) of
-                                Just (a,b) ->
+                            case HM.lookup (tsb k) (cRecached c) of
+                                Just (Recache expireT a b) | expireT > t ->
                                     -- учитываем ранее перекешированные значения
                                     (a, (b-a)*10^9, True)
-                                Nothing ->
+                                _ ->
                                     (cMaxTime c, 100000, False)
 --                     logT $ T.concat [ "ins ", T.pack (show (plus, rnd))
 --                                     , " ", textKey k ]
@@ -327,6 +354,9 @@ insertCache c xs =
                         c { cQueue = q'
                           , cSize = cSize c + size
                           , cMap = HM.insert k (x', recached, i) (cMap c)
+                          , cRecached =
+                              if recached then cRecached c else
+                                  HM.delete (tsb k) (cRecached c)
                           }
                 where k = textKey kvk
                       x' = fmap (mkCacheItem c t) x
@@ -385,9 +415,14 @@ recacheKVs cache keys a b = modifyMVar_ cache $ \ c -> do
                            , cMap = HM.insert k
                                     (fmap moveCheckTime mbci, True, i')
                                     (cMap c)
-                           , cRecached = HM.insert k (a,b) $ cRecached c
+                           , cRecached =
+                               HM.insert (tsb k)
+                                   (Recache (t `plusUrTime` 36000) a b) $
+                                   cRecached c
                            }
-            _ -> upd ks c -- не обновляем значение, если его нет в кеше
+            _ ->
+                upd ks c
+                -- не обновляем значение, если его нет в кеше или уже recached
             where moveCheckTime ci =
                       ci { ciCheckTime = ciCheckTime ci `plusUrTime` b }
 
@@ -565,7 +600,8 @@ delete c b k w = do
     tryRiak (DeleteException b k) $ R.delete c b k R.Default
 
 deleteKV :: KV a => a -> IO ()
-deleteKV kv =
+deleteKV kv = do
+    removeFromCache kv
     E.bracket (waitRead (kvBucket kv, k)) releaseRead $ \ _ -> withConnection kv $ \ c -> do
         a0 <- get c (kvBucket kv) k
         case a0 of

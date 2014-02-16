@@ -6,7 +6,7 @@
 module Lib.ReadSet
     ( ReadSet, empty, fromRange, size, member, insert, delete
     , readTill, clearTill
-    , toList, fromList, union
+    , toList, fromList, union, maxIndex
     ) where
 
 import Control.Monad
@@ -134,3 +134,7 @@ fromList = go empty
 
 -- неоптимально, но должно работать
 union a b = fromList $ toList a ++ toList b
+
+maxIndex rs@(ReadSet t s)
+    | Just (I _ m, _) <- Set.maxView s = Just m
+    | otherwise = Nothing

@@ -193,6 +193,11 @@ fun pageNoBody' (prefix : string) (head_ : xhead) (title_ : string) x : transact
     <link href={bless (prefix ^ "/css/basic" ^ v ^ ".css")}
           rel="stylesheet" type="text/css" media="all" />
     <link rel="shortcut icon" href="/favicon.ico" />
+(*     <link href="http://cdn.bazqux.com/basic.css" rel="stylesheet" type="text/css" media="all" /> *)
+(* прикольно, с rackcdn вместо 300-400мсек получается 170-180мсек
+   на basic.css/utils.js
+ *)
+(*     <link rel="stylesheet" href="http://yandex.st/highlightjs/7.3/styles/default.min.css" /> *)
   </head>
   {x}
 </xml>
@@ -500,7 +505,7 @@ con backgroundRpc a
     , RpcQueue : rpcQueue
     }
 
-(* RPC, выполняемые в фоне, через определенное время (15сек) одним махом.
+(* RPC, выполняемые в фоне, через определенное время (5сек) одним махом.
    queueRpcB, queueCRpcB -- запускают rpc как только освободится очередь,
    дополнительно передавая текущий накопленный список фоновый действий
    preprocess получает список в обратном порядке,
@@ -516,7 +521,7 @@ fun backgroundRpc [a] (preprocess : list a -> list a)
             p <- get processing;
             when (not p)
                  (set processing True;
-                  Js.setTimeout "bgActions" (process False) 15000)
+                  Js.setTimeout "bgActions" (process False) 5000)
         val getList =
             l <- get list;
             al <- get activeList;
@@ -592,16 +597,6 @@ fun errorPage (e : xbody) =
     </xml>
 
 val redirectToMain [a] : transaction a = redirect (bless "/")
-
-val privacyPolicyText : xbody =
-    <xml>
-      <p> (* This policy covers how we use your personal information. *)
-      We take your privacy seriously at BazQux Reader and we protect your personal information.</p>
-      <p>Any personal information received will only be used to fill your order.
-      We will not sell or redistribute your information to anyone. In fact we do not even keep order information on our servers, only your order ID.</p>
-      <p>The only information we know about you is your email address (when you sign in with Facebook or Google), your subscriptions list and a list of starred and tagged items.</p>
-      <p>At any moment you can export your feeds in OPML-format or opt out from our service. Account deletion is not yet available on our website but you can request us by e-mail to delete your account and remove your subscription data, stars and tags from our servers.</p>
-    </xml>
 
 val refundPolicyText : xbody =
     <xml>

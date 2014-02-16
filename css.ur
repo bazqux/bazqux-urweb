@@ -85,6 +85,7 @@ style allItemsRead
 style helpKbButton
 style kbShortcuts
 style searching
+style restoring
 style errorMsg
 
 style subscriptionTitle
@@ -234,6 +235,8 @@ style beta
 style mainPage
 style blackout
 style freeTrialFinishedBox
+style signOutLink
+style buyNowLink
 style unreadCorner
 style snapPoint
 style depth1

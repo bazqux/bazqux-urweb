@@ -11,4 +11,5 @@ val add : option queryString -> transaction page
 val activeImports : transaction page
 val fetcher : {} -> transaction page
 val clearSubscriptions : transaction page
+val deleteAccount : transaction page
 val getUserIdBySession : transaction page

@@ -36,6 +36,7 @@ runEkgServer host port = do
     s <- forkServer host port
     modifyMVar_ ekgServerVar $ \ _ -> return $ Just s
 
+incrStat _ 0 = return ()
 incrStat !key !incr = modifyMVar_ statsMVar $ \ sm -> do
     withEkgServer (return ()) $ \ s -> do
         c <- getCounter key s

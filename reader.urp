@@ -11,7 +11,8 @@ library crawler/Generated/hsffi
 # script //ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js
 # script //ajax.googleapis.com/ajax/libs/jqueryui/1.10.1/jquery-ui.min.js
 script /js/libs_v4.js
-script /js/utils_v65.js
+# script /js/utils_v66.js
+library crawler/Generated/utils_js
 ffi js
 rewrite all Js/*
 minHeap 134217728
@@ -252,6 +253,7 @@ safeGet activeImports
 safeGet fetcher
 safeGet importOPML_
 safeGet clearSubscriptions
+safeGet deleteAccount
 safeGet privacy
 safeGet faq
 safeGet refund
@@ -260,13 +262,78 @@ clientToServer Ur_ffi.treeReq
 clientToServer Ur_ffi.loginType
 #debug
 #prefix http://bazqux.com/
-monoInline 7
+monoInline 5
+# monoInline 0 и 7 размер увеличивается, 3-5 одинаковый
+# neverInline всех utils (не Utils/..) тоже увеличивает
+# только Utils/.. уменьшает
 #coreInline 0
-alwaysInline Utils.dyn_
-alwaysInline Utils.buttonChar
-alwaysInline Main.buyOpt
-alwaysInline Utils.when
-alwaysInline postFields
+# если 3, то объем возрастает
+alwaysInline dyn_
+# ^ не Utils/dyn_
+alwaysInline qa
+alwaysInline qaX
+alwaysInline kb
+alwaysInline hrefLink
+# ^ надо инлайнить, чтобы в helpBox было меньше вложенных cat,
+# из-за которых не работал Firefox и Chrome dev под линуксом
+#alwaysInline hrefLinkStopPropagation
+#alwaysInline Utils/buttonChar
+#alwaysInline Main/buyOpt
+#alwaysInline Utils/when
+#alwaysInline postFields
+neverInline reloadFeed
+neverInline init
+neverInline updateSubscriptions'
+neverInline updateSubscriptions
+neverInline subscriptionsWidget
+neverInline msgsWidget
+neverInline discoveryWidget
+neverInline helpText
+neverInline buyText
+neverInline mobileLoginBox
+neverInline infoMessageAtTheTop
+neverInline setFeed
+neverInline setFeed_
+neverInline setCurrentFeed
+neverInline setDiscoveryFeed
+neverInline setFolderForest
+neverInline setFolder
+neverInline getUrls
+neverInline search'
+neverInline modifyMsgTreeViewMode
+neverInline subscribeDiscoveryFeed
+neverInline markAllRead
+neverInline toggleFull
+neverInline toggleFull'
+neverInline msgButtons
+neverInline shareMenu
+neverInline msgNodeNew
+neverInline msgBodyAndFooter
+neverInline renameDialog
+neverInline unsubscribeLiI
+neverInline publicFeedDialog
+neverInline feedAddressDialog
+neverInline addSub
+neverInline foldersMenuContents
+neverInline subItemMenuContents
+neverInline processRead
+neverInline editTags
+neverInline addTag
+neverInline markRead
+neverInline tryMarkRead
+neverInline processRead
+neverInline toggleMsgRead
+neverInline skipMsgComments
+neverInline getScrollMode
+neverInline selectS
+neverInline findScroll
+neverInline append
+neverInline checkAppend
+neverInline toggleCollapsedReal
+neverInline toggleFullText
+neverInline Utils/popups
+neverInline Utils/rpcQueue
+neverInline Utils/backgroundRpc
 
 $/list
 $/monad

@@ -791,7 +791,7 @@ function mkKeyIdentifier(code)
 function offsetTopLeft(child)
 {
     var e = elt(child);
-    return {_Top : e.offsetTop, _Left : e.offsetLeft}
+    return e ? {_Top : e.offsetTop, _Left : e.offsetLeft} : null;
 }
 function offsetBottomRight(child)
 {

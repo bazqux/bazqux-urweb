@@ -57,7 +57,8 @@ fun getUserBySession clear k =
     s <- cachedReadSession k;
     (case s of
        | Some s =>
-         if s.Cleared then
+         e <- isUserExists s.User;
+         if s.Cleared || not e then
              when clear (clearCookie sid); deleteSession s; return None
              (* вынести как ф-ю не получается -- не компилится *)
          else
@@ -65,17 +66,25 @@ fun getUserBySession clear k =
        | _ =>
          when clear (clearCookie sid); return None)
 
-val getUser =
+fun getUser action =
 (*     return (Some "1") *)
     sid <- sessionCookie;
     c <- getCookie sid;
     case c of
       | Some k =>
-        getUserBySession True k
+        u <- getUserBySession True k;
+        (case u of
+           | Some u =>
+             when (action <> "subscriptions")
+                  (* обновление подписок использованием не считаем *)
+                  (ua <- getHeader (blessRequestHeader "User-Agent");
+                   recordWebUsage u ua);
+             return (Some u)
+           | None => return None)
       | _ => return None
 
 val whoami =
-    u <- getUser;
+    u <- getUser "";
     case u of
       | Some uid =>
         infoPage "Who am I" <xml>
@@ -86,7 +95,7 @@ val whoami =
 
 fun withUser [r] action (f : string -> transaction r) (l : list bgAction)
     : transaction r =
-    u <- getUser;
+    u <- getUser action;
     case u of
       | Some u =>
         t1 <- getUrTime_ ();
@@ -102,7 +111,7 @@ fun mobileLogin l p k = withUser "mobileLogin"
                         (fn userId => setMobileLogin userId l p k)
 
 fun opml () = withUser "OPML" (fn userId =>
-    o <- userOPML userId;
+    o <- userOPML True userId;
     setHeader (blessResponseHeader "Content-Disposition")
               "attachment; filename=bazqux-reader-subscriptions.xml";
     returnBlob (textBlob o) (blessMime "text/x-opml")) []
@@ -209,7 +218,7 @@ fun msgHeader (m : msg) : msgHeader =
     , ShortText = m.ShortText
     }
 
-fun readability key = withUser "readability" (fn _ => getFullText key)
+fun readability key = withUser "readability" (fn u => userGetFullText u key)
 fun msg key = withUser "msg" (fn _ => readMsg key)
 
 val defaultMsgTreeViewMode : msgTreeViewMode =
@@ -950,6 +959,12 @@ fun subItemUrl (si : subItem) =
 
 fun subscriptions tagsOnly t h siv crc = withUser "subscriptions" (userSubscriptionsAndRenames tagsOnly t h siv crc)
 val subscriptionsAndSettings = withUser "subscriptionsAndSettings" (userSubscriptionsAndSettings "")
+val restoreSubscriptions = withUser "restoreSubscriptions"
+    (fn userId =>
+        userRestoreSubscriptionsFromBackup userId;
+        t <- getUrTime_ ();
+        userSubscriptionsAndRenames False t "" "" [] userId)
+
 fun addSubscription t url l =
     if url = "" then error <xml>Empty feed URL</xml>
     else withUser "addSubscription"
@@ -1144,9 +1159,6 @@ fun discoverySubItemUrl currentFeed =
         None)
 
 fun subscriptionsWidget currentFeed updateCurrentFeed (onUpdateSubInfo : subItem -> subItem -> transaction {}) setFeed backgroundRpc ps popup onlyUpdatedSubscriptions exactUnreadCounts subscribeDiscoveryFeed clearMtvm refresh =
-    if Js.alwaysFalse () then
-        subscriptionsWidget currentFeed updateCurrentFeed (fn _ _ => return ()) setFeed backgroundRpc ps popup onlyUpdatedSubscriptions exactUnreadCounts subscribeDiscoveryFeed clearMtvm refresh
-    else
     Js.setOnSetFeed (fn i => setFeed (getSubItem i));
     Js.setOnToggleFolder (fn i => toggleFolder backgroundRpc (getSubItem i));
     selected <- source (None : option subItem);
@@ -1503,6 +1515,9 @@ fun subscriptionsWidget currentFeed updateCurrentFeed (onUpdateSubInfo : subItem
                  else <xml>
                 {ps.LiI Css.btnEmpty "Rename"
                        (renameDialog ps popup "" si.Title (rename si)) : xbody}
+                (* TODO: rename c клавы, так всегда можно посмореть
+                   полное название текущего фида
+                 *)
                 {displayIfNotC context
                  <xml><span class="foldersMenuItem">
                    {foldersMenu.2}
@@ -2564,13 +2579,13 @@ fun msgsWidget msgDivId po popup sharePopup backgroundRpc currentFeed currentSea
                 ot <- Js.offsetTop uim.SnapId;
                 st <- Js.scrollTop msgDivId;
                 ch <- Js.clientHeight msgDivId;
-                if st = 0 then
+                pm <- prevMsg False (UIM uim);
+                if st = 0 && Option.isNone pm then
                     when (not l) prevUnreadFeed
                 else if ot < st && ot > st - ch then
                     moveUpDown False (fn ch => ot - st)
 (*                     pageUp (\* текущее сообщение не полностью видно сверху *\) *)
                 else
-                    pm <- prevMsg False (UIM uim);
                     (case pm of
                        | None => pageUp
                        | Some (UIM p) =>
@@ -2657,23 +2672,21 @@ fun msgsWidget msgDivId po popup sharePopup backgroundRpc currentFeed currentSea
                  пока запрос идет и обломиться
                  TODO: нельзя позволять более одного запроса
                  *)
-                queueRpcB backgroundRpc
-                           (fn l => rpc (readability (uimMsgKey (UIM uim)) l))
-                           (fn r =>
-                               scrollIfNeeded;
-                               case r of
-                                 | Left e =>
-                                   set uim.ReadabilityView (RVError e)
-                                 | Right t =>
-                                   set uim.ShowText False;
-                                   set uim.ReadabilityView
-                                       (RVReadability <xml>
-                                         <div class="readabilityMode">
-                                           {textButton "Close"
-                                                       (toggleFullText (UIM uim))}
-                                         </div>
-                                         {Js.preprocessMessageText t}
-                                       </xml>)
+                r <- rpc (readability (uimMsgKey (UIM uim)) []);
+                scrollIfNeeded;
+                (case r of
+                  | Left e =>
+                    set uim.ReadabilityView (RVError e)
+                  | Right t =>
+                    set uim.ShowText False;
+                    set uim.ReadabilityView
+                        (RVReadability <xml>
+                          <div class="readabilityMode">
+                            {textButton "Close"
+                                        (toggleFullText (UIM uim))}
+                          </div>
+                          {Js.preprocessMessageText t}
+                        </xml>)
                            )
             end
     in
@@ -2700,11 +2713,6 @@ fun msgsWidget msgDivId po popup sharePopup backgroundRpc currentFeed currentSea
              )) (alert "setmw?");
         html <- source <xml/>;
         set toggleCollapsed_ toggleCollapsedReal;
-        dummyId <- fresh;
-        if Js.eq_id dummyId msgDivId then
-            msgsWidget dummyId po popup sharePopup backgroundRpc currentFeed currentSearchFeed getMsgTreeViewMode updateTags loading
-            (* делаем ф-ю рекурсивной, чтобы жила в отдельной urfuncs *)
-        else
         return
         { Html = <xml><span
           dynClass={sm <- signal scrollMode;
@@ -2845,14 +2853,11 @@ val discoveryTopics =
     :: []
 
 fun discover country query =
-    withUser "discover" (fn userId => searchSubscriptions userId country query) []
+    withUser "discover" (fn userId => userSearchSubscriptions userId country query) []
 fun feedDetails url =
     withUser "feedDetails" (fn userId => getFeedDetails userId url) []
 
 fun discoveryWidget addSub opmlUploadClick discoveryTextBoxId displayDiscovery ps popup =
-    if Js.alwaysFalse () then
-        discoveryWidget addSub opmlUploadClick discoveryTextBoxId displayDiscovery ps popup
-    else
     text <- source "";
     country <- source "RU";
     contents <- source <xml/>;
@@ -2952,7 +2957,7 @@ fun discoveryWidget addSub opmlUploadClick discoveryTextBoxId displayDiscovery p
         and add () =
             u <- getQuery;
             addSub u;
-            set displayDiscovery False;
+            hide;
             cleanSearch ()
         and setSearchResult r =
             set showImport False;
@@ -3132,6 +3137,42 @@ fun sign_out _ =
     clearCookie sid;
     redirectToMain
 
+fun clearSubscriptionsHandler x =
+    withUser "clearSubscriptionsHandler" (fn _ => return ())
+             (BGClearAllSubscriptions :: []);
+    redirectToMain
+
+val clearSubscriptions : transaction page =
+    infoPage "Clear subscriptions" <xml>
+      <p>Are you really sure you want to clear all your subscriptions?</p>
+      <p>This operation can NOT be undone!</p>
+      <form>
+        <submit value={"Clear subscriptions"}
+                action={clearSubscriptionsHandler}/>
+      </form>
+      <br/>
+    </xml>
+
+fun deleteAccountHandler f =
+    withUser "deleteAccuntHandler" (userDeleteAccount True) [];
+    x <- getUser ""; (* чтобы cookie удалить *)
+    infoPage "Account deleted" <xml>
+      <p>Your account was deleted. You can come back any time and start a new free trial.</p>
+      <br/>
+    </xml>
+
+val deleteAccount : transaction page =
+    c <- fresh;
+    infoPage "Delete account" <xml>
+      <p>Are you really sure you want to delete your subscriptions, starred and tagged items, read states, payments, settings, public feeds and mobile login?</p>
+      <p>This operation can NOT be undone!</p>
+      <form>
+(*         <label for={c}<checkbox{#ImSure} id={c}/>I'm really sure</label> *)
+        <submit value={"Delete account"} action={deleteAccountHandler}/>
+      </form>
+      <br/>
+    </xml>
+
 val backToMain =
     <xml><a href={bless "/"}>Home</a><p/></xml>
 
@@ -3145,6 +3186,18 @@ fun landingPage title head content =
         </div>
       </body>
       {ls}
+    </xml>
+
+    (* Взято из
+     https://www.2checkout.com/blog/2checkout-blog/sample-privacy-policy-and-refund-policy/ *)
+val privacyPolicyText : xbody =
+    <xml>
+      <p> (* This policy covers how we use your personal information. *)
+      We take your privacy seriously at BazQux Reader and we protect your personal information.</p>
+      <p>Any personal information received will only be used to fill your order.
+      We will not sell or redistribute your information to anyone. In fact we do not even keep order information on our servers, only your order ID.</p>
+      <p>The only information we know about you is your email address (when you sign in with Facebook or Google), your subscriptions list and a list of starred and tagged items.</p>
+      <p class="signOutLink">At any moment you can export your feeds in OPML-format or <a link={deleteAccount}>opt out</a> from our service.</p>
     </xml>
 
 fun privacy () =
@@ -3177,11 +3230,12 @@ fun slowFeeds f = f <xml>Slow&nbsp;Feeds</xml> "http://zoziapps.ch/slowfeeds/"
 fun reeder f = f <xml>Reeder</xml> "http://reeder.ch/"
 fun press f = f <xml>Press</xml> "http://twentyfivesquares.com/press/"
 fun readKit f = f <xml>ReadKit</xml> "http://readkitapp.com"
+fun amberRssReader f = f <xml>Amber RSS</xml> "https://play.google.com/store/apps/details?id=com.reindeercrafts.deerreader"
+(* fun iRSSMac f = f <xml>iRSS</xml> "https://itunes.apple.com/us/app/irss/id795983486?ls=1&mt=12" *)
 
 val subscribeBookmarklet = "javascript:{void(window.open('https://bazqux.com/add?url='+encodeURIComponent(location.href)));}"
 
 fun faqText (link : xbody -> string -> xbody) =
-(*     if Js.alwaysFalse () then faqText link else *)
     <xml>
       {qaX "Are there any mobile apps?"
           <xml>Try {mrReader link} on iPad, {feeddler link} or {slowFeeds link} on iPhone/iPad, {newsPlus link} (gReader) and {justReader link} on Android. BazQux Reader can be used as Fever server in {reeder link}, {press link} and {readKit link}.<br/>Tell developers of your favorite mobile app to support BazQux Reader! Its {link (txt "API") apiUrl} is a copy of Google Reader API so it's very simple to integrate it.</xml>}
@@ -3192,8 +3246,8 @@ fun faqText (link : xbody -> string -> xbody) =
       {qa "How do I log in from 3rd party client app?"
           "Go to Settings (icon in the top right corner) » Mobile login and set your login & password."}
 
-      {qa "How do I hide comments?"
-          "There are view mode buttons above the messages list. All except first are with comments collapsed. You can also press '2'."}
+(*       {qa "How do I hide comments?" *)
+(*           "There are view mode buttons above the messages list. All except first are with comments collapsed. You can also press '2'."} *)
 
       {qa "How do I turn off smooth scrolling?"
           "Settings (icon in the top right corner) » Transitions » Immediate."}
@@ -3202,7 +3256,7 @@ fun faqText (link : xbody -> string -> xbody) =
           "Select feed and choose Unsubscribe in the drop-down menu above the messages lists or use right-click menu."}
 
       {qa "How do I assign a feed to folder?"
-          "Select the feed and choose Folders » Add in the drop-down menu above the messages lists."}
+          "Select the feed and choose Folders » Add in the drop-down menu above the messages lists. Or use right-click menu or drag and drop."}
 
       {qa "How long do you keep items unread?"
           "Unread items are kept forever. Although there is a limit of 500 items per feed."}
@@ -3243,6 +3297,18 @@ fun faqText (link : xbody -> string -> xbody) =
       {qaX "Are refunds possible?"
           <xml>Yes, we have a {link (txt "refund policy") (show (url (refund ())))}.</xml>}
 
+      {qaX "Is it possible to delete account?"
+          <xml>Yes, at any time you can {link (txt "delete") (show (url deleteAccount))} your account.</xml>}
+
+(*       {qaX "Another RSS reader?" *)
+(*        <xml>It allows you to read comments the same way as messages.<br/>It remembers what comments you read and display only new comments next time.<br/>It supports comments trees, user avatars and tags where available.<br/>It even allows you to read Facebook pages and Google+ blogs.<br/>We just don't know any other RSS feed reader with the same feature set.</xml>} *)
+
+(*       {qa "Search?" *)
+(*           "Yes. You can search in all or only new messages, text, subject, author, tags and even search for messages with images only. Subscription to searches is planned. Beware that search currently is at beta stage."} *)
+
+(*       {qa "I'm signed in using Google and then logged in using Facebook and subscriptions disappear." *)
+(*           "We use your Google/Facebook/Twitter identifier as user name (we don't know your email) so when you sign in with different vendors you are a different user for us."} *)
+
       {qa "Can I post comments directly from Reader?"
           "No. Posting is not implemented and is not planned in the near future."}
 
@@ -3257,7 +3323,6 @@ fun faqText (link : xbody -> string -> xbody) =
     </xml>
 
 fun helpText addSub =
-    if Js.alwaysFalse () then helpText addSub else
     let fun kb button text : xbody =
             <xml><span class="helpKbButton">{[button]}</span>{[text]}<br/></xml>
         fun l t u = hrefLinkStopPropagation (txt t) u
@@ -3541,7 +3606,7 @@ fun add qs =
              if url = "" then
                  error <xml>Empty URL specified</xml>
              else
-                 u <- getUser;
+                 u <- getUser "";
                  (case u of
                     | None =>
                       logAction "add" "-" (signInUI (Some url))
@@ -3555,7 +3620,7 @@ fun add qs =
 
 
 and main () =
-    u <- getUser;
+    u <- getUser "";
     case u of
       | Some uid =>
         if uid = "demo" then signInUI None
@@ -3577,7 +3642,7 @@ and demo s =
             (* FF не любит перенаправления на самого себя, а у urweb какие-то
                проблемы с подписыванием куки для demo *)
     in
-    u <- getUser;
+    u <- getUser "";
     case u of
       | Some uid =>
         if uid = "demo" then
@@ -3590,7 +3655,6 @@ and demo s =
     end)
 
 and buyText paidTill =
-    if Js.alwaysFalse () then buyText paidTill else
     o1 <- fresh;
     o2 <- fresh;
     o3 <- fresh;
@@ -3639,7 +3703,6 @@ and buyText paidTill =
        </xml>
 
 and mobileLoginBox ps popup login =
-    if Js.alwaysFalse () then mobileLoginBox ps popup login else
     tid <- fresh;
     pid <- fresh;
     text <- source "";
@@ -3656,9 +3719,9 @@ and mobileLoginBox ps popup login =
             lok <- current loginOk;
             pok <- current passwordOk;
             if not lok then
-                set loginError (Some "Invalid login")
+                set loginError (Some "Invalid login. Must only contain english letters or digits, 4 characters minimum.")
             else if not pok then
-                set loginError (Some "Invalid password")
+                set loginError (Some "Invalid password. Must be non-empty.")
             else
                 l <- get text;
                 p <- get password;
@@ -3718,7 +3781,7 @@ and mobileLoginBox ps popup login =
                     {textButton "Cancel" ps.Hide}</p></xml>))
       }
       <br/>
-      <p>Use {mrReader hrefLink} on iPad, {feeddler hrefLink} or {slowFeeds hrefLink} on iPhone/iPad, {newsPlus hrefLink} (gReader) and {justReader hrefLink} on Android and {viennaRss hrefLink} on Mac.</p>
+      <p>Use {mrReader hrefLink} on iPad, {feeddler hrefLink} or {slowFeeds hrefLink} on iPhone/iPad, {newsPlus hrefLink} (gReader), {justReader hrefLink} and {amberRssReader hrefLink} on Android and {viennaRss hrefLink} on Mac.</p>
       <p>{reeder hrefLink} on iPhone, {press hrefLink} on Android and {readKit hrefLink} on Mac can be used by setting bazqux.com as a Fever server (see <a target={"_blank"} href={bless "http://blog.bazqux.com/2013/09/reeder-press-and-readkit-via-fever-api.html"}>how to</a>).</p>
       <p>BazQux Reader supports Google Reader API.</p>
       <p>Please tell developers of your favorite client app to add support
@@ -3857,6 +3920,7 @@ and userUI paidTill uid : transaction page =
     msgTreeSpacerText <- source <xml/>;
     exiting <- source False;
     helpClickTracked <- source False;
+    welcomeState <- source None;
     msgScale <- source Css.msgScale0;
     bodyScale <- source Css.bodyScale0;
     displayDiscovery <- source False;
@@ -4491,7 +4555,7 @@ and userUI paidTill uid : transaction page =
             if sh > 0 then
                 modify settingHash pred
             else
-                refresh (* reloadFeed () *)
+                (* refresh *) reloadFeed ()
         fun feedKeyboardAction act =
             feedKeyboardActionCF currentFeed currentSearchFeed act
         val markAllRead =
@@ -4529,7 +4593,7 @@ and userUI paidTill uid : transaction page =
                                                   , TotalComments = tc
                                                   })))
                          urls;
-                     refresh(* reloadFeed () *)
+                     (* refresh *)reloadFeed ()
 (*                      queueCRpcB backgroundRpc *)
 (*                                 (fn l => rpc (bgactions l)) *)
 (*                                 (fn _ => return ()) *)
@@ -4599,7 +4663,7 @@ and userUI paidTill uid : transaction page =
             set msgsWidget.ListViewMode mode;
             backgroundRpc.AddAction
                 (BGSetListViewMode { ListViewMode = mode });
-            refresh(* reloadFeed () *)
+            (* refresh *)reloadFeed ()
         val toggleListViewMode =
             m <- get msgsWidget.ListViewMode;
             setListViewMode (case m of LVMCompact => LVMTwoLines
@@ -4716,7 +4780,7 @@ and userUI paidTill uid : transaction page =
                          else toggleDiscovery False))
               else if check (82 (* R *) :: 114 :: 1050 :: 1082 :: []) then
                   Some (ssWidget.UpdateSubscriptions False;
-                        refresh(* reloadFeed () *))
+                        (* refresh *)reloadFeed ())
               else if check (68 (* D *) :: 100 :: 1042 :: 1074 :: []) then
                   Some (if d then selectSubscription "subscription" else
                         set dPressed True)
@@ -4762,8 +4826,9 @@ and userUI paidTill uid : transaction page =
                   None));
 
             queueRpcB backgroundRpc (fn l => rpc (subscriptionsAndSettings l))
-                (fn (x,siv, s,(ous, ti, renames,searches,us)) =>
+                (fn (x,siv, s,(ous, ti, renames,searches,us), ws) =>
                     set onlyUpdatedSubscriptions ous;
+                    set welcomeState ws;
                     set msgsWidget.ScrollMode us.ScrollMode;
                     set msgsWidget.ListViewMode us.ListViewMode;
                     set msgsWidget.UltraCompact us.UltraCompact;
@@ -4937,20 +5002,50 @@ and userUI paidTill uid : transaction page =
     twitter <- source "";
     facebook <- source "";
     gplus <- source "";
-    welcomeBox <- ps.New Css.welcomeBox <xml>
-      <h1>Welcome!</h1>
+    welcomeBox <- ps.New Css.welcomeBox (dyn_ (wso <- signal welcomeState;
+      return (case wso of None => <xml/> | Some ws => <xml>
+      <h1>Welcome{[if ws.HasPrevAccount then " back" else ""]}!</h1>
 (*       <p>To start using BazQux Reader please</p> *)
 (*       <p>{linkButton "import your subscriptions" greaderImportClick} from Google Reader</p> *)
-      <p>Search for sites you love to read and add them to the reader.</p>
-      <p>You can also {dyn_ (return (Js.opmlForm (linkButton "import an OPML file" (stopPropagation; opmlUploadClick))))}</p>
-      <p class="howToImportMyFeeds">{hrefLinkStopPropagation <xml>How to get my OPML file?</xml> "http://bazqux.uservoice.com/knowledgebase/articles/282171"}</p>
+      {displayIfC ws.HasPrevAccount
+       <xml><p>Your previous free trial has expired more than a month ago. New free trial has just started!</p></xml>}
+      {displayIfC (ws.StarredRestored || ws.TaggedRestored)
+       <xml><p>We have restored your
+         {[case (ws.StarredRestored, ws.TaggedRestored) of
+             | (True, True) => "starred and tagged"
+             | (True, False) => "starred"
+             | (False, True) => "tagged"
+             | _ => ""
+         ]} items.</p></xml>}
+      {let val importOpml = dyn_ (return (Js.opmlForm (linkButton "import an OPML file" (stopPropagation; opmlUploadClick))))
+           val restore =
+               ps.Hide;
+               set loading True;
+               showInfo Css.restoring "Restoring..." infoMessage
+               (x <- rpc (restoreSubscriptions []);
+                set loading False;
+                ssWidget.UpdateSubscriptions_ False x;
+                discovery.Hide);
+               refresh
+       in
+           if ws.HasPrevSubs then <xml>
+             <p>You can {linkButton "restore previous subscriptions" restore} or {importOpml}</p>
+             <p>Or just search for sites you love to read and add them to the reader.</p>
+           </xml>
+           else <xml>
+             <p>Search for sites you love to read and add them to the reader.</p>
+             <p>You can also {importOpml}</p>
+           </xml>
+       end
+      }
+(*       <p class="howToImportMyFeeds">{hrefLinkStopPropagation <xml>How to get my OPML file?</xml> "http://bazqux.uservoice.com/knowledgebase/articles/282171"}</p> *)
 (*       <p></p> *)
 (*       <p>Hint: You can download your OPML from {hrefLinkStopPropagation (txt "Feedly") "http://cloud.feedly.com/#opml"}, {hrefLinkStopPropagation (txt "The Old Reader") "https://theoldreader.com/reader/subscriptions/export"} or {hrefLinkStopPropagation (txt "NewsBlur") "http://newsblur.com/import/opml_export"}.</p> *)
 (*       <p>or <a href={bless "/importFromGoogleReader"} *)
 (*               onclick={fn _ => redirect (effectfulUrl importFromGoogleReader)}> *)
 (*           import your subscriptions from Google Reader</a *)
 (*          </p> *)
-    </xml>;
+    </xml>)));
 
     return
         { Oninit =
@@ -5151,17 +5246,27 @@ and userUI paidTill uid : transaction page =
            <xml><div class="blackout"></div><div class="freeTrialFinishedBox">
              <h1>Hello</h1>
              <p>Your 30 days free trial has expired. Subscribe to keep reading all the interesting posts and discussions in your favorite blogs!</p>
-             <p><span class="buyNow">
-               {textButton "Buy now!" buyClick}
-             </span></p>
+             <p class="buyNowLink">
+               {linkButton "Buy now!" buyClick}
+             </p>
+             <p class="signOutLink">
+               <a link={opml ()}>Export OPML</a> ·
+               <a link={deleteAccount}>Delete account</a> ·
+               {linkButton "Sign out" (redirect (effectfulUrl sign_out))}
+             </p>
            </div></xml>
          | PTPaidFinished _ =>
            <xml><div class="blackout"></div><div class="freeTrialFinishedBox">
              <h1>Hello</h1>
              <p>Your year subscription has expired. Subscribe to keep reading all the interesting posts and discussions in your favorite blogs!</p>
-             <p><span class="buyNow">
-               {textButton "Buy now!" buyClick}
-             </span></p>
+             <p class="buyNowLink">
+               {linkButton "Buy now!" buyClick}
+             </p>
+             <p class="signOutLink">
+               <a link={opml ()}>Export OPML</a> ·
+               <a link={deleteAccount}>Delete account</a> ·
+               {linkButton "Sign out" (redirect (effectfulUrl sign_out))}
+             </p>
            </div></xml>
          | _ => <xml/>}
     </span></xml> }
@@ -5300,21 +5405,6 @@ val activeImports : transaction page =
     infoPage "Active imports" <xml>
       <p>Active imports:
         <div class="errorText">{c}</div></p>
-    </xml>
-
-fun clearSubscriptionsHandler x =
-    withUser "clearSubscriptionsHandler" (fn _ => return ())
-             (BGClearAllSubscriptions :: []);
-    redirectToMain
-
-val clearSubscriptions : transaction page =
-    infoPage "Clear subscriptions" <xml>
-      <p>Are you really sure you want to clear all your subscriptions?</p>
-      <p>This operation can't be undone!</p>
-      <form>
-        <submit value={"Clear"} action={clearSubscriptionsHandler}/>
-      </form>
-      <p></p>
     </xml>
 
 val getUserIdBySession : transaction page =

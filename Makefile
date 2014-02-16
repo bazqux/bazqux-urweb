@@ -57,6 +57,7 @@ reader:
 
 reader.exe: *.ur* lib/* crawler/*.hs crawler/Generated/hsffi.urp crawler/Generated/BinaryInstancesParser.h
 	mkdir -p dist
+	@echo script /js/utils_v`date +%s`.js >crawler/Generated/utils_js.urp
 	PATH=`pwd`:$$PATH urweb @MLton fixed-heap 1.5g -- reader # 2>&1
 # | \
 # 		sed "s/:\([0-9]*\):\([0-9]*\)-\([0-9]*\):\([0-9]*\)/:\1.\2-\3.\4/" && \
@@ -71,13 +72,13 @@ crawler/Generated/BinaryInstancesParser.h: crawler/ParserTypes.hs
 		>Generated/BinaryInstancesParser.h
 
 clean:
-	rm -rf reader.exe
+	rm -rf reader.exe dist
 	make -C crawler clean
 
 ur:
 	rm -rf urweb
 	hg clone http://hg.impredicative.com/urweb
-	cd urweb && ./configure && make && sudo make install
+	cd urweb && ./autogen.sh && ./configure && make && sudo make install
 	rm -rf urweb
 
 ifeq ($(shell uname), Linux)
@@ -107,7 +108,7 @@ erlang:
 
 NGINX=/usr/local/openresty/nginx/sbin/nginx
 nginx:
-	cat dist/nginx/$(HOSTNAME).conf | cpp -I. -P -C -DPWD=`pwd` >dist/nginx/$(HOSTNAME).mac.conf
+	cat dist/nginx/$(HOSTNAME).conf | cpp -I. -P -C -DPWD=`pwd` -Wno-invalid-pp-token >dist/nginx/$(HOSTNAME).mac.conf
 	sudo ln -fs `pwd`/dist/nginx/$(HOSTNAME).mac.conf /opt/local/etc/nginx/sites-enabled/
 # 	if [ ! -e /opt/local/var/run/nginx/nginx.pid ]; then sudo nginx; fi
 # 	sudo nginx -s reload
@@ -126,6 +127,8 @@ munin:
 	sudo ln -fs `pwd`/crawler/munin/elasticsearch_* /etc/munin/plugins/
 	sudo ln -fs `pwd`/crawler/munin/crawler_cpu_usage /etc/munin/plugins/
 	sudo ln -fs `pwd`/crawler/munin/crawler_mem_usage /etc/munin/plugins/
+	sudo ln -fs `pwd`/crawler/MuninPlugin /etc/munin/plugins/active_paid_users
+	sudo ln -fs `pwd`/crawler/MuninPlugin /etc/munin/plugins/active_trial_users
 	sudo ln -fs `pwd`/crawler/MuninPlugin /etc/munin/plugins/crawler_scan_stats
 	sudo ln -fs `pwd`/crawler/MuninPlugin /etc/munin/plugins/crawler_wc_stats
 	sudo ln -fs `pwd`/crawler/MuninPlugin /etc/munin/plugins/crawler_ws_stats

@@ -791,20 +791,27 @@ div.right {
 .welcomeBox {
     top: 6em; left: 50%;
     width: 21em;
-    height:13em;
+    min-height: 13em;
+    height: auto;
     margin-top: 0; /*set to a negative number 1/2 of your height*/
     margin-left: -11.5em; /*set to a negative number 1/2 of your width*/
 }
 .freeTrialFinishedBox {
     top: 6em; left: 50%;
     width: 30em;
-    height:19em;
+/*     height:19em; */
     margin-top: 0; /*set to a negative number 1/2 of your height*/
     margin-left: -16em; /*set to a negative number 1/2 of your width*/
 }
-.freeTrialFinishedBox .buyNow {
-    border: none;
+.freeTrialFinishedBox .buyNowLink {
+    padding-top: 0.5em;
 }
+.freeTrialFinishedBox .signOutLink {
+    padding-top: 3em;
+}
+.signOutLink a { color: #666; }
+.noTouch .signOutLink a:hover { color: #333;}
+
 .subscriptionsBox {
     top: 3em;
     left: 14em; right: 14em;
@@ -1183,6 +1190,7 @@ margin: 0.5em; /*Margins for inner DIV inside each DIV (to provide padding)*/
 /*   transition: opacity 0.2s; */
 /*   opacity: 1; */
 }
+.infoMsgContainer.restoring { width: 6.8em; }
 .infoMsgContainer.searching { width: 6.8em; }
 .infoMsgContainer.errorMsg { width: 14em; }
 
@@ -1397,7 +1405,7 @@ div.openid {
     background: #eee;
     margin-bottom: 1.5em;
 }
-.errorPage p { margin-bottom: 0.25em }
+.errorPage p { margin-bottom: 0.5em }
 .errorPage h1 {
     color: #3399cc;
 }

@@ -7,6 +7,8 @@ import Data.Binary
 import Data.Binary.Get (getByteString)
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Internal as B
+import qualified Data.ByteString.Short as SB
+import qualified Data.ByteString.Short.Internal as SB
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.HashSet as HS
@@ -16,6 +18,8 @@ import qualified Data.Set as Set
 
 emptyText = T.empty
 {-# NOINLINE emptyText #-}
+emptySB = SB.empty
+{-# NOINLINE emptySB #-}
 
 instance (Hashable a, Ord a) => Ord (HS.HashSet a) where
     compare a b =
@@ -41,3 +45,16 @@ instance Binary T.Text where
             bs <- getByteString sz
             let t = T.decodeUtf8With (\ _ -> fmap B.w2c) bs
             T.length t `seq` return t
+
+instance Binary SB.ShortByteString where
+    put t = put $ SB.fromShort t
+    get = do
+        sz <- get
+        if sz <= 0 then return emptySB else do
+            bs <- getByteString sz
+            let sb = SB.toShort bs
+            SB.length sb `seq` return sb
+
+instance Hashable SB.ShortByteString where
+    hashWithSalt salt sb@(SB.SBS arr) =
+        hashByteArrayWithSalt arr 0 (SB.length sb) salt

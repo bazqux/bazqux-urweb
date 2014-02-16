@@ -146,12 +146,12 @@ install-package:
 AUTO_ALL = --ghc-option=-auto-all
 
 cabal-packages:
-	$(CABAL) install $(AUTO_ALL) containers template-haskell --force-reinstalls
+	$(CABAL) install $(AUTO_ALL) bytestring containers template-haskell --force-reinstalls
 # для containers-0.5.0.1 требует пересобрать template-haskell
 # и говорит, что пакет ghc-7.6.1 сломается, но вроде все работает
-	$(CABAL) install $(AUTO_ALL) utf8-string mtl syb zlib happy alex #certificate-1.2.8 cryptocipher-0.3.5
+	$(CABAL) install $(AUTO_ALL) utf8-string mtl syb zlib happy alex --force-reinstalls #certificate-1.2.8 cryptocipher-0.3.5
 	$(CABAL) install xml-conduit --ghc-option -XRankNTypes
-	$(CABAL) $(CABAL_INTALL_OPTS) install $(AUTO_ALL) zip-archive pretty-show network fast-tagsoup text text-icu regex-tdfa hsdns-cache base16-bytestring warp language-javascript url timerep mime-mail ekg derive SafeSemaphore http-conduit-downloader authenticate authenticate-oauth wai-extra
+	$(CABAL) $(CABAL_INTALL_OPTS) install $(AUTO_ALL) zip-archive pretty-show network fast-tagsoup text text-icu regex-tdfa hsdns-cache base16-bytestring warp language-javascript url timerep mime-mail mime-types ekg derive SafeSemaphore http-conduit-downloader authenticate authenticate-oauth wai-extra
 	make riak-pkg
 	ghc-pkg hide monads-tf
 # откуда-то взялся monads-tf, который конфликтует с mtl
@@ -173,14 +173,12 @@ auth-pkgs:
 #	$(CABAL) install $(AUTO_ALL) RSA-1.2.1.0
 	$(CABAL) install $(AUTO_ALL) authenticate-oauth
 
-
 riak_linux:
 	sudo sh -c 'echo "ulimit -n 60000" > /etc/default/riak'
 	sudo sh -c '(echo "ulimit -n 60000"; echo "ulimit -l unlimited") > /etc/default/es'
 
 hslib:
 	$(MAKE) -C ../hslib
-
 
 ifndef LINUX
 clean_db:

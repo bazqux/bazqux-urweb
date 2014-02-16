@@ -12,7 +12,7 @@ import System.Directory
 import Data.IORef
 import Data.List
 import Data.Char
-import System.Cmd
+import System.Process
 import System.Exit
 data GenState
     = GenState
@@ -72,11 +72,13 @@ runGen g = do
                     \module Generated.DataTypes where\n\n\
                     \import qualified Data.ByteString.Char8 as B\n\
                     \import qualified Data.ByteString.Internal as B\n\
+                    \import qualified Data.ByteString.Short as SB\n\
                     \import qualified Data.Text as T\n\
                     \import qualified Data.Text.Encoding as T\n\
                     \import qualified Data.HashSet as HS\n\
                     \import qualified Data.HashMap.Strict as HM\n\
                     \import Lib.UrTime\n\
+                    \import qualified Lib.BArray as BA\n\
                     \import Lib.UnsafeRef\n\
                     \import Lib.ReadSet (ReadSet)\n\
                     \import URL\n\
@@ -565,9 +567,7 @@ regRiak' pool bucket t@(Type {..}) key checkTime cacheTime cacheSizeInMB = do
                   f name args r
               where name = mkName tName
 
-
-
-array_ t = PType "Array Int" "array???" [t]
+array_ t = PType "BA.Array Int" "array???" [t]
 maybe_ t = PType "Maybe" "option" [t]
 intMap t = PType "IntMap" "intMap???" [t]
 set_ t = PType "Set" "map???" [t]
@@ -582,6 +582,7 @@ int = Builtin "Int" "int"
 double = Builtin "Double" "float"
 bool = Builtin "Bool" "bool"
 bs = Builtin "T.Text" "string"
+sbs = Builtin "SB.ShortByteString" "string"
 urId = Builtin "T.Text" "Basis.id"
 blob = Builtin "B.ByteString" "blob"
 xhead = Builtin "T.Text" "xhead"
@@ -946,10 +947,10 @@ main = runGen $ do
 
     msgHeader <- regType $ Type Uw "MsgHeader" "mh"
         ["MsgHeader" :/
-            [ "Guid" :. bs
-            , "ContentHash" :. bs -- чтобы не дублировать по контенту
+            [ "Guid" :. sbs
+            , "ContentHash" :. sbs -- чтобы не дублировать по контенту
             , "Author"  :. bs
-            , "AuthorPic"   :. maybe_ url
+            , "AuthorPic"  :. maybe_ url
             , "Subject" :. bs
             , "Time"    :. maybe_ time
             , "DlTime"  :. time
@@ -1060,6 +1061,13 @@ main = runGen $ do
             , "Reserved4" :. int
             ]]
     regRiak postsSubscribers "BlogFeedUrl" 300 300 100
+
+    activeCheckSubscriptions <- regType $ Type NoUw "ActiveCheckSubscriptions" "acs"
+        ["ActiveCheckSubscriptions" :/
+            [ "Key"   :. unit
+            , "Users" :. hashMap bs time
+            ]]
+    regRiak activeCheckSubscriptions "Key" 0 0 0
 
     commentsKey <- regType $ Type Uw "CommentsKey" "ck"
         ["CommentsKey" :/
@@ -1228,6 +1236,33 @@ main = runGen $ do
             ]]
     regRiak grIds "User" 200 200 200
 
+    userBackup <- regType $ Type NoUw "UserBackup" "ub"
+        ["UserBackup" :/
+            [ "Key"          :. Tuple [bs, time]
+            , "User"         :. user
+            , "UserStats"    :. userStats
+            , "UserFilters"  :. userFilters
+            , "UserSettings" :. userSettings
+            , "GRIds"        :. grIds
+            , "FeverIds"     :. feverIds
+            , "Reserved1"    :. bool
+            , "Reserved2"    :. bool
+            , "Reserved3"    :. bool
+            , "Reserved4"    :. bool
+            ]]
+    regRiak userBackup "Key" 200 200 200
+
+    deletedUser <- regType $ Type NoUw "DeletedUser" "du"
+        ["DeletedUser" :/
+            [ "User"         :. bs
+            , "Backups"      :. List time
+            , "MailsSent"    :. maybe_ (List time)
+            , "Reserved2"    :. bool
+            , "Reserved3"    :. bool
+            , "Reserved4"    :. bool
+            ]]
+    regRiak deletedUser "User" 0 0 0
+
     apiMode <- regType $ Type UwD "ApiMode" "am"
         ["AMNormal" :/ []
         ,"AMGRIdsOnly" :/
@@ -1386,7 +1421,7 @@ main = runGen $ do
     io "userEditSubscriptionFolders" [bs,bs,bs,bool] unit
     io "userUnsubscribe" [bs, List bs] unit
     io "userRetrySubscription" [bs, bs] unit
-    io "userOPML" [bs] bs
+    io "userOPML" [bool, bs] bs
     io "opmlSubscriptions" [blob, bs] unit
 
     counters <- regType $ Type Uw "Counters" "c"
@@ -1441,9 +1476,15 @@ main = runGen $ do
             , "GRId" :. int
             ]
         ]
-
+    welcomeState <- regType $ Type Uw "WelcomeState" "ws"
+        ["WelcomeState" :/
+            [ "HasPrevAccount" :. bool
+            , "HasPrevSubs" :. bool
+            , "StarredRestored" :. bool
+            , "TaggedRestored" :. bool
+            ]]
     io "userSubscriptionsAndRenames" [bool, time, bs, bs, List bs, bs] (Tuple [maybe_ (Tuple [xbody, bs, List bs]), bs, List subItemRpc, bool, List (Tuple [time, bs, bs])])
-    io "userSubscriptionsAndSettings" [bs, bs] (Tuple [maybe_ (Tuple [xbody, bs, List bs]), bs, List subItemRpc, Tuple [bool, bool, List (Tuple [time, bs, bs]), List bs, userSettings]])
+    io "userSubscriptionsAndSettings" [bs, bs] (Tuple [maybe_ (Tuple [xbody, bs, List bs]), bs, List subItemRpc, Tuple [bool, bool, List (Tuple [time, bs, bs]), List bs, userSettings], maybe_ welcomeState])
 --     io "testSubscriptions" [unit] (List subscription)
     io "orderNotification" [bs] payment
     io "checkOrder" [bs] payment
@@ -1464,6 +1505,65 @@ main = runGen $ do
             ["EMail", "Twitter", "Facebook", "GooglePlus", "Tumblr"
             ,"Evernote", "Delicious", "Pinboard", "Pocket", "Readability"
             ,"Instapaper", "Translate"]
+
+    browserType <- regType $ Type NoUw "BrowserType" "" $ map (:/ [])
+        [ "BTUnknown", "BTAndroid", "BTIPhone", "BTIPad", "BTIPod"
+        , "BTChrome", "BTIE", "BTIEMobile", "BTSafari", "BTOpera", "BTOperaMini"
+        , "BTFirefox" ]
+    appType <- regType $ Type NoUw "AppType" "" $ map (:/ [])
+        [ "ATUnknown", "ATFeeddler", "ATMrReader", "ATReeder"
+        , "ATSlowFeeds", "ATJustReader", "ATNewsPlus", "ATPress"
+        , "ATVienna", "ATReadKit", "ATNewsJet", "ATAmber", "ATgzip" ]
+    operatingSystem <- regType $ Type NoUw "OperatingSystem" "" $ map (:/ [])
+        [ "OSUnknown", "OSWindows", "OSMac", "OSLinux", "OSAndroid", "OSIOS" ]
+
+
+    usageFlag <- regType $ Type NoUw "UsageFlag" "uf" $
+        [ "UFWeb" :/
+          [ "BrowserType" :. browserType
+          , "OperatingSystem" :. operatingSystem ]
+        , "UFApp" :/
+          [ "AppType" :. appType
+          , "OperatingSystem" :. operatingSystem ]
+        , "UFShareAction" :/ [ "ShareAction" :. shareAction ]
+        ]
+        ++
+        map (:/ [])
+        [ "UFOPML"
+        , "UFAddSubscription"
+        , "UFSearchSubscriptions"
+        , "UFDiscoverySubscription", "UFAddDiscoverySubscription"
+        , "UFUnsubscribe", "UFRetrySubscription"
+        , "UFRenameSubscription", "UFRenameFolder"
+        , "UFEditSubscriptionFolders"
+        , "UFDragAndDrop"
+        , "UFSearch", "UFSearchTags"
+        , "UFSkip", "UFIgnore", "UFKeepUnread", "UFMarkAllAsRead"
+        , "UFStar", "UFTag"
+        , "UFReadability", "UFSetMobileLogin"
+        , "UFEnablePublicFeed", "UFDisablePublicFeed", "UFGenerateNewPublicFeed"
+        , "UFDeleteAccount", "UFExportOPML"
+        ]
+    userUsageFlags <- regType $ Type NoUw "UserUsageFlags" "uuf"
+        ["UserUsageFlags" :/
+            [ "PaidTill"     :. paidTill
+            , "Country"      :. bs
+            , "UsageFlags"   :. set_ usageFlag
+            , "Reserved1"    :. set_ unit
+            , "Reserved2"    :. set_ unit
+            , "Reserved3"    :. set_ unit
+            , "Reserved4"    :. set_ unit
+            ]]
+    usageFlags <- regType $ Type NoUw "UsageFlags" "ufl"
+        ["UsageFlags" :/
+            [ "Time"      :. time
+            , "Flags"     :. hashMap bs userUsageFlags
+            , "Reserved1" :. set_ unit
+            , "Reserved2" :. set_ unit
+            , "Reserved3" :. set_ unit
+            , "Reserved4" :. set_ unit
+            ]]
+    regRiak usageFlags "Time" 200 200 200
 
     bgAction <- regType $ Type UwD "BgAction" "ba"
         ["BGMarkMsgRead" :/
@@ -1575,7 +1675,7 @@ main = runGen $ do
             , "Reserved2"  :. bool
             ]]
     regRiak fullTextCache "Url" 60 60 200
-    io "getFullText" [msgKey] (either_ bs bs)
+    io "userGetFullText" [bs, msgKey] (either_ bs bs)
     io "getUrTime_" [unit] time
 --     io "isBeta" [unit] bool
     io "setMobileLogin" [bs,bs,bs,bs] bool
@@ -1585,6 +1685,11 @@ main = runGen $ do
     io "userDisablePublicFeed" [publicFeedType, bs] publicFeedInfo
     io "userGenerateNewPublicFeed" [publicFeedType, bs] publicFeedInfo
 
-    io "searchSubscriptions" [bs,bs,bs] (maybe_ (Tuple [xbody, List (Tuple [bs, msgTreeViewMode])]))
+    io "userSearchSubscriptions" [bs,bs,bs] (maybe_ (Tuple [xbody, List (Tuple [bs, msgTreeViewMode])]))
+
+    io "userRestoreSubscriptionsFromBackup" [bs] unit
+    io "isUserExists" [bs] bool
+    io "userDeleteAccount" [bool, bs] unit
+    io "recordWebUsage" [bs, maybe_ bs] unit
 
     return ()

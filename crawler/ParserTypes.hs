@@ -138,6 +138,7 @@ data ParseServerRequest
       , psrqRedownloadOptions :: [Text]
       , psrqDataHash :: Text
       , psrqQueueTime :: UrTime
+      , psrqSubscribersCount :: Int
       }
     deriving Show
 
@@ -154,6 +155,9 @@ data ParseServerResult
 --      , psrLog :: Text
 -- не нужно лог забивать
       }
+    | PSRToRemove
+      -- ^ это не от парсера, а от самой очереди на сканирование,
+      -- но для удобства распределения по worker-ам добавлено сюда
     deriving Show
 
 data ProcessUrlRequest
@@ -163,6 +167,8 @@ data ProcessUrlRequest
       , purqQueueType :: QueueType
       , purqUtsUrl' :: TURL
       , purqQueueTime :: UrTime
+      , purqSubscribersCount :: Int
+      , purqFromHub :: Bool
       }
 data ProcessUrlResult
     = ProcessUrlResult
@@ -201,6 +207,7 @@ data FeedItem
       , fiSubjectText :: T.Text
       , fiNoCommentsYet :: Bool
       , fiHubs :: [TURL]
+      , fiTrueGuid :: Bool -- ^ mhGuid -- это guid/link, а не content hash
       }
     deriving Show
 

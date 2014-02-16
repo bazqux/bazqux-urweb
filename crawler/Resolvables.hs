@@ -23,6 +23,7 @@ import qualified Data.Text as T
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Array
 import Lib.UrTime
+import qualified Lib.BArray as BA
 import Lib.Merge
 import Debug.Trace
 import Text.Show.Pretty (ppShow)
@@ -42,10 +43,21 @@ instance Resolvable User where
                   | sEditsCount a < sEditsCount b = b
                   | otherwise = a
 
+instance Resolvable PaidTill where
+    resolve = maxC pte
+        where pte PTUnknown = (0, UrTime 0 0)
+              pte (PTFreeTrial t) = (1,t)
+              pte (PTFreeTrialFinished t) = (2,t)
+              pte (PTPaidFinished t) = (3,t)
+              pte (PTPaid t) = (4,t)
+              maxC c a b
+                  | c a > c b = a
+                  | otherwise = b
+
 instance Resolvable UserViewMode where
     resolve a b =
         UserViewMode
-        { uvmPaidTill                 = maxC pte (uvmPaidTill a) (uvmPaidTill b)
+        { uvmPaidTill                 = resolve (uvmPaidTill a) (uvmPaidTill b)
         , uvmOnlyUpdatedSubscriptions = max (uvmOnlyUpdatedSubscriptions a)
                                         (uvmOnlyUpdatedSubscriptions b)
         , uvmSubViewModes             = mergeVM (uvmSubViewModes a)
@@ -57,14 +69,6 @@ instance Resolvable UserViewMode where
                                         (uvmSubUrlRenames b)
         }
         where mergeVM = HM.unionWith max
-              pte PTUnknown = (0, UrTime 0 0)
-              pte (PTFreeTrial t) = (1,t)
-              pte (PTFreeTrialFinished t) = (2,t)
-              pte (PTPaidFinished t) = (3,t)
-              pte (PTPaid t) = (4,t)
-              maxC c a b
-                  | c a > c b = a
-                  | otherwise = b
 
 -- instance Resolvable MsgTreeViewMode where
 --     resolve a b =
@@ -168,7 +172,7 @@ defaultMsg key =
     }
 
 instance Resolvable Posts where
-    resolve = maxBy $ \ Posts {..} -> (snd $ bounds $ mtHeaders pMsgTree,
+    resolve = maxBy $ \ Posts {..} -> (snd $ BA.bounds $ mtHeaders pMsgTree,
                                        pTotalComments)
 --         trace ("RESOLVING Posts " ++ show (s a) ++ " and " ++ show (s b)
 --               ++ " -> " ++ show (mtSize mt')
@@ -253,7 +257,7 @@ instance Resolvable Posts where
 --       , imsgChildren :: IntMap IMsg
 --       }
 
-emptyHeaders = listArray (0,-1) []
+emptyHeaders = BA.listArray (0,-1) []
 emptyMsgTree = MsgTree emptyHeaders IntMap.empty
 
 defaultPosts key =
@@ -268,7 +272,7 @@ defaultPosts key =
     , pCCVersions    = Map.empty
     }
 
-mtSize = rangeSize . bounds . mtHeaders
+mtSize = rangeSize . BA.bounds . mtHeaders
 
 instance Resolvable Comments where
     resolve = maxBy (mtSize . cMsgTree)
@@ -390,6 +394,8 @@ instance TextKey CommentsKey where
 instance TextKey UrTime where
     textKey (UrTime a 0) = T.pack $ show a
     textKey (UrTime a b) = T.pack $ show a ++ "." ++ show b
+instance TextKey () where
+    textKey () = "()"
 
 defaultMailQueue k =
     MailQueue
@@ -569,10 +575,19 @@ defaultPostsClearTime k =
 
 instance Resolvable PostsSubscribers where
     resolve a b =
-        a { psActions = as
-          , psSubscribers = go HS.empty (Set.toAscList as)
+        a { psActions = filterAs
+          , psSubscribers = ss
           }
         where as = Set.union (psActions a) (psActions b)
+              ss = go HS.empty (Set.toAscList as)
+              filterAs
+--                   | Just ((maxT,maxU,_),x) <- Set.maxView as =
+--                       Set.filter (\ (t,u,_) -> not $
+--                                       diffUrTime maxT t > 86400 &&
+--                                       -- ^ неправильно, надо именно пары
+--                                       -- чистить
+--                                       not (HS.member u ss) && u /= maxU) as
+                  | otherwise = as
               go s [] = s
               go !s ((_,u,True):ss) = go (HS.insert u s) ss
               go !s ((_,u,False):ss) = go (HS.delete u s) ss
@@ -612,3 +627,88 @@ defaultDiscoveryFeed f =
 
 instance Resolvable DiscoveryFeed where
     resolve = maxBy dfLastRefreshTime
+
+defaultUserBackup key@(u,_) =
+    UserBackup
+    { ubKey          = key
+    , ubUser         = defaultUser u
+    , ubUserStats    = defaultUserStats u
+    , ubUserFilters  = defaultUserFilters u
+    , ubUserSettings = defaultUserSettings u
+    , ubGRIds        = defaultGRIds u
+    , ubFeverIds     = defaultFeverIds u
+    , ubReserved1    = False
+    , ubReserved2    = False
+    , ubReserved3    = False
+    , ubReserved4    = False
+    }
+
+instance Resolvable UserBackup where
+    resolve a b =
+        a
+        { ubUser         = resolve (ubUser a) (ubUser b)
+        , ubUserStats    = resolve (ubUserStats a) (ubUserStats b)
+        , ubUserFilters  = resolve (ubUserFilters a) (ubUserFilters b)
+        , ubUserSettings = resolve (ubUserSettings a) (ubUserSettings b)
+        , ubGRIds        = resolve (ubGRIds a) (ubGRIds b)
+        , ubFeverIds     = resolve (ubFeverIds a) (ubFeverIds b)
+        }
+
+defaultDeletedUser key =
+    DeletedUser
+    { duUser      = key
+    , duBackups   = []
+    , duMailsSent = Nothing
+    , duReserved2 = False
+    , duReserved3 = False
+    , duReserved4 = False
+    }
+
+instance Resolvable DeletedUser where
+    resolve a b = a { duBackups = ut duBackups
+                    , duMailsSent = if null ms then Nothing else Just ms
+                    }
+        where ut f = reverse $ sort $ union (f a) (f b)
+              ms = ut (fromMaybe [] . duMailsSent)
+
+defaultActiveCheckSubscriptions k =
+    ActiveCheckSubscriptions
+    { acsKey   = k
+    , acsUsers = HM.empty
+    }
+
+instance Resolvable ActiveCheckSubscriptions where
+    resolve a b = a { acsUsers = HM.unionWith max (acsUsers a) (acsUsers b) }
+
+defaultUserUsageFlags =
+    UserUsageFlags
+    { uufPaidTill   = PTUnknown
+    , uufCountry    = "-"
+    , uufUsageFlags = Set.empty
+    , uufReserved1  = Set.empty
+    , uufReserved2  = Set.empty
+    , uufReserved3  = Set.empty
+    , uufReserved4  = Set.empty
+    }
+
+instance Resolvable UserUsageFlags where
+    resolve a b =
+        a
+        { uufPaidTill = resolve (uufPaidTill a) (uufPaidTill b)
+        , uufCountry = max (uufCountry a) (uufCountry b)
+        , uufUsageFlags = Set.union (uufUsageFlags a) (uufUsageFlags b)
+        }
+
+defaultUsageFlags t =
+    UsageFlags
+    { uflTime      = t
+    , uflFlags     = HM.empty
+    , uflReserved1 = Set.empty
+    , uflReserved2 = Set.empty
+    , uflReserved3 = Set.empty
+    , uflReserved4 = Set.empty
+    }
+
+instance Resolvable UsageFlags where
+    resolve a b =
+        a { uflFlags = HM.unionWith resolve (uflFlags a) (uflFlags b) }
