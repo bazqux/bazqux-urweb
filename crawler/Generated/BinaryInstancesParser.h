@@ -172,19 +172,21 @@ instance Binary ParseResult where
 
  
 instance Binary ParseServerRequest where
-        put (ParseServerRequest x1 x2 x3 x4 x5)
+        put (ParseServerRequest x1 x2 x3 x4 x5 x6)
           = do put x1
                put x2
                put x3
                put x4
                put x5
+               put x6
         get
           = do !x1 <- get
                !x2 <- get
                !x3 <- get
                !x4 <- get
                !x5 <- get
-               return (ParseServerRequest x1 x2 x3 x4 x5)
+               !x6 <- get
+               return (ParseServerRequest x1 x2 x3 x4 x5 x6)
 
  
 instance Binary ParseServerResult where
@@ -200,6 +202,7 @@ instance Binary ParseServerResult where
                                      put x1
                                      put x2
                                      put x3
+                PSRToRemove -> putWord8 5
         get
           = do !i <- getWord8
                case i of
@@ -213,11 +216,12 @@ instance Binary ParseServerResult where
                            !x2 <- get
                            !x3 <- get
                            return (PSROK x1 x2 x3)
+                   5 -> return PSRToRemove
                    _ -> error "Corrupted binary data for ParseServerResult"
 
  
 instance Binary FeedItem where
-        put (FeedItem x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12)
+        put (FeedItem x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13)
           = do put x1
                put x2
                put x3
@@ -230,6 +234,7 @@ instance Binary FeedItem where
                put x10
                put x11
                put x12
+               put x13
         get
           = do !x1 <- get
                !x2 <- get
@@ -243,7 +248,8 @@ instance Binary FeedItem where
                !x10 <- get
                !x11 <- get
                !x12 <- get
-               return (FeedItem x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12)
+               !x13 <- get
+               return (FeedItem x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13)
 
  
 instance Binary AddUrl where
@@ -278,19 +284,23 @@ instance Binary PushOrder where
 
  
 instance Binary ProcessUrlRequest where
-        put (ProcessUrlRequest x1 x2 x3 x4 x5)
+        put (ProcessUrlRequest x1 x2 x3 x4 x5 x6 x7)
           = do put x1
                put x2
                put x3
                put x4
                put x5
+               put x6
+               put x7
         get
           = do !x1 <- get
                !x2 <- get
                !x3 <- get
                !x4 <- get
                !x5 <- get
-               return (ProcessUrlRequest x1 x2 x3 x4 x5)
+               !x6 <- get
+               !x7 <- get
+               return (ProcessUrlRequest x1 x2 x3 x4 x5 x6 x7)
 
  
 instance Binary ProcessUrlResult where

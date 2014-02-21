@@ -795,8 +795,17 @@ function offsetTopLeft(child)
 }
 function offsetBottomRight(child)
 {
-    var e = elt(child).childNodes[0]; // используется только для меню
-    return {_Top : e.offsetTop + e.clientHeight, _Left : e.offsetLeft + e.clientWidth}
+    var e = $('#'+child+' .buttonLeft');
+    if (e.length == 0) {
+        e = elt(child).childNodes[0]; // используется только для меню
+        return {_Top : e.offsetTop + e.clientHeight, _Left : e.offsetLeft + e.clientWidth}
+    } else {
+        e = e[0];
+        p = e.offsetParent; // msgToolBar
+        return { _Top : 0 // e.offsetTop + p.offsetTop + e.clientHeight
+               , _Left : e.offsetLeft + p.offsetLeft//  + e.clientWidth
+               }
+    }
 }
 
 var scrollingNow = false;
@@ -1167,6 +1176,7 @@ function openLinkInBackgroud(l) {
         // window.focus();
     }
 }
+function windowClose() { window.close() }
 function noModifiers() {
     var e = window.event ? window.event : uw_event;
     return !(e && (e.ctrlKey || e.metaKey || e.altKey) && e.keyCode != 38 && e.keyCode != 40);

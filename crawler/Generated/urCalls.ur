@@ -125,8 +125,8 @@ fun userUnsubscribe (x1 : string)(x2 : list string) : transaction ({}) =
 fun userRetrySubscription (x1 : string)(x2 : string) : transaction ({}) = 
   r <- userRetrySubscription_ (toHaskell x1) (toHaskell x2) ; return (fromHaskell r)
 
-fun userOPML (x1 : string) : transaction (string) = 
-  r <- userOPML_ (toHaskell x1) ; return (fromHaskell r)
+fun userOPML (x1 : bool)(x2 : string) : transaction (string) = 
+  r <- userOPML_ (toHaskell x1) (toHaskell x2) ; return (fromHaskell r)
 
 fun opmlSubscriptions (x1 : blob)(x2 : string) : transaction ({}) = 
   r <- opmlSubscriptions_ (toHaskell x1) (toHaskell x2) ; return (fromHaskell r)
@@ -134,7 +134,7 @@ fun opmlSubscriptions (x1 : blob)(x2 : string) : transaction ({}) =
 fun userSubscriptionsAndRenames (x1 : bool)(x2 : time)(x3 : string)(x4 : string)(x5 : list string)(x6 : string) : transaction ((option (xbody * string * list string) * string * list subItemRpc * bool * list (time * string * string))) = 
   r <- userSubscriptionsAndRenames_ (toHaskell x1) (toHaskell x2) (toHaskell x3) (toHaskell x4) (toHaskell x5) (toHaskell x6) ; return (fromHaskell r)
 
-fun userSubscriptionsAndSettings (x1 : string)(x2 : string) : transaction ((option (xbody * string * list string) * string * list subItemRpc * (bool * bool * list (time * string * string) * list string * userSettings))) = 
+fun userSubscriptionsAndSettings (x1 : string)(x2 : string) : transaction ((option (xbody * string * list string) * string * list subItemRpc * (bool * bool * list (time * string * string) * list string * userSettings) * option welcomeState)) = 
   r <- userSubscriptionsAndSettings_ (toHaskell x1) (toHaskell x2) ; return (fromHaskell r)
 
 fun orderNotification (x1 : string) : transaction (payment) = 
@@ -257,8 +257,8 @@ fun cachedNothingReadManyFullTextCaches (x1 : list url) : transaction (list (opt
 fun writeManyFullTextCaches (x1 : list fullTextCache) : transaction ({}) = 
   r <- writeManyFullTextCaches_ (toHaskell x1) ; return (fromHaskell r)
 
-fun getFullText (x1 : msgKey) : transaction (either string string) = 
-  r <- getFullText_ (toHaskell x1) ; return (fromHaskell r)
+fun userGetFullText (x1 : string)(x2 : msgKey) : transaction (either string string) = 
+  r <- userGetFullText_ (toHaskell x1) (toHaskell x2) ; return (fromHaskell r)
 
 fun getUrTime_ (x1 : {}) : transaction (time) = 
   r <- getUrTime__ (toHaskell x1) ; return (fromHaskell r)
@@ -278,6 +278,24 @@ fun userDisablePublicFeed (x1 : publicFeedType)(x2 : string) : transaction (list
 fun userGenerateNewPublicFeed (x1 : publicFeedType)(x2 : string) : transaction (list (string * bool * option string)) = 
   r <- userGenerateNewPublicFeed_ (toHaskell x1) (toHaskell x2) ; return (fromHaskell r)
 
-fun searchSubscriptions (x1 : string)(x2 : string)(x3 : string) : transaction (option (xbody * list (string * msgTreeViewMode))) = 
-  r <- searchSubscriptions_ (toHaskell x1) (toHaskell x2) (toHaskell x3) ; return (fromHaskell r)
+fun userSearchSubscriptions (x1 : string)(x2 : string)(x3 : string) : transaction (option (xbody * list (string * msgTreeViewMode))) = 
+  r <- userSearchSubscriptions_ (toHaskell x1) (toHaskell x2) (toHaskell x3) ; return (fromHaskell r)
+
+fun userRestoreSubscriptionsFromBackup (x1 : string) : transaction ({}) = 
+  r <- userRestoreSubscriptionsFromBackup_ (toHaskell x1) ; return (fromHaskell r)
+
+fun isUserExists (x1 : string) : transaction (bool) = 
+  r <- isUserExists_ (toHaskell x1) ; return (fromHaskell r)
+
+fun userDeleteAccount (x1 : bool)(x2 : string) : transaction ({}) = 
+  r <- userDeleteAccount_ (toHaskell x1) (toHaskell x2) ; return (fromHaskell r)
+
+fun recordWebUsage (x1 : string)(x2 : option string) : transaction ({}) = 
+  r <- recordWebUsage_ (toHaskell x1) (toHaskell x2) ; return (fromHaskell r)
+
+fun userAddToPocket (x1 : string)(x2 : string)(x3 : url)(x4 : string)(x5 : string) : transaction (okErrorRedirect) = 
+  r <- userAddToPocket_ (toHaskell x1) (toHaskell x2) (toHaskell x3) (toHaskell x4) (toHaskell x5) ; return (fromHaskell r)
+
+fun userAuthorizeAndAddToPocket (x1 : string) : transaction ({}) = 
+  r <- userAuthorizeAndAddToPocket_ (toHaskell x1) ; return (fromHaskell r)
 

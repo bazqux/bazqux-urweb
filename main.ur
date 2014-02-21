@@ -129,6 +129,11 @@ datatype readabilityView
   | RVError of string
   | RVReadability of xbody
 
+datatype addToPocketState
+  = ATPSNone
+  | ATPSAdding
+  | ATPSAdded of Basis.id
+
 datatype uim
   = UIM of
     { Mi : msgItem
@@ -136,6 +141,7 @@ datatype uim
     , Starred : source bool
     , Tags : source (list string)
     , ReadabilityView : source readabilityView
+    , AddToPocketState : source addToPocketState
     , ShowText : source bool
     , Depth : int
     , SnapId : id
@@ -195,7 +201,8 @@ con mw =
      MarkRead : uim -> transaction {},
      TryMarkRead : uim -> transaction {},
      Po : popups,
-     SharePopup : source xbody
+     SharePopup : source xbody,
+     Popup : source xbody
     }
 
 fun uimAuthorAndShortText (UIM uim) = case uim.Mi.MsgView of
@@ -220,6 +227,22 @@ fun msgHeader (m : msg) : msgHeader =
 
 fun readability key = withUser "readability" (fn u => userGetFullText u key)
 fun msg key = withUser "msg" (fn _ => readMsg key)
+
+fun authorizeAndAddToPocket (qs : option queryString) =
+    withUser "authorizeAndAddToPocket"
+    (fn u =>
+        userAuthorizeAndAddToPocket u;
+        pageNoBody "Added to Pocket" <xml><body class={classes Css.errorPage noTouch}>
+          <h1>Added to Pocket</h1>
+          <p>You have authorized to Pocket, added an article and enabled one-click article saving.</p>
+          <p>{textButton "Close" Js.windowClose}</p>
+        </body></xml>) []
+fun addToPocket link title =
+    withUser "addToPocket"
+    (fn u =>
+        h <- getHost;
+        userAddToPocket u h (effectfulUrl authorizeAndAddToPocket) link title)
+    []
 
 val defaultMsgTreeViewMode : msgTreeViewMode =
     { Ascending = False, UnreadOnly = True
@@ -477,12 +500,12 @@ fun translateLink readability (key : msgKey) =
 fun trackShareAction backgroundRpc a =
     backgroundRpc.AddAction (BGShareAction { ShareAction = a })
 
-fun shareMenu tp backgroundRpc msgDivId shareId subject link readability key =
-    let fun b c a n u : xbody = tp.LLiI (trackShareAction backgroundRpc a) c n u
+fun shareMenu mw uim shareId subject link readability key =
+    let fun b c a n u : xbody = mw.Po.LLiI (trackShareAction mw.BackgroundRpc a) c n u
         val s = Js.encodeURIComponent subject
         val l = Js.encodeURIComponent (show link)
     in
-        tp.NewIdPosMenu shareId (Js.offsetBottomRight shareId) Css.shareMenu <xml>
+        mw.Po.NewIdPosMenu shareId (Js.offsetBottomRight shareId) Css.shareMenu <xml>
           {b Css.btnEMail SAEMail "E-mail" ("mailto:?subject=" ^ s ^ "&body=" ^ l)}
           <hr/>
           {b Css.btnTwitter SATwitter "Twitter" ("https://twitter.com/share?url=" ^ l ^ "&text=" ^ s
@@ -492,7 +515,37 @@ fun shareMenu tp backgroundRpc msgDivId shareId subject link readability key =
           {b Css.btnTumblr SATumblr "Tumblr" ("https://www.tumblr.com/share?v=3&u=" ^ l ^ "&t=" ^ s)}
 (*           https://bufferapp.com/add?url=http%3A%2F%2Flambda-the-ultimate.org%2Fnode%2F4846&text=Call%20for%20Participation:%20Programming%20Languages%20Mentoring%20Workshop *)
           <hr/>
-          {b Css.btnPocket SAPocket "Pocket" ("https://getpocket.com/save?url=" ^ l ^ "&title=" ^ s)}
+          {mw.Po.LiI Css.btnPocket "Pocket"
+                  (ps <- get uim.AddToPocketState;
+                   (case ps of ATPSAdding => return () | _ =>
+                   set uim.AddToPocketState ATPSAdding;
+                   x <- tryRpc (addToPocket (show link) subject);
+                   let val clear = set uim.AddToPocketState ATPSNone in
+                   clear;
+                   case x of
+                     | Some OEROK =>
+                       f <- fresh;
+                       set uim.AddToPocketState (ATPSAdded f);
+                       Js.setTimeout "atp"
+                                     (s <- get uim.AddToPocketState;
+                                      case s of
+                                        | ATPSAdded f' =>
+                                          when (Js.eq_id f f') clear
+                                        | _ => return ())
+                                     5000
+                     | Some (OERError e) =>
+                       alert e.Error
+                     | Some (OERRedirect r) =>
+                       a <- mw.Po.NewClickHideBox Css.tagsDialog "Add to Pocket" <xml>
+                         <p>Please {hrefLink (txt "authorize to Pocket") r.Url}
+                           to add an article and enable one-click article saving.</p>
+                       </xml>;
+                       mw.Po.Toggle mw.Popup a.2
+                     | None =>
+                       alert "Can't connect to the server"
+                   end)
+          )}
+(*           {b Css.btnPocket SAPocket "Pocket" ("https://getpocket.com/save?url=" ^ l ^ "&title=" ^ s)} *)
           {b Css.btnInstapaper SAInstapaper "Instapaper" ("https://www.instapaper.com/add?url=" ^ l ^ "&title=" ^ s)}
           {b Css.btnReadability SAReadability "Readability" ("https://www.readability.com/save?url=" ^ l ^ "&title=" ^ s)}
 (*           <hr/> *)
@@ -671,7 +724,7 @@ fun msgNodeNew ultraCompact imgLoadCheck children showFeedTitles authorStyle tog
                   symbolButton "Share" (* Css.buttonMiddle *) Css.btnShare(*  "" *) "Share or bookmark"
                           (r <- uimReadabilityMode (UIM uim);
                            mw.Po.Toggle mw.SharePopup
-                               (shareMenu mw.Po mw.BackgroundRpc mw.MsgDivId shareId
+                               (shareMenu mw uim shareId
                                 (if noSubject
                                  then mh.ShortText else subject)
                                 l r mkey))
@@ -739,13 +792,18 @@ fun msgNodeNew ultraCompact imgLoadCheck children showFeedTitles authorStyle tog
                        s <- signal uim.Selected;
                        mv <- signal uim.Mv;
                        st <- signal uim.Starred;
+                       atps <- signal uim.AddToPocketState;
                        return (ifClass st Css.starred
                               (ifClass r Css.read
                               (ifClass expandable Css.expandable
+                              (classes (case atps of
+                                          | ATPSNone => null
+                                          | ATPSAdding => Css.addingToPocket
+                                          | ATPSAdded _ => Css.addedToPocket)
                               (classes (if s
                                         then Css.selected else Css.unselected)
                                        (shortClass mv
-                                              (postClass Css.msgFrame))))))
+                                              (postClass Css.msgFrame)))))))
                       }
              style={prop1 "margin-left"
                           (show (2.75*float (if uim.Depth > 2 then 2 else uim.Depth)) ^ "em")}
@@ -2236,6 +2294,7 @@ fun msgsWidget msgDivId po popup sharePopup backgroundRpc currentFeed currentSea
                            next <- source None;
                            mv <- source mi.MsgView;
                            rv <- source (RVNone None);
+                           atps <- source ATPSNone;
                            st <- source True;
                            id <- fresh;
                            when (not (Js.setuim id
@@ -2245,6 +2304,7 @@ fun msgsWidget msgDivId po popup sharePopup backgroundRpc currentFeed currentSea
                                    , Tags = tags
                                    , Mv = mv
                                    , ReadabilityView = rv
+                                   , AddToPocketState = atps
                                    , ShowText = st
                                    , Depth = p.Depth
                                    , SnapId = id
@@ -2707,6 +2767,7 @@ fun msgsWidget msgDivId po popup sharePopup backgroundRpc currentFeed currentSea
             , TryMarkRead = tryMarkRead
             , Po = po
             , SharePopup = sharePopup
+            , Popup = popup
 (*             , Select = selectS False *)
 (*             , ToggleCollapsed = toggleCollapsed *)
             }
@@ -4558,11 +4619,11 @@ and userUI paidTill uid : transaction page =
                 (* refresh *) reloadFeed ()
         fun feedKeyboardAction act =
             feedKeyboardActionCF currentFeed currentSearchFeed act
-        val markAllRead =
+        fun markAllRead d =
             si <- get currentFeed;
             cnt <- get si.Counters;
             let val up = cnt.TotalPosts - cnt.ReadPosts in
-            ok <- (if up > 50 then
+            ok <- (if up > 50 && d = 0 then
                        confirm ("Do you really want mark all "
                                 ^ show up ^ " posts as read?")
                    else
@@ -4588,10 +4649,18 @@ and userUI paidTill uid : transaction page =
                          (fn (u, _, _, tp, tc) =>
                              Js.markChangedReadCounters u;
                              backgroundRpc.AddAction
-                                 (BGMarkBlogRead ({ BlogFeedUrl = u
-                                                  , TotalPosts = tp
-                                                  , TotalComments = tc
-                                                  })))
+                                 (if d = 0 then
+                                      BGMarkBlogRead ({ BlogFeedUrl = u
+                                                      , TotalPosts = tp
+                                                      , TotalComments = tc
+                                                     })
+                                  else
+                                      BGMarkBlogReadD ({ BlogFeedUrl = u
+                                                       , TotalPosts = tp
+                                                       , TotalComments = tc
+                                                       , OlderThan = d
+                                                      })
+                         ))
                          urls;
                      (* refresh *)reloadFeed ()
 (*                      queueCRpcB backgroundRpc *)
@@ -4776,7 +4845,7 @@ and userUI paidTill uid : transaction page =
               else if check (65 (* A *) :: 97 :: 1060 :: 1092 :: []) then
                   Some (displayOr d ""
                         (if k.ShiftKey
-                         then markAllRead
+                         then markAllRead 0
                          else toggleDiscovery False))
               else if check (82 (* R *) :: 114 :: 1050 :: 1082 :: []) then
                   Some (ssWidget.UpdateSubscriptions False;
@@ -4871,6 +4940,17 @@ and userUI paidTill uid : transaction page =
                   backgroundRpc.AddAction BGClearAllSubscriptions;
                   backgroundRpc.OnUnload;
                   Js.reloadPage)
+        fun showMarkAllAsReadMenu btnId =
+            let fun m d = markAllRead d in
+            ps.Toggle popup (ps.NewIdPosMenu btnId (Js.offsetBottomRight btnId)
+                            Css.markAllAsReadMenu <xml>
+              {ps.LiI Css.btnEmpty "All items" (m 0)}
+              {ps.LiI Css.btnEmpty "Items older than a day" (m 1)}
+              {ps.LiI Css.btnEmpty "Items older than a week" (m 7)}
+              {ps.LiI Css.btnEmpty "Items older than two weeks" (m 14)}
+              {ps.LiI Css.btnEmpty "Items older than a month" (m 30)}
+            </xml>)
+            end
     in
     msgMenu <- ps.NewMenu Css.msgMenu <xml>
       <dyn signal=
@@ -5046,6 +5126,7 @@ and userUI paidTill uid : transaction page =
 (*           import your subscriptions from Google Reader</a *)
 (*          </p> *)
     </xml>)));
+    markAllAsReadId <- fresh;
 
     return
         { Oninit =
@@ -5157,7 +5238,10 @@ and userUI paidTill uid : transaction page =
                  }
                </span>
              </xml> end } />
-          {buttonT Css.btnCheck "Mark all as read" "Mark all messages and comments as read" markAllRead}
+          <span id={markAllAsReadId} class="markAllAsReadButton">
+          {buttonT' Css.buttonLeft Css.btnCheck "Mark all as read" "Mark all messages and comments as read. \nKeyboard shortcut: Shift + A" (markAllRead 0)}{
+           buttonT' Css.buttonRight Css.btnDown "Mark all as read menu" "" (showMarkAllAsReadMenu markAllAsReadId)}
+          </span>
         </span>
 (*         {buttonT "w" "Mark all as read" "Mark all messages and comments as read" *)
 (*          markAllRead} *)

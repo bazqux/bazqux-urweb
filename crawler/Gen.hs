@@ -737,6 +737,16 @@ main = runGen $ do
         , "PFTAllTags" :/ []
         ]
     let publicFeedInfo = List $ Tuple [bs, bool, maybe_ bs]
+    apiKeys <- regType $ Type Uw "ApiKeys" "ak"
+        ["ApiKeys" :/
+            [ "Pocket" :. maybe_ (Tuple [bs,bs]) -- (access_token, username)
+            , "PocketRequest" :. maybe_ (Tuple [bs,bs,bs])
+              -- (requestToken, url, title)
+            , "Reserved1" :. int
+            , "Reserved2" :. int
+            , "Reserved3" :. int
+            , "Reserved4" :. int
+            ]]
     userSettings <- regType $ Type Uw "UserSettings" "ust"
         ["UserSettings" :/
             [ "User" :. bs  -- key
@@ -750,7 +760,7 @@ main = runGen $ do
             , "ExactUnreadCounts" :. bool
             , "PublicFeeds" :. maybe_ (map_ publicFeedType publicFeedInfo)
             , "Country" :. maybe_ bs
-            , "Reserved6" :. maybe_ bs
+            , "ApiKeys" :. maybe_ apiKeys
             , "Reserved7" :. maybe_ bs
             , "Reserved8" :. maybe_ bs
             , "Reserved9" :. maybe_ bs
@@ -1542,7 +1552,9 @@ main = runGen $ do
         , "UFStar", "UFTag"
         , "UFReadability", "UFSetMobileLogin"
         , "UFEnablePublicFeed", "UFDisablePublicFeed", "UFGenerateNewPublicFeed"
-        , "UFDeleteAccount", "UFExportOPML"
+        , "UFDeleteAccount", "UFExportOPML" ]
+        ++
+        [ "UFMarkAllAsReadD" :/ [ "OlderThan" :. int ]
         ]
     userUsageFlags <- regType $ Type NoUw "UserUsageFlags" "uuf"
         ["UserUsageFlags" :/
@@ -1586,6 +1598,12 @@ main = runGen $ do
             [ "BlogFeedUrl" :. bs
             , "TotalPosts" :. int
             , "TotalComments" :. int ]
+        ,"BGMarkBlogReadD" :/
+            [ "BlogFeedUrl" :. bs
+            , "TotalPosts" :. int
+            , "TotalComments" :. int
+            , "OlderThan" :. int
+            ]
         ,"BGSetOnlyUpdatedSubscriptions" :/
             [ "Value" :. bool ]
         ,"BGSetFolderViewMode" :/
@@ -1691,5 +1709,15 @@ main = runGen $ do
     io "isUserExists" [bs] bool
     io "userDeleteAccount" [bool, bs] unit
     io "recordWebUsage" [bs, maybe_ bs] unit
+
+    okErrorRedirect <- regType $ Type UwD "OkErrorRedirect" "oer"
+        [ "OEROK" :/ []
+        , "OERError" :/
+            [ "Error" :. bs ]
+        , "OERRedirect" :/
+            [ "Url" :. bs ]
+        ]
+    io "userAddToPocket" [bs, bs, url, bs, bs] okErrorRedirect
+    io "userAuthorizeAndAddToPocket" [bs] unit
 
     return ()

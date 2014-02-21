@@ -85,6 +85,15 @@ datatype publicFeedType
   | PFTStarred
   | PFTAllTags
 
+con apiKeys
+  = { Pocket        : option (string * string)
+    , PocketRequest : option (string * string * string)
+    , Reserved1     : int
+    , Reserved2     : int
+    , Reserved3     : int
+    , Reserved4     : int
+    }
+
 con userSettings
   = { User              : string
     , EditsCount        : int
@@ -97,7 +106,7 @@ con userSettings
     , ExactUnreadCounts : bool
     , PublicFeeds       : option (assoc_list publicFeedType (list (string * bool * option string)))
     , Country           : option string
-    , Reserved6         : option string
+    , ApiKeys           : option apiKeys
     , Reserved7         : option string
     , Reserved8         : option string
     , Reserved9         : option string
@@ -347,6 +356,13 @@ con subItemRpc
     , GRId          : int
     }
 
+con welcomeState
+  = { HasPrevAccount  : bool
+    , HasPrevSubs     : bool
+    , StarredRestored : bool
+    , TaggedRestored  : bool
+    }
+
 datatype shareAction
   = SAEMail
   | SATwitter
@@ -387,6 +403,12 @@ datatype bgAction
     { BlogFeedUrl   : string
     , TotalPosts    : int
     , TotalComments : int
+    }
+  | BGMarkBlogReadD of
+    { BlogFeedUrl   : string
+    , TotalPosts    : int
+    , TotalComments : int
+    , OlderThan     : int
     }
   | BGSetOnlyUpdatedSubscriptions of
     { Value         : bool
@@ -449,6 +471,15 @@ con fullTextCache
     , Time      : time
     , Reserved1 : bool
     , Reserved2 : bool
+    }
+
+datatype okErrorRedirect
+  = OEROK
+  | OERError of
+    { Error : string
+    }
+  | OERRedirect of
+    { Url   : string
     }
 
 fun recurseGets () = ()
@@ -641,6 +672,42 @@ and get_publicFeedType b : (getBuf * publicFeedType) =
           (b, PFTAllTags)
     | n => error <xml>Oh, shi -- can't deserialize ({[n]} is out of range)</xml>
   end
+and get_apiKeys b : (getBuf * apiKeys) = 
+  case 0 of
+      0 => 
+        let val (b, _Pocket) = get_option ((fn b =>let val (b, _1) = get_string b  in
+        let val (b, _2) = get_string b  in
+          (b,(_1, _2))
+        end
+        end
+        )) b  in
+        let val (b, _PocketRequest) = get_option ((fn b =>let val (b, _1) = get_string b  in
+        let val (b, _2) = get_string b  in
+        let val (b, _3) = get_string b  in
+          (b,(_1, _2, _3))
+        end
+        end
+        end
+        )) b  in
+        let val (b, _Reserved1) = get_int b  in
+        let val (b, _Reserved2) = get_int b  in
+        let val (b, _Reserved3) = get_int b  in
+        let val (b, _Reserved4) = get_int b  in
+          (b,
+           { Pocket = _Pocket
+           , PocketRequest = _PocketRequest
+           , Reserved1 = _Reserved1
+           , Reserved2 = _Reserved2
+           , Reserved3 = _Reserved3
+           , Reserved4 = _Reserved4
+           })
+        end
+        end
+        end
+        end
+        end
+        end
+    | n => error <xml>Oh, shi -- can't deserialize ({[n]} is out of range)</xml>
 and get_userSettings b : (getBuf * userSettings) = 
   case 0 of
       0 => 
@@ -667,7 +734,7 @@ and get_userSettings b : (getBuf * userSettings) =
         end
         ))) b  in
         let val (b, _Country) = get_option (get_string) b  in
-        let val (b, _Reserved6) = get_option (get_string) b  in
+        let val (b, _ApiKeys) = get_option (get_apiKeys) b  in
         let val (b, _Reserved7) = get_option (get_string) b  in
         let val (b, _Reserved8) = get_option (get_string) b  in
         let val (b, _Reserved9) = get_option (get_string) b  in
@@ -683,7 +750,7 @@ and get_userSettings b : (getBuf * userSettings) =
            , ExactUnreadCounts = _ExactUnreadCounts
            , PublicFeeds = _PublicFeeds
            , Country = _Country
-           , Reserved6 = _Reserved6
+           , ApiKeys = _ApiKeys
            , Reserved7 = _Reserved7
            , Reserved8 = _Reserved8
            , Reserved9 = _Reserved9
@@ -1339,6 +1406,24 @@ and get_subItemRpc b : (getBuf * subItemRpc) =
         end
         end
     | n => error <xml>Oh, shi -- can't deserialize ({[n]} is out of range)</xml>
+and get_welcomeState b : (getBuf * welcomeState) = 
+  case 0 of
+      0 => 
+        let val (b, _HasPrevAccount) = get_bool b  in
+        let val (b, _HasPrevSubs) = get_bool b  in
+        let val (b, _StarredRestored) = get_bool b  in
+        let val (b, _TaggedRestored) = get_bool b  in
+          (b,
+           { HasPrevAccount = _HasPrevAccount
+           , HasPrevSubs = _HasPrevSubs
+           , StarredRestored = _StarredRestored
+           , TaggedRestored = _TaggedRestored
+           })
+        end
+        end
+        end
+        end
+    | n => error <xml>Oh, shi -- can't deserialize ({[n]} is out of range)</xml>
 and get_shareAction b : (getBuf * shareAction) = 
   let val (b, c) = get_char b in case ord c of
       0 => 
@@ -1436,13 +1521,29 @@ and get_bgAction b : (getBuf * bgAction) =
         end
         end
     | 6 => 
+        let val (b, _BlogFeedUrl) = get_string b  in
+        let val (b, _TotalPosts) = get_int b  in
+        let val (b, _TotalComments) = get_int b  in
+        let val (b, _OlderThan) = get_int b  in
+          (b,
+           BGMarkBlogReadD
+           { BlogFeedUrl = _BlogFeedUrl
+           , TotalPosts = _TotalPosts
+           , TotalComments = _TotalComments
+           , OlderThan = _OlderThan
+           })
+        end
+        end
+        end
+        end
+    | 7 => 
         let val (b, _Value) = get_bool b  in
           (b,
            BGSetOnlyUpdatedSubscriptions
            { Value = _Value
            })
         end
-    | 7 => 
+    | 8 => 
         let val (b, _Folder) = get_string b  in
         let val (b, _ViewMode) = get_msgTreeViewMode b  in
           (b,
@@ -1452,7 +1553,7 @@ and get_bgAction b : (getBuf * bgAction) =
            })
         end
         end
-    | 8 => 
+    | 9 => 
         let val (b, _Url) = get_string b  in
         let val (b, _ViewMode) = get_msgTreeViewMode b  in
           (b,
@@ -1462,44 +1563,44 @@ and get_bgAction b : (getBuf * bgAction) =
            })
         end
         end
-    | 9 => 
-          (b, BGClearAllSubscriptions)
     | 10 => 
+          (b, BGClearAllSubscriptions)
+    | 11 => 
         let val (b, _Query) = get_string b  in
           (b,
            BGSaveFilterQuery
            { Query = _Query
            })
         end
-    | 11 => 
+    | 12 => 
         let val (b, _ScrollMode) = get_scrollMode b  in
           (b,
            BGSetScrollMode
            { ScrollMode = _ScrollMode
            })
         end
-    | 12 => 
+    | 13 => 
         let val (b, _ListViewMode) = get_listViewMode b  in
           (b,
            BGSetListViewMode
            { ListViewMode = _ListViewMode
            })
         end
-    | 13 => 
+    | 14 => 
         let val (b, _MarkReadMode) = get_markReadMode b  in
           (b,
            BGSetMarkReadMode
            { MarkReadMode = _MarkReadMode
            })
         end
-    | 14 => 
+    | 15 => 
         let val (b, _UltraCompact) = get_bool b  in
           (b,
            BGSetUltraCompact
            { UltraCompact = _UltraCompact
            })
         end
-    | 15 => 
+    | 16 => 
         let val (b, _What) = get_subItemType b  in
         let val (b, _InsertAfter) = get_option (get_subItemType) b  in
         let val (b, _SourceFolder) = get_option (get_string) b  in
@@ -1515,32 +1616,32 @@ and get_bgAction b : (getBuf * bgAction) =
         end
         end
         end
-    | 16 => 
+    | 17 => 
         let val (b, _Value) = get_bool b  in
           (b,
            BGSetExactUnreadCounts
            { Value = _Value
            })
         end
-    | 17 => 
-          (b, BGSortAllFeedsAndFolders)
     | 18 => 
+          (b, BGSortAllFeedsAndFolders)
+    | 19 => 
         let val (b, _Folder) = get_string b  in
           (b,
            BGSortFolder
            { Folder = _Folder
            })
         end
-    | 19 => 
-          (b, BGSortTags)
     | 20 => 
+          (b, BGSortTags)
+    | 21 => 
         let val (b, _ShareAction) = get_shareAction b  in
           (b,
            BGShareAction
            { ShareAction = _ShareAction
            })
         end
-    | 21 => 
+    | 22 => 
         let val (b, _Country) = get_string b  in
           (b,
            BGSetCountry
@@ -1588,6 +1689,26 @@ and get_fullTextCache b : (getBuf * fullTextCache) =
         end
         end
     | n => error <xml>Oh, shi -- can't deserialize ({[n]} is out of range)</xml>
+and get_okErrorRedirect b : (getBuf * okErrorRedirect) = 
+  let val (b, c) = get_char b in case ord c of
+      0 => 
+          (b, OEROK)
+    | 1 => 
+        let val (b, _Error) = get_string b  in
+          (b,
+           OERError
+           { Error = _Error
+           })
+        end
+    | 2 => 
+        let val (b, _Url) = get_string b  in
+          (b,
+           OERRedirect
+           { Url = _Url
+           })
+        end
+    | n => error <xml>Oh, shi -- can't deserialize ({[n]} is out of range)</xml>
+  end
 
 
 fun recursePuts () = ()
@@ -1785,6 +1906,36 @@ and put_publicFeedType b (x : publicFeedType) =
           b
         end
   
+and put_apiKeys b (x : apiKeys) = 
+  case x of
+    |  x => 
+
+        let val b = put_option ((fn b t =>let val b = put_string b t.1 in
+        let val b = put_string b t.2 in
+          b
+        end
+        end
+        )) b x.Pocket in
+        let val b = put_option ((fn b t =>let val b = put_string b t.1 in
+        let val b = put_string b t.2 in
+        let val b = put_string b t.3 in
+          b
+        end
+        end
+        end
+        )) b x.PocketRequest in
+        let val b = put_int b x.Reserved1 in
+        let val b = put_int b x.Reserved2 in
+        let val b = put_int b x.Reserved3 in
+        let val b = put_int b x.Reserved4 in
+          b
+        end
+        end
+        end
+        end
+        end
+        end
+  
 and put_userSettings b (x : userSettings) = 
   case x of
     |  x => 
@@ -1812,7 +1963,7 @@ and put_userSettings b (x : userSettings) =
         end
         ))) b x.PublicFeeds in
         let val b = put_option (put_string) b x.Country in
-        let val b = put_option (put_string) b x.Reserved6 in
+        let val b = put_option (put_apiKeys) b x.ApiKeys in
         let val b = put_option (put_string) b x.Reserved7 in
         let val b = put_option (put_string) b x.Reserved8 in
         let val b = put_option (put_string) b x.Reserved9 in
@@ -2339,6 +2490,20 @@ and put_subItemRpc b (x : subItemRpc) =
         end
         end
   
+and put_welcomeState b (x : welcomeState) = 
+  case x of
+    |  x => 
+
+        let val b = put_bool b x.HasPrevAccount in
+        let val b = put_bool b x.HasPrevSubs in
+        let val b = put_bool b x.StarredRestored in
+        let val b = put_bool b x.TaggedRestored in
+          b
+        end
+        end
+        end
+        end
+  
 and put_shareAction b (x : shareAction) = 
   case x of
       SAEMail => 
@@ -2444,14 +2609,26 @@ and put_bgAction b (x : bgAction) =
         end
         end
         end
-    | BGSetOnlyUpdatedSubscriptions x => 
+    | BGMarkBlogReadD x => 
         let val b = put_char b (chr 6) in
+        let val b = put_string b x.BlogFeedUrl in
+        let val b = put_int b x.TotalPosts in
+        let val b = put_int b x.TotalComments in
+        let val b = put_int b x.OlderThan in
+          b
+        end
+        end
+        end
+        end
+        end
+    | BGSetOnlyUpdatedSubscriptions x => 
+        let val b = put_char b (chr 7) in
         let val b = put_bool b x.Value in
           b
         end
         end
     | BGSetFolderViewMode x => 
-        let val b = put_char b (chr 7) in
+        let val b = put_char b (chr 8) in
         let val b = put_string b x.Folder in
         let val b = put_msgTreeViewMode b x.ViewMode in
           b
@@ -2459,7 +2636,7 @@ and put_bgAction b (x : bgAction) =
         end
         end
     | BGSetSubscriptionViewMode x => 
-        let val b = put_char b (chr 8) in
+        let val b = put_char b (chr 9) in
         let val b = put_string b x.Url in
         let val b = put_msgTreeViewMode b x.ViewMode in
           b
@@ -2467,41 +2644,41 @@ and put_bgAction b (x : bgAction) =
         end
         end
     | BGClearAllSubscriptions => 
-        let val b = put_char b (chr 9) in
+        let val b = put_char b (chr 10) in
           b
         end
     | BGSaveFilterQuery x => 
-        let val b = put_char b (chr 10) in
+        let val b = put_char b (chr 11) in
         let val b = put_string b x.Query in
           b
         end
         end
     | BGSetScrollMode x => 
-        let val b = put_char b (chr 11) in
+        let val b = put_char b (chr 12) in
         let val b = put_scrollMode b x.ScrollMode in
           b
         end
         end
     | BGSetListViewMode x => 
-        let val b = put_char b (chr 12) in
+        let val b = put_char b (chr 13) in
         let val b = put_listViewMode b x.ListViewMode in
           b
         end
         end
     | BGSetMarkReadMode x => 
-        let val b = put_char b (chr 13) in
+        let val b = put_char b (chr 14) in
         let val b = put_markReadMode b x.MarkReadMode in
           b
         end
         end
     | BGSetUltraCompact x => 
-        let val b = put_char b (chr 14) in
+        let val b = put_char b (chr 15) in
         let val b = put_bool b x.UltraCompact in
           b
         end
         end
     | BGDragAndDrop x => 
-        let val b = put_char b (chr 15) in
+        let val b = put_char b (chr 16) in
         let val b = put_subItemType b x.What in
         let val b = put_option (put_subItemType) b x.InsertAfter in
         let val b = put_option (put_string) b x.SourceFolder in
@@ -2513,33 +2690,33 @@ and put_bgAction b (x : bgAction) =
         end
         end
     | BGSetExactUnreadCounts x => 
-        let val b = put_char b (chr 16) in
+        let val b = put_char b (chr 17) in
         let val b = put_bool b x.Value in
           b
         end
         end
     | BGSortAllFeedsAndFolders => 
-        let val b = put_char b (chr 17) in
+        let val b = put_char b (chr 18) in
           b
         end
     | BGSortFolder x => 
-        let val b = put_char b (chr 18) in
+        let val b = put_char b (chr 19) in
         let val b = put_string b x.Folder in
           b
         end
         end
     | BGSortTags => 
-        let val b = put_char b (chr 19) in
+        let val b = put_char b (chr 20) in
           b
         end
     | BGShareAction x => 
-        let val b = put_char b (chr 20) in
+        let val b = put_char b (chr 21) in
         let val b = put_shareAction b x.ShareAction in
           b
         end
         end
     | BGSetCountry x => 
-        let val b = put_char b (chr 21) in
+        let val b = put_char b (chr 22) in
         let val b = put_string b x.Country in
           b
         end
@@ -2575,6 +2752,25 @@ and put_fullTextCache b (x : fullTextCache) =
         end
         end
   
+and put_okErrorRedirect b (x : okErrorRedirect) = 
+  case x of
+      OEROK => 
+        let val b = put_char b (chr 0) in
+          b
+        end
+    | OERError x => 
+        let val b = put_char b (chr 1) in
+        let val b = put_string b x.Error in
+          b
+        end
+        end
+    | OERRedirect x => 
+        let val b = put_char b (chr 2) in
+        let val b = put_string b x.Url in
+          b
+        end
+        end
+  
 
 
 val binary_subscriptionState : binary subscriptionState = mkBinary put_subscriptionState get_subscriptionState
@@ -2587,6 +2783,7 @@ val binary_scrollMode : binary scrollMode = mkBinary put_scrollMode get_scrollMo
 val binary_listViewMode : binary listViewMode = mkBinary put_listViewMode get_listViewMode
 val binary_markReadMode : binary markReadMode = mkBinary put_markReadMode get_markReadMode
 val binary_publicFeedType : binary publicFeedType = mkBinary put_publicFeedType get_publicFeedType
+val binary_apiKeys : binary apiKeys = mkBinary put_apiKeys get_apiKeys
 val binary_userSettings : binary userSettings = mkBinary put_userSettings get_userSettings
 val binary_uID : binary uID = mkBinary put_uID get_uID
 val binary_session : binary session = mkBinary put_session get_session
@@ -2609,8 +2806,10 @@ val binary_loginType : binary loginType = mkBinary put_loginType get_loginType
 val binary_counters : binary counters = mkBinary put_counters get_counters
 val binary_subItemType : binary subItemType = mkBinary put_subItemType get_subItemType
 val binary_subItemRpc : binary subItemRpc = mkBinary put_subItemRpc get_subItemRpc
+val binary_welcomeState : binary welcomeState = mkBinary put_welcomeState get_welcomeState
 val binary_shareAction : binary shareAction = mkBinary put_shareAction get_shareAction
 val binary_bgAction : binary bgAction = mkBinary put_bgAction get_bgAction
 val binary_searchResults : binary searchResults = mkBinary put_searchResults get_searchResults
 val binary_fullTextCache : binary fullTextCache = mkBinary put_fullTextCache get_fullTextCache
+val binary_okErrorRedirect : binary okErrorRedirect = mkBinary put_okErrorRedirect get_okErrorRedirect
 

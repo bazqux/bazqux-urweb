@@ -559,11 +559,11 @@ uw_Basis_string uw_Ur_ffi_userRetrySubscription_(uw_context ctx, uw_Basis_string
 
 }
 
-extern HsPtr uw_HsFFI_userOPML(HsPtr ctx, HsPtr pLen, HsPtr a1);
-uw_Basis_string uw_Ur_ffi_userOPML_(uw_context ctx, uw_Basis_string x1)
+extern HsPtr uw_HsFFI_userOPML(HsPtr ctx, HsPtr pLen, HsPtr a1, HsPtr a2);
+uw_Basis_string uw_Ur_ffi_userOPML_(uw_context ctx, uw_Basis_string x1, uw_Basis_string x2)
 {
     long size;
-    char* cr = uw_HsFFI_userOPML(ctx, &size, x1);
+    char* cr = uw_HsFFI_userOPML(ctx, &size, x1, x2);
     long sz = size >= 0 ? size : -size;
     uw_Basis_string r = uw_malloc(ctx, sz + 1);
     memcpy(r, cr, sz);
@@ -1131,11 +1131,11 @@ uw_Basis_string uw_Ur_ffi_writeManyFullTextCaches_(uw_context ctx, uw_Basis_stri
 
 }
 
-extern HsPtr uw_HsFFI_getFullText(HsPtr ctx, HsPtr pLen, HsPtr a1);
-uw_Basis_string uw_Ur_ffi_getFullText_(uw_context ctx, uw_Basis_string x1)
+extern HsPtr uw_HsFFI_userGetFullText(HsPtr ctx, HsPtr pLen, HsPtr a1, HsPtr a2);
+uw_Basis_string uw_Ur_ffi_userGetFullText_(uw_context ctx, uw_Basis_string x1, uw_Basis_string x2)
 {
     long size;
-    char* cr = uw_HsFFI_getFullText(ctx, &size, x1);
+    char* cr = uw_HsFFI_userGetFullText(ctx, &size, x1, x2);
     long sz = size >= 0 ? size : -size;
     uw_Basis_string r = uw_malloc(ctx, sz + 1);
     memcpy(r, cr, sz);
@@ -1222,11 +1222,89 @@ uw_Basis_string uw_Ur_ffi_userGenerateNewPublicFeed_(uw_context ctx, uw_Basis_st
 
 }
 
-extern HsPtr uw_HsFFI_searchSubscriptions(HsPtr ctx, HsPtr pLen, HsPtr a1, HsPtr a2, HsPtr a3);
-uw_Basis_string uw_Ur_ffi_searchSubscriptions_(uw_context ctx, uw_Basis_string x1, uw_Basis_string x2, uw_Basis_string x3)
+extern HsPtr uw_HsFFI_userSearchSubscriptions(HsPtr ctx, HsPtr pLen, HsPtr a1, HsPtr a2, HsPtr a3);
+uw_Basis_string uw_Ur_ffi_userSearchSubscriptions_(uw_context ctx, uw_Basis_string x1, uw_Basis_string x2, uw_Basis_string x3)
 {
     long size;
-    char* cr = uw_HsFFI_searchSubscriptions(ctx, &size, x1, x2, x3);
+    char* cr = uw_HsFFI_userSearchSubscriptions(ctx, &size, x1, x2, x3);
+    long sz = size >= 0 ? size : -size;
+    uw_Basis_string r = uw_malloc(ctx, sz + 1);
+    memcpy(r, cr, sz);
+    r[sz] = '\0';
+    if (size >= 0) return r; else uw_error(ctx, FATAL, r);
+
+}
+
+extern HsPtr uw_HsFFI_userRestoreSubscriptionsFromBackup(HsPtr ctx, HsPtr pLen, HsPtr a1);
+uw_Basis_string uw_Ur_ffi_userRestoreSubscriptionsFromBackup_(uw_context ctx, uw_Basis_string x1)
+{
+    long size;
+    char* cr = uw_HsFFI_userRestoreSubscriptionsFromBackup(ctx, &size, x1);
+    long sz = size >= 0 ? size : -size;
+    uw_Basis_string r = uw_malloc(ctx, sz + 1);
+    memcpy(r, cr, sz);
+    r[sz] = '\0';
+    if (size >= 0) return r; else uw_error(ctx, FATAL, r);
+
+}
+
+extern HsPtr uw_HsFFI_isUserExists(HsPtr ctx, HsPtr pLen, HsPtr a1);
+uw_Basis_string uw_Ur_ffi_isUserExists_(uw_context ctx, uw_Basis_string x1)
+{
+    long size;
+    char* cr = uw_HsFFI_isUserExists(ctx, &size, x1);
+    long sz = size >= 0 ? size : -size;
+    uw_Basis_string r = uw_malloc(ctx, sz + 1);
+    memcpy(r, cr, sz);
+    r[sz] = '\0';
+    if (size >= 0) return r; else uw_error(ctx, FATAL, r);
+
+}
+
+extern HsPtr uw_HsFFI_userDeleteAccount(HsPtr ctx, HsPtr pLen, HsPtr a1, HsPtr a2);
+uw_Basis_string uw_Ur_ffi_userDeleteAccount_(uw_context ctx, uw_Basis_string x1, uw_Basis_string x2)
+{
+    long size;
+    char* cr = uw_HsFFI_userDeleteAccount(ctx, &size, x1, x2);
+    long sz = size >= 0 ? size : -size;
+    uw_Basis_string r = uw_malloc(ctx, sz + 1);
+    memcpy(r, cr, sz);
+    r[sz] = '\0';
+    if (size >= 0) return r; else uw_error(ctx, FATAL, r);
+
+}
+
+extern HsPtr uw_HsFFI_recordWebUsage(HsPtr ctx, HsPtr pLen, HsPtr a1, HsPtr a2);
+uw_Basis_string uw_Ur_ffi_recordWebUsage_(uw_context ctx, uw_Basis_string x1, uw_Basis_string x2)
+{
+    long size;
+    char* cr = uw_HsFFI_recordWebUsage(ctx, &size, x1, x2);
+    long sz = size >= 0 ? size : -size;
+    uw_Basis_string r = uw_malloc(ctx, sz + 1);
+    memcpy(r, cr, sz);
+    r[sz] = '\0';
+    if (size >= 0) return r; else uw_error(ctx, FATAL, r);
+
+}
+
+extern HsPtr uw_HsFFI_userAddToPocket(HsPtr ctx, HsPtr pLen, HsPtr a1, HsPtr a2, HsPtr a3, HsPtr a4, HsPtr a5);
+uw_Basis_string uw_Ur_ffi_userAddToPocket_(uw_context ctx, uw_Basis_string x1, uw_Basis_string x2, uw_Basis_string x3, uw_Basis_string x4, uw_Basis_string x5)
+{
+    long size;
+    char* cr = uw_HsFFI_userAddToPocket(ctx, &size, x1, x2, x3, x4, x5);
+    long sz = size >= 0 ? size : -size;
+    uw_Basis_string r = uw_malloc(ctx, sz + 1);
+    memcpy(r, cr, sz);
+    r[sz] = '\0';
+    if (size >= 0) return r; else uw_error(ctx, FATAL, r);
+
+}
+
+extern HsPtr uw_HsFFI_userAuthorizeAndAddToPocket(HsPtr ctx, HsPtr pLen, HsPtr a1);
+uw_Basis_string uw_Ur_ffi_userAuthorizeAndAddToPocket_(uw_context ctx, uw_Basis_string x1)
+{
+    long size;
+    char* cr = uw_HsFFI_userAuthorizeAndAddToPocket(ctx, &size, x1);
     long sz = size >= 0 ? size : -size;
     uw_Basis_string r = uw_malloc(ctx, sz + 1);
     memcpy(r, cr, sz);

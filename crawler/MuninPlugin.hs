@@ -169,6 +169,11 @@ trialUsers = length . filter paid . HM.elems
     where paid u = case uufPaidTill u of
                        PTFreeTrial _ -> True
                        _ -> False
+trialUsers' t d = length . filter paid . HM.elems
+    where paid u = case uufPaidTill u of
+                       PTFreeTrial till ->
+                           diffUrTime till t < (30-d)*86400
+                       _ -> False
 trialFinishedUsers = length . filter paid . HM.elems
     where paid u = case uufPaidTill u of
                        PTFreeTrialFinished _ -> True
@@ -179,6 +184,8 @@ browserUsers = length . filter browser . HM.elems
     where browser u = not $ null [() | UFWeb {} <- Set.elems $ uufUsageFlags u]
 skipUsers = length . filter (Set.member UFSkip . uufUsageFlags) . HM.elems
 ignoreUsers = length . filter (Set.member UFIgnore . uufUsageFlags) . HM.elems
+skipAndIgnoreUsers = length . filter (m . uufUsageFlags) . HM.elems
+    where m f = Set.member UFSkip f && Set.member UFIgnore f
 
 -- trialUsers x = HM.size x - paidUsers x
 
@@ -195,8 +202,12 @@ usage = do
         web _ = False
         f = uflFlags uf
     let (apps, partition web -> (webs, acts)) = partition app top
+    t <- getUrTime
     print ("total", HM.size f)
     print ("paid", paidUsers f)
     print ("trial", trialUsers f)
+    forM_ [1..29] $ \ d ->
+        putStrLn $ show (truncate d) ++ ";" ++ show (trialUsers' t d f)
     print ("trialFinished", trialFinishedUsers f)
+    print ("skipAndIgnore", skipAndIgnoreUsers f)
     mapM_ (mapM_ print) [apps, webs, acts]

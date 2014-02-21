@@ -238,6 +238,7 @@ jsFunc Js.identity=identity
 jsFunc Js.feedKeyboardAction=feedKeyboardAction
 effectful Js.identity
 jsFunc Js.inputValue=inputValue
+jsFunc Js.windowClose=windowClose
 safeGet
 safeGet getUserIdBySession
 safeGet sign_in
@@ -281,6 +282,7 @@ alwaysInline hrefLink
 #alwaysInline Main/buyOpt
 #alwaysInline Utils/when
 #alwaysInline postFields
+neverInline mw
 neverInline reloadFeed
 neverInline init
 neverInline updateSubscriptions'
@@ -331,6 +333,7 @@ neverInline append
 neverInline checkAppend
 neverInline toggleCollapsedReal
 neverInline toggleFullText
+neverInline showMarkAllAsReadMenu
 neverInline Utils/popups
 neverInline Utils/rpcQueue
 neverInline Utils/backgroundRpc

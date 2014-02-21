@@ -1018,6 +1018,62 @@ cachedReadPostsSubscribers' key = liftM (fromMaybe (defaultPostsSubscribers key)
 cachedNothingReadPostsSubscribers' :: Key PostsSubscribers -> IO PostsSubscribers
 cachedNothingReadPostsSubscribers' key = liftM (fromMaybe (defaultPostsSubscribers key)) (cachedNothingReadKV key)
 
+instance KV ActiveCheckSubscriptions where
+    type Key ActiveCheckSubscriptions = ()
+    kvBucket _ = "ActiveCheckSubscriptions"
+    kvKey = acsKey
+    kvCache _ = _acsCache
+    kvPool _ = riakPool
+_acsCache = unsafePerformIO $ newCache 0 0 (0*1024*1024)
+{-# NOINLINE _acsCache #-}
+readActiveCheckSubscriptions :: () -> IO (Maybe ActiveCheckSubscriptions)
+readActiveCheckSubscriptions = readKV
+
+cachedReadActiveCheckSubscriptions :: () -> IO (Maybe ActiveCheckSubscriptions)
+cachedReadActiveCheckSubscriptions = cachedReadKV
+
+cachedNothingReadActiveCheckSubscriptions :: () -> IO (Maybe ActiveCheckSubscriptions)
+cachedNothingReadActiveCheckSubscriptions = cachedNothingReadKV
+
+mergeWriteActiveCheckSubscriptions :: ActiveCheckSubscriptions -> IO (())
+mergeWriteActiveCheckSubscriptions = mergeWriteKV
+
+deleteActiveCheckSubscriptions :: ActiveCheckSubscriptions -> IO (())
+deleteActiveCheckSubscriptions = deleteKV
+
+readManyActiveCheckSubscriptionss :: [()] -> IO ([Maybe ActiveCheckSubscriptions])
+readManyActiveCheckSubscriptionss = readManyKVs
+
+cachedReadManyActiveCheckSubscriptionss :: [()] -> IO ([Maybe ActiveCheckSubscriptions])
+cachedReadManyActiveCheckSubscriptionss = cachedReadManyKVs
+
+cachedNothingReadManyActiveCheckSubscriptionss :: [()] -> IO ([Maybe ActiveCheckSubscriptions])
+cachedNothingReadManyActiveCheckSubscriptionss = cachedNothingReadManyKVs
+
+writeManyActiveCheckSubscriptionss :: [ActiveCheckSubscriptions] -> IO (())
+writeManyActiveCheckSubscriptionss = writeManyKVs
+
+modifyActiveCheckSubscriptions :: () -> (Maybe ActiveCheckSubscriptions -> IO (ActiveCheckSubscriptions, b)) -> IO b
+modifyActiveCheckSubscriptions = modifyKV
+
+modifyActiveCheckSubscriptions_ :: () -> (Maybe ActiveCheckSubscriptions -> IO ActiveCheckSubscriptions) -> IO ()
+modifyActiveCheckSubscriptions_ = modifyKV_
+
+modifyActiveCheckSubscriptions' :: () -> (ActiveCheckSubscriptions -> IO (ActiveCheckSubscriptions, b)) -> IO b
+modifyActiveCheckSubscriptions' key f = modifyKV key (f . fromMaybe (defaultActiveCheckSubscriptions key))
+
+modifyActiveCheckSubscriptions'_ :: () -> (ActiveCheckSubscriptions -> IO ActiveCheckSubscriptions) -> IO ()
+modifyActiveCheckSubscriptions'_ key f = modifyKV_ key (f . fromMaybe (defaultActiveCheckSubscriptions key))
+
+readActiveCheckSubscriptions' :: Key ActiveCheckSubscriptions -> IO ActiveCheckSubscriptions
+readActiveCheckSubscriptions' key = liftM (fromMaybe (defaultActiveCheckSubscriptions key)) (readKV key)
+
+cachedReadActiveCheckSubscriptions' :: Key ActiveCheckSubscriptions -> IO ActiveCheckSubscriptions
+cachedReadActiveCheckSubscriptions' key = liftM (fromMaybe (defaultActiveCheckSubscriptions key)) (cachedReadKV key)
+
+cachedNothingReadActiveCheckSubscriptions' :: Key ActiveCheckSubscriptions -> IO ActiveCheckSubscriptions
+cachedNothingReadActiveCheckSubscriptions' key = liftM (fromMaybe (defaultActiveCheckSubscriptions key)) (cachedNothingReadKV key)
+
 instance KV Comments where
     type Key Comments = CommentsKey
     kvBucket _ = "Comments"
@@ -1409,6 +1465,174 @@ cachedReadGRIds' key = liftM (fromMaybe (defaultGRIds key)) (cachedReadKV key)
 
 cachedNothingReadGRIds' :: Key GRIds -> IO GRIds
 cachedNothingReadGRIds' key = liftM (fromMaybe (defaultGRIds key)) (cachedNothingReadKV key)
+
+instance KV UserBackup where
+    type Key UserBackup = (T.Text, UrTime)
+    kvBucket _ = "UserBackup"
+    kvKey = ubKey
+    kvCache _ = _ubCache
+    kvPool _ = riakPool
+_ubCache = unsafePerformIO $ newCache 200 200 (200*1024*1024)
+{-# NOINLINE _ubCache #-}
+readUserBackup :: (T.Text, UrTime) -> IO (Maybe UserBackup)
+readUserBackup = readKV
+
+cachedReadUserBackup :: (T.Text, UrTime) -> IO (Maybe UserBackup)
+cachedReadUserBackup = cachedReadKV
+
+cachedNothingReadUserBackup :: (T.Text, UrTime) -> IO (Maybe UserBackup)
+cachedNothingReadUserBackup = cachedNothingReadKV
+
+mergeWriteUserBackup :: UserBackup -> IO (())
+mergeWriteUserBackup = mergeWriteKV
+
+deleteUserBackup :: UserBackup -> IO (())
+deleteUserBackup = deleteKV
+
+readManyUserBackups :: [(T.Text, UrTime)] -> IO ([Maybe UserBackup])
+readManyUserBackups = readManyKVs
+
+cachedReadManyUserBackups :: [(T.Text, UrTime)] -> IO ([Maybe UserBackup])
+cachedReadManyUserBackups = cachedReadManyKVs
+
+cachedNothingReadManyUserBackups :: [(T.Text, UrTime)] -> IO ([Maybe UserBackup])
+cachedNothingReadManyUserBackups = cachedNothingReadManyKVs
+
+writeManyUserBackups :: [UserBackup] -> IO (())
+writeManyUserBackups = writeManyKVs
+
+modifyUserBackup :: (T.Text, UrTime) -> (Maybe UserBackup -> IO (UserBackup, b)) -> IO b
+modifyUserBackup = modifyKV
+
+modifyUserBackup_ :: (T.Text, UrTime) -> (Maybe UserBackup -> IO UserBackup) -> IO ()
+modifyUserBackup_ = modifyKV_
+
+modifyUserBackup' :: (T.Text, UrTime) -> (UserBackup -> IO (UserBackup, b)) -> IO b
+modifyUserBackup' key f = modifyKV key (f . fromMaybe (defaultUserBackup key))
+
+modifyUserBackup'_ :: (T.Text, UrTime) -> (UserBackup -> IO UserBackup) -> IO ()
+modifyUserBackup'_ key f = modifyKV_ key (f . fromMaybe (defaultUserBackup key))
+
+readUserBackup' :: Key UserBackup -> IO UserBackup
+readUserBackup' key = liftM (fromMaybe (defaultUserBackup key)) (readKV key)
+
+cachedReadUserBackup' :: Key UserBackup -> IO UserBackup
+cachedReadUserBackup' key = liftM (fromMaybe (defaultUserBackup key)) (cachedReadKV key)
+
+cachedNothingReadUserBackup' :: Key UserBackup -> IO UserBackup
+cachedNothingReadUserBackup' key = liftM (fromMaybe (defaultUserBackup key)) (cachedNothingReadKV key)
+
+instance KV DeletedUser where
+    type Key DeletedUser = T.Text
+    kvBucket _ = "DeletedUser"
+    kvKey = duUser
+    kvCache _ = _duCache
+    kvPool _ = riakPool
+_duCache = unsafePerformIO $ newCache 0 0 (0*1024*1024)
+{-# NOINLINE _duCache #-}
+readDeletedUser :: T.Text -> IO (Maybe DeletedUser)
+readDeletedUser = readKV
+
+cachedReadDeletedUser :: T.Text -> IO (Maybe DeletedUser)
+cachedReadDeletedUser = cachedReadKV
+
+cachedNothingReadDeletedUser :: T.Text -> IO (Maybe DeletedUser)
+cachedNothingReadDeletedUser = cachedNothingReadKV
+
+mergeWriteDeletedUser :: DeletedUser -> IO (())
+mergeWriteDeletedUser = mergeWriteKV
+
+deleteDeletedUser :: DeletedUser -> IO (())
+deleteDeletedUser = deleteKV
+
+readManyDeletedUsers :: [T.Text] -> IO ([Maybe DeletedUser])
+readManyDeletedUsers = readManyKVs
+
+cachedReadManyDeletedUsers :: [T.Text] -> IO ([Maybe DeletedUser])
+cachedReadManyDeletedUsers = cachedReadManyKVs
+
+cachedNothingReadManyDeletedUsers :: [T.Text] -> IO ([Maybe DeletedUser])
+cachedNothingReadManyDeletedUsers = cachedNothingReadManyKVs
+
+writeManyDeletedUsers :: [DeletedUser] -> IO (())
+writeManyDeletedUsers = writeManyKVs
+
+modifyDeletedUser :: T.Text -> (Maybe DeletedUser -> IO (DeletedUser, b)) -> IO b
+modifyDeletedUser = modifyKV
+
+modifyDeletedUser_ :: T.Text -> (Maybe DeletedUser -> IO DeletedUser) -> IO ()
+modifyDeletedUser_ = modifyKV_
+
+modifyDeletedUser' :: T.Text -> (DeletedUser -> IO (DeletedUser, b)) -> IO b
+modifyDeletedUser' key f = modifyKV key (f . fromMaybe (defaultDeletedUser key))
+
+modifyDeletedUser'_ :: T.Text -> (DeletedUser -> IO DeletedUser) -> IO ()
+modifyDeletedUser'_ key f = modifyKV_ key (f . fromMaybe (defaultDeletedUser key))
+
+readDeletedUser' :: Key DeletedUser -> IO DeletedUser
+readDeletedUser' key = liftM (fromMaybe (defaultDeletedUser key)) (readKV key)
+
+cachedReadDeletedUser' :: Key DeletedUser -> IO DeletedUser
+cachedReadDeletedUser' key = liftM (fromMaybe (defaultDeletedUser key)) (cachedReadKV key)
+
+cachedNothingReadDeletedUser' :: Key DeletedUser -> IO DeletedUser
+cachedNothingReadDeletedUser' key = liftM (fromMaybe (defaultDeletedUser key)) (cachedNothingReadKV key)
+
+instance KV UsageFlags where
+    type Key UsageFlags = UrTime
+    kvBucket _ = "UsageFlags"
+    kvKey = uflTime
+    kvCache _ = _uflCache
+    kvPool _ = riakPool
+_uflCache = unsafePerformIO $ newCache 200 200 (200*1024*1024)
+{-# NOINLINE _uflCache #-}
+readUsageFlags :: UrTime -> IO (Maybe UsageFlags)
+readUsageFlags = readKV
+
+cachedReadUsageFlags :: UrTime -> IO (Maybe UsageFlags)
+cachedReadUsageFlags = cachedReadKV
+
+cachedNothingReadUsageFlags :: UrTime -> IO (Maybe UsageFlags)
+cachedNothingReadUsageFlags = cachedNothingReadKV
+
+mergeWriteUsageFlags :: UsageFlags -> IO (())
+mergeWriteUsageFlags = mergeWriteKV
+
+deleteUsageFlags :: UsageFlags -> IO (())
+deleteUsageFlags = deleteKV
+
+readManyUsageFlagss :: [UrTime] -> IO ([Maybe UsageFlags])
+readManyUsageFlagss = readManyKVs
+
+cachedReadManyUsageFlagss :: [UrTime] -> IO ([Maybe UsageFlags])
+cachedReadManyUsageFlagss = cachedReadManyKVs
+
+cachedNothingReadManyUsageFlagss :: [UrTime] -> IO ([Maybe UsageFlags])
+cachedNothingReadManyUsageFlagss = cachedNothingReadManyKVs
+
+writeManyUsageFlagss :: [UsageFlags] -> IO (())
+writeManyUsageFlagss = writeManyKVs
+
+modifyUsageFlags :: UrTime -> (Maybe UsageFlags -> IO (UsageFlags, b)) -> IO b
+modifyUsageFlags = modifyKV
+
+modifyUsageFlags_ :: UrTime -> (Maybe UsageFlags -> IO UsageFlags) -> IO ()
+modifyUsageFlags_ = modifyKV_
+
+modifyUsageFlags' :: UrTime -> (UsageFlags -> IO (UsageFlags, b)) -> IO b
+modifyUsageFlags' key f = modifyKV key (f . fromMaybe (defaultUsageFlags key))
+
+modifyUsageFlags'_ :: UrTime -> (UsageFlags -> IO UsageFlags) -> IO ()
+modifyUsageFlags'_ key f = modifyKV_ key (f . fromMaybe (defaultUsageFlags key))
+
+readUsageFlags' :: Key UsageFlags -> IO UsageFlags
+readUsageFlags' key = liftM (fromMaybe (defaultUsageFlags key)) (readKV key)
+
+cachedReadUsageFlags' :: Key UsageFlags -> IO UsageFlags
+cachedReadUsageFlags' key = liftM (fromMaybe (defaultUsageFlags key)) (cachedReadKV key)
+
+cachedNothingReadUsageFlags' :: Key UsageFlags -> IO UsageFlags
+cachedNothingReadUsageFlags' key = liftM (fromMaybe (defaultUsageFlags key)) (cachedNothingReadKV key)
 
 instance KV FullTextCache where
     type Key FullTextCache = TURL

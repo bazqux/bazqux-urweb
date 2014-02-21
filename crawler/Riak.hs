@@ -64,11 +64,14 @@ import qualified Data.ByteString.Base64 as Base64
 import Data.Char
 import Data.Array
 import Codec.Compression.Zlib.Raw as Deflate
+import Codec.Compression.GZip as GZip
 import System.Random
 import System.Remote.Monitoring (getGauge)
 import qualified System.Remote.Gauge as Gauge
-import Lib.Log (logS)
+import Lib.Log (logS, withLogger, logTime)
 import Lib.BinaryInstances ()
+import System.Mem
+import GHC.Stats
 
 defragment :: BL.ByteString -> BL.ByteString
 defragment = toLazyByteString . fromLazyByteString
@@ -78,7 +81,7 @@ type Bucket = BL.ByteString
 deflateCompress =
     Deflate.compressWith $
     Deflate.defaultCompressParams
-    { compressLevel = Deflate.bestSpeed
+    { compressLevel = Deflate.bestCompression -- bestSpeed
     , compressMemoryLevel = Deflate.maxMemoryLevel }
 
 -- | key-value пара, которую можно сохранять/загружать
@@ -753,8 +756,9 @@ modifyKV' x k f =
             let !wkv = wrapKV (a : other)
 --             liftM (fromMaybe (error $ "null wKV in modifyKV_ "
 --                               ++ show (kvBucket x)
---                               ++ " " ++ show (encode k)) . wKV . fst) $
+--                               ++ " " ++ show (encode k)) . wKV . fst)
             (wkw', vc') <- withConnection x $ \ c ->
+--                withLogger $ \ l -> logTime l "put" $
                 put c (kvBucket x) (key k) (fmap snd a0) wkv
             updateCache (kvCache x) [(k, fmap (, vc') (fst . findKey k =<< wKV wkw'))]
             -- не круто, что надо повторно вычитывать значение,
@@ -937,3 +941,11 @@ forkReadPar2 f list = do
     r2 <- forkRead $ f l2
     return $ liftM2 (++) r1 r2
     where (l1, l2) = splitAt (length list `div` 2) list
+
+testDeflate = do
+    rnd <- fmap (encode . B.pack) $ replicateM 30000 randomIO
+    replicateM_ 100000 $ do
+        rnd' <- fmap BL.pack $ replicateM 1 randomIO
+        (B.length $ decode $ GZip.decompress $ GZip.compress $ BL.concat [rnd, rnd'])
+            `seq` return ()
+    performGC

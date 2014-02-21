@@ -242,6 +242,24 @@ instance Binary PublicFeedType where
                    _ -> error "Corrupted binary data for PublicFeedType"
 
  
+instance Binary ApiKeys where
+        put (ApiKeys x1 x2 x3 x4 x5 x6)
+          = do put x1
+               put x2
+               put x3
+               put x4
+               put x5
+               put x6
+        get
+          = do !x1 <- get
+               !x2 <- get
+               !x3 <- get
+               !x4 <- get
+               !x5 <- get
+               !x6 <- get
+               return (ApiKeys x1 x2 x3 x4 x5 x6)
+
+ 
 instance Binary UserSettings where
         put
           (UserSettings x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15)
@@ -758,6 +776,16 @@ instance Binary PostsSubscribers where
                return (PostsSubscribers x1 x2 x3 x4 x5 x6 x7)
 
  
+instance Binary ActiveCheckSubscriptions where
+        put (ActiveCheckSubscriptions x1 x2)
+          = do put x1
+               put x2
+        get
+          = do !x1 <- get
+               !x2 <- get
+               return (ActiveCheckSubscriptions x1 x2)
+
+ 
 instance Binary CommentsKey where
         put (CommentsKey x1 x2)
           = do put x1
@@ -1026,6 +1054,52 @@ instance Binary GRIds where
                !x17 <- get
                return
                  (GRIds x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17)
+
+ 
+instance Binary UserBackup where
+        put (UserBackup x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11)
+          = do put x1
+               put x2
+               put x3
+               put x4
+               put x5
+               put x6
+               put x7
+               put x8
+               put x9
+               put x10
+               put x11
+        get
+          = do !x1 <- get
+               !x2 <- get
+               !x3 <- get
+               !x4 <- get
+               !x5 <- get
+               !x6 <- get
+               !x7 <- get
+               !x8 <- get
+               !x9 <- get
+               !x10 <- get
+               !x11 <- get
+               return (UserBackup x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11)
+
+ 
+instance Binary DeletedUser where
+        put (DeletedUser x1 x2 x3 x4 x5 x6)
+          = do put x1
+               put x2
+               put x3
+               put x4
+               put x5
+               put x6
+        get
+          = do !x1 <- get
+               !x2 <- get
+               !x3 <- get
+               !x4 <- get
+               !x5 <- get
+               !x6 <- get
+               return (DeletedUser x1 x2 x3 x4 x5 x6)
 
  
 instance Binary ApiMode where
@@ -1325,6 +1399,20 @@ instance Binary SubItemRpc where
                return (SubItemRpc x1 x2 x3 x4 x5 x6 x7 x8 x9 x10)
 
  
+instance Binary WelcomeState where
+        put (WelcomeState x1 x2 x3 x4)
+          = do put x1
+               put x2
+               put x3
+               put x4
+        get
+          = do !x1 <- get
+               !x2 <- get
+               !x3 <- get
+               !x4 <- get
+               return (WelcomeState x1 x2 x3 x4)
+
+ 
 instance Binary ShareAction where
         put x
           = case x of
@@ -1358,6 +1446,214 @@ instance Binary ShareAction where
                    _ -> error "Corrupted binary data for ShareAction"
 
  
+instance Binary BrowserType where
+        put x
+          = case x of
+                BTUnknown -> putWord8 0
+                BTAndroid -> putWord8 1
+                BTIPhone -> putWord8 2
+                BTIPad -> putWord8 3
+                BTIPod -> putWord8 4
+                BTChrome -> putWord8 5
+                BTIE -> putWord8 6
+                BTIEMobile -> putWord8 7
+                BTSafari -> putWord8 8
+                BTOpera -> putWord8 9
+                BTOperaMini -> putWord8 10
+                BTFirefox -> putWord8 11
+        get
+          = do !i <- getWord8
+               case i of
+                   0 -> return BTUnknown
+                   1 -> return BTAndroid
+                   2 -> return BTIPhone
+                   3 -> return BTIPad
+                   4 -> return BTIPod
+                   5 -> return BTChrome
+                   6 -> return BTIE
+                   7 -> return BTIEMobile
+                   8 -> return BTSafari
+                   9 -> return BTOpera
+                   10 -> return BTOperaMini
+                   11 -> return BTFirefox
+                   _ -> error "Corrupted binary data for BrowserType"
+
+ 
+instance Binary AppType where
+        put x
+          = case x of
+                ATUnknown -> putWord8 0
+                ATFeeddler -> putWord8 1
+                ATMrReader -> putWord8 2
+                ATReeder -> putWord8 3
+                ATSlowFeeds -> putWord8 4
+                ATJustReader -> putWord8 5
+                ATNewsPlus -> putWord8 6
+                ATPress -> putWord8 7
+                ATVienna -> putWord8 8
+                ATReadKit -> putWord8 9
+                ATNewsJet -> putWord8 10
+                ATAmber -> putWord8 11
+                ATgzip -> putWord8 12
+        get
+          = do !i <- getWord8
+               case i of
+                   0 -> return ATUnknown
+                   1 -> return ATFeeddler
+                   2 -> return ATMrReader
+                   3 -> return ATReeder
+                   4 -> return ATSlowFeeds
+                   5 -> return ATJustReader
+                   6 -> return ATNewsPlus
+                   7 -> return ATPress
+                   8 -> return ATVienna
+                   9 -> return ATReadKit
+                   10 -> return ATNewsJet
+                   11 -> return ATAmber
+                   12 -> return ATgzip
+                   _ -> error "Corrupted binary data for AppType"
+
+ 
+instance Binary OperatingSystem where
+        put x
+          = case x of
+                OSUnknown -> putWord8 0
+                OSWindows -> putWord8 1
+                OSMac -> putWord8 2
+                OSLinux -> putWord8 3
+                OSAndroid -> putWord8 4
+                OSIOS -> putWord8 5
+        get
+          = do !i <- getWord8
+               case i of
+                   0 -> return OSUnknown
+                   1 -> return OSWindows
+                   2 -> return OSMac
+                   3 -> return OSLinux
+                   4 -> return OSAndroid
+                   5 -> return OSIOS
+                   _ -> error "Corrupted binary data for OperatingSystem"
+
+ 
+instance Binary UsageFlag where
+        put x
+          = case x of
+                UFWeb x1 x2 -> do putWord8 0
+                                  put x1
+                                  put x2
+                UFApp x1 x2 -> do putWord8 1
+                                  put x1
+                                  put x2
+                UFShareAction x1 -> do putWord8 2
+                                       put x1
+                UFOPML -> putWord8 3
+                UFAddSubscription -> putWord8 4
+                UFSearchSubscriptions -> putWord8 5
+                UFDiscoverySubscription -> putWord8 6
+                UFAddDiscoverySubscription -> putWord8 7
+                UFUnsubscribe -> putWord8 8
+                UFRetrySubscription -> putWord8 9
+                UFRenameSubscription -> putWord8 10
+                UFRenameFolder -> putWord8 11
+                UFEditSubscriptionFolders -> putWord8 12
+                UFDragAndDrop -> putWord8 13
+                UFSearch -> putWord8 14
+                UFSearchTags -> putWord8 15
+                UFSkip -> putWord8 16
+                UFIgnore -> putWord8 17
+                UFKeepUnread -> putWord8 18
+                UFMarkAllAsRead -> putWord8 19
+                UFStar -> putWord8 20
+                UFTag -> putWord8 21
+                UFReadability -> putWord8 22
+                UFSetMobileLogin -> putWord8 23
+                UFEnablePublicFeed -> putWord8 24
+                UFDisablePublicFeed -> putWord8 25
+                UFGenerateNewPublicFeed -> putWord8 26
+                UFDeleteAccount -> putWord8 27
+                UFExportOPML -> putWord8 28
+                UFMarkAllAsReadD x1 -> do putWord8 29
+                                          put x1
+        get
+          = do !i <- getWord8
+               case i of
+                   0 -> do !x1 <- get
+                           !x2 <- get
+                           return (UFWeb x1 x2)
+                   1 -> do !x1 <- get
+                           !x2 <- get
+                           return (UFApp x1 x2)
+                   2 -> do !x1 <- get
+                           return (UFShareAction x1)
+                   3 -> return UFOPML
+                   4 -> return UFAddSubscription
+                   5 -> return UFSearchSubscriptions
+                   6 -> return UFDiscoverySubscription
+                   7 -> return UFAddDiscoverySubscription
+                   8 -> return UFUnsubscribe
+                   9 -> return UFRetrySubscription
+                   10 -> return UFRenameSubscription
+                   11 -> return UFRenameFolder
+                   12 -> return UFEditSubscriptionFolders
+                   13 -> return UFDragAndDrop
+                   14 -> return UFSearch
+                   15 -> return UFSearchTags
+                   16 -> return UFSkip
+                   17 -> return UFIgnore
+                   18 -> return UFKeepUnread
+                   19 -> return UFMarkAllAsRead
+                   20 -> return UFStar
+                   21 -> return UFTag
+                   22 -> return UFReadability
+                   23 -> return UFSetMobileLogin
+                   24 -> return UFEnablePublicFeed
+                   25 -> return UFDisablePublicFeed
+                   26 -> return UFGenerateNewPublicFeed
+                   27 -> return UFDeleteAccount
+                   28 -> return UFExportOPML
+                   29 -> do !x1 <- get
+                            return (UFMarkAllAsReadD x1)
+                   _ -> error "Corrupted binary data for UsageFlag"
+
+ 
+instance Binary UserUsageFlags where
+        put (UserUsageFlags x1 x2 x3 x4 x5 x6 x7)
+          = do put x1
+               put x2
+               put x3
+               put x4
+               put x5
+               put x6
+               put x7
+        get
+          = do !x1 <- get
+               !x2 <- get
+               !x3 <- get
+               !x4 <- get
+               !x5 <- get
+               !x6 <- get
+               !x7 <- get
+               return (UserUsageFlags x1 x2 x3 x4 x5 x6 x7)
+
+ 
+instance Binary UsageFlags where
+        put (UsageFlags x1 x2 x3 x4 x5 x6)
+          = do put x1
+               put x2
+               put x3
+               put x4
+               put x5
+               put x6
+        get
+          = do !x1 <- get
+               !x2 <- get
+               !x3 <- get
+               !x4 <- get
+               !x5 <- get
+               !x6 <- get
+               return (UsageFlags x1 x2 x3 x4 x5 x6)
+
+ 
 instance Binary BgAction where
         put x
           = case x of
@@ -1381,39 +1677,44 @@ instance Binary BgAction where
                                               put x1
                                               put x2
                                               put x3
-                BGSetOnlyUpdatedSubscriptions x1 -> do putWord8 6
+                BGMarkBlogReadD x1 x2 x3 x4 -> do putWord8 6
+                                                  put x1
+                                                  put x2
+                                                  put x3
+                                                  put x4
+                BGSetOnlyUpdatedSubscriptions x1 -> do putWord8 7
                                                        put x1
-                BGSetFolderViewMode x1 x2 -> do putWord8 7
+                BGSetFolderViewMode x1 x2 -> do putWord8 8
                                                 put x1
                                                 put x2
-                BGSetSubscriptionViewMode x1 x2 -> do putWord8 8
+                BGSetSubscriptionViewMode x1 x2 -> do putWord8 9
                                                       put x1
                                                       put x2
-                BGClearAllSubscriptions -> putWord8 9
-                BGSaveFilterQuery x1 -> do putWord8 10
+                BGClearAllSubscriptions -> putWord8 10
+                BGSaveFilterQuery x1 -> do putWord8 11
                                            put x1
-                BGSetScrollMode x1 -> do putWord8 11
+                BGSetScrollMode x1 -> do putWord8 12
                                          put x1
-                BGSetListViewMode x1 -> do putWord8 12
+                BGSetListViewMode x1 -> do putWord8 13
                                            put x1
-                BGSetMarkReadMode x1 -> do putWord8 13
+                BGSetMarkReadMode x1 -> do putWord8 14
                                            put x1
-                BGSetUltraCompact x1 -> do putWord8 14
+                BGSetUltraCompact x1 -> do putWord8 15
                                            put x1
-                BGDragAndDrop x1 x2 x3 x4 -> do putWord8 15
+                BGDragAndDrop x1 x2 x3 x4 -> do putWord8 16
                                                 put x1
                                                 put x2
                                                 put x3
                                                 put x4
-                BGSetExactUnreadCounts x1 -> do putWord8 16
+                BGSetExactUnreadCounts x1 -> do putWord8 17
                                                 put x1
-                BGSortAllFeedsAndFolders -> putWord8 17
-                BGSortFolder x1 -> do putWord8 18
+                BGSortAllFeedsAndFolders -> putWord8 18
+                BGSortFolder x1 -> do putWord8 19
                                       put x1
-                BGSortTags -> putWord8 19
-                BGShareAction x1 -> do putWord8 20
+                BGSortTags -> putWord8 20
+                BGShareAction x1 -> do putWord8 21
                                        put x1
-                BGSetCountry x1 -> do putWord8 21
+                BGSetCountry x1 -> do putWord8 22
                                       put x1
         get
           = do !i <- getWord8
@@ -1439,38 +1740,43 @@ instance Binary BgAction where
                            !x3 <- get
                            return (BGMarkBlogRead x1 x2 x3)
                    6 -> do !x1 <- get
-                           return (BGSetOnlyUpdatedSubscriptions x1)
-                   7 -> do !x1 <- get
                            !x2 <- get
-                           return (BGSetFolderViewMode x1 x2)
+                           !x3 <- get
+                           !x4 <- get
+                           return (BGMarkBlogReadD x1 x2 x3 x4)
+                   7 -> do !x1 <- get
+                           return (BGSetOnlyUpdatedSubscriptions x1)
                    8 -> do !x1 <- get
                            !x2 <- get
+                           return (BGSetFolderViewMode x1 x2)
+                   9 -> do !x1 <- get
+                           !x2 <- get
                            return (BGSetSubscriptionViewMode x1 x2)
-                   9 -> return BGClearAllSubscriptions
-                   10 -> do !x1 <- get
-                            return (BGSaveFilterQuery x1)
+                   10 -> return BGClearAllSubscriptions
                    11 -> do !x1 <- get
-                            return (BGSetScrollMode x1)
+                            return (BGSaveFilterQuery x1)
                    12 -> do !x1 <- get
-                            return (BGSetListViewMode x1)
+                            return (BGSetScrollMode x1)
                    13 -> do !x1 <- get
-                            return (BGSetMarkReadMode x1)
+                            return (BGSetListViewMode x1)
                    14 -> do !x1 <- get
-                            return (BGSetUltraCompact x1)
+                            return (BGSetMarkReadMode x1)
                    15 -> do !x1 <- get
+                            return (BGSetUltraCompact x1)
+                   16 -> do !x1 <- get
                             !x2 <- get
                             !x3 <- get
                             !x4 <- get
                             return (BGDragAndDrop x1 x2 x3 x4)
-                   16 -> do !x1 <- get
+                   17 -> do !x1 <- get
                             return (BGSetExactUnreadCounts x1)
-                   17 -> return BGSortAllFeedsAndFolders
-                   18 -> do !x1 <- get
+                   18 -> return BGSortAllFeedsAndFolders
+                   19 -> do !x1 <- get
                             return (BGSortFolder x1)
-                   19 -> return BGSortTags
-                   20 -> do !x1 <- get
-                            return (BGShareAction x1)
+                   20 -> return BGSortTags
                    21 -> do !x1 <- get
+                            return (BGShareAction x1)
+                   22 -> do !x1 <- get
                             return (BGSetCountry x1)
                    _ -> error "Corrupted binary data for BgAction"
 
@@ -1503,3 +1809,22 @@ instance Binary FullTextCache where
                !x4 <- get
                !x5 <- get
                return (FullTextCache x1 x2 x3 x4 x5)
+
+ 
+instance Binary OkErrorRedirect where
+        put x
+          = case x of
+                OEROK -> putWord8 0
+                OERError x1 -> do putWord8 1
+                                  put x1
+                OERRedirect x1 -> do putWord8 2
+                                     put x1
+        get
+          = do !i <- getWord8
+               case i of
+                   0 -> return OEROK
+                   1 -> do !x1 <- get
+                           return (OERError x1)
+                   2 -> do !x1 <- get
+                           return (OERRedirect x1)
+                   _ -> error "Corrupted binary data for OkErrorRedirect"

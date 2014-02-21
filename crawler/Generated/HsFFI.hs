@@ -458,11 +458,12 @@ uw_HsFFI_userRetrySubscription ctx pLen  x1 x2 = do
         B.length bs `seq` return bs
     ret ctx r pLen
 
-foreign export ccall uw_HsFFI_userOPML :: Ctx -> Ptr CLong -> Ptr () -> IO (Ptr ())
-uw_HsFFI_userOPML ctx pLen  x1 = do
-    h1 <- peekArg x1 :: IO (T.Text)
+foreign export ccall uw_HsFFI_userOPML :: Ctx -> Ptr CLong -> Ptr () -> Ptr () -> IO (Ptr ())
+uw_HsFFI_userOPML ctx pLen  x1 x2 = do
+    h1 <- peekArg x1 :: IO (Bool)
+    h2 <- peekArg x2 :: IO (T.Text)
     r <- E.try $ do
-        r <- userOPML h1 :: IO (T.Text)
+        r <- userOPML h1 h2 :: IO (T.Text)
         let bs = enc r
         B.length bs `seq` return bs
     ret ctx r pLen
@@ -496,7 +497,7 @@ uw_HsFFI_userSubscriptionsAndSettings ctx pLen  x1 x2 = do
     h1 <- peekArg x1 :: IO (T.Text)
     h2 <- peekArg x2 :: IO (T.Text)
     r <- E.try $ do
-        r <- userSubscriptionsAndSettings h1 h2 :: IO ((Maybe (T.Text, T.Text, [T.Text]), T.Text, [SubItemRpc], (Bool, Bool, [(UrTime, T.Text, T.Text)], [T.Text], UserSettings)))
+        r <- userSubscriptionsAndSettings h1 h2 :: IO ((Maybe (T.Text, T.Text, [T.Text]), T.Text, [SubItemRpc], (Bool, Bool, [(UrTime, T.Text, T.Text)], [T.Text], UserSettings), Maybe WelcomeState))
         let bs = enc r
         B.length bs `seq` return bs
     ret ctx r pLen
@@ -883,11 +884,12 @@ uw_HsFFI_writeManyFullTextCaches ctx pLen  x1 = do
         B.length bs `seq` return bs
     ret ctx r pLen
 
-foreign export ccall uw_HsFFI_getFullText :: Ctx -> Ptr CLong -> Ptr () -> IO (Ptr ())
-uw_HsFFI_getFullText ctx pLen  x1 = do
-    h1 <- peekArg x1 :: IO (MsgKey)
+foreign export ccall uw_HsFFI_userGetFullText :: Ctx -> Ptr CLong -> Ptr () -> Ptr () -> IO (Ptr ())
+uw_HsFFI_userGetFullText ctx pLen  x1 x2 = do
+    h1 <- peekArg x1 :: IO (T.Text)
+    h2 <- peekArg x2 :: IO (MsgKey)
     r <- E.try $ do
-        r <- getFullText h1 :: IO (Either T.Text T.Text)
+        r <- userGetFullText h1 h2 :: IO (Either T.Text T.Text)
         let bs = enc r
         B.length bs `seq` return bs
     ret ctx r pLen
@@ -952,13 +954,73 @@ uw_HsFFI_userGenerateNewPublicFeed ctx pLen  x1 x2 = do
         B.length bs `seq` return bs
     ret ctx r pLen
 
-foreign export ccall uw_HsFFI_searchSubscriptions :: Ctx -> Ptr CLong -> Ptr () -> Ptr () -> Ptr () -> IO (Ptr ())
-uw_HsFFI_searchSubscriptions ctx pLen  x1 x2 x3 = do
+foreign export ccall uw_HsFFI_userSearchSubscriptions :: Ctx -> Ptr CLong -> Ptr () -> Ptr () -> Ptr () -> IO (Ptr ())
+uw_HsFFI_userSearchSubscriptions ctx pLen  x1 x2 x3 = do
     h1 <- peekArg x1 :: IO (T.Text)
     h2 <- peekArg x2 :: IO (T.Text)
     h3 <- peekArg x3 :: IO (T.Text)
     r <- E.try $ do
-        r <- searchSubscriptions h1 h2 h3 :: IO (Maybe (T.Text, [(T.Text, MsgTreeViewMode)]))
+        r <- userSearchSubscriptions h1 h2 h3 :: IO (Maybe (T.Text, [(T.Text, MsgTreeViewMode)]))
+        let bs = enc r
+        B.length bs `seq` return bs
+    ret ctx r pLen
+
+foreign export ccall uw_HsFFI_userRestoreSubscriptionsFromBackup :: Ctx -> Ptr CLong -> Ptr () -> IO (Ptr ())
+uw_HsFFI_userRestoreSubscriptionsFromBackup ctx pLen  x1 = do
+    h1 <- peekArg x1 :: IO (T.Text)
+    r <- E.try $ do
+        r <- userRestoreSubscriptionsFromBackup h1 :: IO (())
+        let bs = enc r
+        B.length bs `seq` return bs
+    ret ctx r pLen
+
+foreign export ccall uw_HsFFI_isUserExists :: Ctx -> Ptr CLong -> Ptr () -> IO (Ptr ())
+uw_HsFFI_isUserExists ctx pLen  x1 = do
+    h1 <- peekArg x1 :: IO (T.Text)
+    r <- E.try $ do
+        r <- isUserExists h1 :: IO (Bool)
+        let bs = enc r
+        B.length bs `seq` return bs
+    ret ctx r pLen
+
+foreign export ccall uw_HsFFI_userDeleteAccount :: Ctx -> Ptr CLong -> Ptr () -> Ptr () -> IO (Ptr ())
+uw_HsFFI_userDeleteAccount ctx pLen  x1 x2 = do
+    h1 <- peekArg x1 :: IO (Bool)
+    h2 <- peekArg x2 :: IO (T.Text)
+    r <- E.try $ do
+        r <- userDeleteAccount h1 h2 :: IO (())
+        let bs = enc r
+        B.length bs `seq` return bs
+    ret ctx r pLen
+
+foreign export ccall uw_HsFFI_recordWebUsage :: Ctx -> Ptr CLong -> Ptr () -> Ptr () -> IO (Ptr ())
+uw_HsFFI_recordWebUsage ctx pLen  x1 x2 = do
+    h1 <- peekArg x1 :: IO (T.Text)
+    h2 <- peekArg x2 :: IO (Maybe T.Text)
+    r <- E.try $ do
+        r <- recordWebUsage h1 h2 :: IO (())
+        let bs = enc r
+        B.length bs `seq` return bs
+    ret ctx r pLen
+
+foreign export ccall uw_HsFFI_userAddToPocket :: Ctx -> Ptr CLong -> Ptr () -> Ptr () -> Ptr () -> Ptr () -> Ptr () -> IO (Ptr ())
+uw_HsFFI_userAddToPocket ctx pLen  x1 x2 x3 x4 x5 = do
+    h1 <- peekArg x1 :: IO (T.Text)
+    h2 <- peekArg x2 :: IO (T.Text)
+    h3 <- peekArg x3 :: IO (TURL)
+    h4 <- peekArg x4 :: IO (T.Text)
+    h5 <- peekArg x5 :: IO (T.Text)
+    r <- E.try $ do
+        r <- userAddToPocket h1 h2 h3 h4 h5 :: IO (OkErrorRedirect)
+        let bs = enc r
+        B.length bs `seq` return bs
+    ret ctx r pLen
+
+foreign export ccall uw_HsFFI_userAuthorizeAndAddToPocket :: Ctx -> Ptr CLong -> Ptr () -> IO (Ptr ())
+uw_HsFFI_userAuthorizeAndAddToPocket ctx pLen  x1 = do
+    h1 <- peekArg x1 :: IO (T.Text)
+    r <- E.try $ do
+        r <- userAuthorizeAndAddToPocket h1 :: IO (())
         let bs = enc r
         B.length bs `seq` return bs
     ret ctx r pLen

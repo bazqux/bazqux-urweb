@@ -171,3 +171,5 @@ val set_setDiscoveryFeed : a ::: Type -> (string -> string -> option string -> o
 val set_subscribeDiscoveryFeed : (string -> transaction {}) -> transaction {}
 val set_discoveryHide : transaction {} -> transaction {}
 val discoveryClearSelection : transaction {}
+
+val windowClose : transaction {}

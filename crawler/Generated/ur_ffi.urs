@@ -40,7 +40,7 @@ val userRenameFolder_ : string -> string -> string -> transaction string
 val userEditSubscriptionFolders_ : string -> string -> string -> string -> transaction string
 val userUnsubscribe_ : string -> string -> transaction string
 val userRetrySubscription_ : string -> string -> transaction string
-val userOPML_ : string -> transaction string
+val userOPML_ : string -> string -> transaction string
 val opmlSubscriptions_ : string -> string -> transaction string
 val userSubscriptionsAndRenames_ : string -> string -> string -> string -> string -> string -> transaction string
 val userSubscriptionsAndSettings_ : string -> string -> transaction string
@@ -84,11 +84,17 @@ val readManyFullTextCaches_ : string -> transaction string
 val cachedReadManyFullTextCaches_ : string -> transaction string
 val cachedNothingReadManyFullTextCaches_ : string -> transaction string
 val writeManyFullTextCaches_ : string -> transaction string
-val getFullText_ : string -> transaction string
+val userGetFullText_ : string -> string -> transaction string
 val getUrTime__ : string -> transaction string
 val setMobileLogin_ : string -> string -> string -> string -> transaction string
 val tryGetFeverUser_ : string -> transaction string
 val userEnablePublicFeed_ : string -> string -> transaction string
 val userDisablePublicFeed_ : string -> string -> transaction string
 val userGenerateNewPublicFeed_ : string -> string -> transaction string
-val searchSubscriptions_ : string -> string -> string -> transaction string
+val userSearchSubscriptions_ : string -> string -> string -> transaction string
+val userRestoreSubscriptionsFromBackup_ : string -> transaction string
+val isUserExists_ : string -> transaction string
+val userDeleteAccount_ : string -> string -> transaction string
+val recordWebUsage_ : string -> string -> transaction string
+val userAddToPocket_ : string -> string -> string -> string -> string -> transaction string
+val userAuthorizeAndAddToPocket_ : string -> transaction string

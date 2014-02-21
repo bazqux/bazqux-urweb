@@ -304,3 +304,7 @@ style discoveryNonEmptyText
 style discoveryCleanButton
 style subscribeDiscoveryFeed
 
+style addingToPocket
+style addedToPocket
+style markAllAsReadMenu
+style markAllAsReadButton

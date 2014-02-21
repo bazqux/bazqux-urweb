@@ -74,14 +74,20 @@ effectful Ur_ffi.readManyFullTextCaches_
 effectful Ur_ffi.cachedReadManyFullTextCaches_
 effectful Ur_ffi.cachedNothingReadManyFullTextCaches_
 effectful Ur_ffi.writeManyFullTextCaches_
-effectful Ur_ffi.getFullText_
+effectful Ur_ffi.userGetFullText_
 effectful Ur_ffi.getUrTime__
 effectful Ur_ffi.setMobileLogin_
 effectful Ur_ffi.tryGetFeverUser_
 effectful Ur_ffi.userEnablePublicFeed_
 effectful Ur_ffi.userDisablePublicFeed_
 effectful Ur_ffi.userGenerateNewPublicFeed_
-effectful Ur_ffi.searchSubscriptions_
+effectful Ur_ffi.userSearchSubscriptions_
+effectful Ur_ffi.userRestoreSubscriptionsFromBackup_
+effectful Ur_ffi.isUserExists_
+effectful Ur_ffi.userDeleteAccount_
+effectful Ur_ffi.recordWebUsage_
+effectful Ur_ffi.userAddToPocket_
+effectful Ur_ffi.userAuthorizeAndAddToPocket_
 
 datatypes
 urCalls

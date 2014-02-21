@@ -9,11 +9,13 @@ module Generated.DataTypes where
 
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Internal as B
+import qualified Data.ByteString.Short as SB
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.HashSet as HS
 import qualified Data.HashMap.Strict as HM
 import Lib.UrTime
+import qualified Lib.BArray as BA
 import Lib.UnsafeRef
 import Lib.ReadSet (ReadSet)
 import URL
@@ -167,6 +169,17 @@ data PublicFeedType
     | PFTAllTags
     deriving (Show, Eq, Ord)
 
+data ApiKeys
+    = ApiKeys
+      { akPocket        :: Maybe (T.Text, T.Text)
+      , akPocketRequest :: Maybe (T.Text, T.Text, T.Text)
+      , akReserved1     :: {-# UNPACK #-} !Int
+      , akReserved2     :: {-# UNPACK #-} !Int
+      , akReserved3     :: {-# UNPACK #-} !Int
+      , akReserved4     :: {-# UNPACK #-} !Int
+      }
+    deriving (Show, Eq, Ord)
+
 data UserSettings
     = UserSettings
       { ustUser              :: !T.Text
@@ -180,7 +193,7 @@ data UserSettings
       , ustExactUnreadCounts :: !Bool
       , ustPublicFeeds       :: Maybe (Map PublicFeedType [(T.Text, Bool, Maybe T.Text)])
       , ustCountry           :: Maybe T.Text
-      , ustReserved6         :: Maybe T.Text
+      , ustApiKeys           :: Maybe ApiKeys
       , ustReserved7         :: Maybe T.Text
       , ustReserved8         :: Maybe T.Text
       , ustReserved9         :: Maybe T.Text
@@ -366,8 +379,8 @@ data Msg
 
 data MsgHeader
     = MsgHeader
-      { mhGuid        :: !T.Text
-      , mhContentHash :: !T.Text
+      { mhGuid        :: !SB.ShortByteString
+      , mhContentHash :: !SB.ShortByteString
       , mhAuthor      :: !T.Text
       , mhAuthorPic   :: Maybe TURL
       , mhSubject     :: !T.Text
@@ -379,7 +392,7 @@ data MsgHeader
 
 data MsgTree
     = MsgTree
-      { mtHeaders  :: Array Int MsgHeader
+      { mtHeaders  :: BA.Array Int MsgHeader
       , mtChildren :: IntMap (Set (UrTime, Int))
       }
     deriving (Show, Eq, Ord)
@@ -460,6 +473,13 @@ data PostsSubscribers
       , psReserved2   :: {-# UNPACK #-} !Int
       , psReserved3   :: {-# UNPACK #-} !Int
       , psReserved4   :: {-# UNPACK #-} !Int
+      }
+    deriving (Show, Eq, Ord)
+
+data ActiveCheckSubscriptions
+    = ActiveCheckSubscriptions
+      { acsKey   :: !()
+      , acsUsers :: HM.HashMap T.Text UrTime
       }
     deriving (Show, Eq, Ord)
 
@@ -617,6 +637,33 @@ data GRIds
       , griReserved6      :: !Bool
       , griReserved7      :: !Bool
       , griReserved8      :: !Bool
+      }
+    deriving (Show, Eq, Ord)
+
+data UserBackup
+    = UserBackup
+      { ubKey          :: (T.Text, UrTime)
+      , ubUser         :: User
+      , ubUserStats    :: UserStats
+      , ubUserFilters  :: UserFilters
+      , ubUserSettings :: UserSettings
+      , ubGRIds        :: GRIds
+      , ubFeverIds     :: FeverIds
+      , ubReserved1    :: !Bool
+      , ubReserved2    :: !Bool
+      , ubReserved3    :: !Bool
+      , ubReserved4    :: !Bool
+      }
+    deriving (Show, Eq, Ord)
+
+data DeletedUser
+    = DeletedUser
+      { duUser      :: !T.Text
+      , duBackups   :: [UrTime]
+      , duMailsSent :: Maybe [UrTime]
+      , duReserved2 :: !Bool
+      , duReserved3 :: !Bool
+      , duReserved4 :: !Bool
       }
     deriving (Show, Eq, Ord)
 
@@ -792,6 +839,15 @@ data SubItemRpc
       }
     deriving (Show, Eq, Ord)
 
+data WelcomeState
+    = WelcomeState
+      { wsHasPrevAccount  :: !Bool
+      , wsHasPrevSubs     :: !Bool
+      , wsStarredRestored :: !Bool
+      , wsTaggedRestored  :: !Bool
+      }
+    deriving (Show, Eq, Ord)
+
 data ShareAction
     = SAEMail
     | SATwitter
@@ -805,6 +861,112 @@ data ShareAction
     | SAReadability
     | SAInstapaper
     | SATranslate
+    deriving (Show, Eq, Ord)
+
+data BrowserType
+    = BTUnknown
+    | BTAndroid
+    | BTIPhone
+    | BTIPad
+    | BTIPod
+    | BTChrome
+    | BTIE
+    | BTIEMobile
+    | BTSafari
+    | BTOpera
+    | BTOperaMini
+    | BTFirefox
+    deriving (Show, Eq, Ord)
+
+data AppType
+    = ATUnknown
+    | ATFeeddler
+    | ATMrReader
+    | ATReeder
+    | ATSlowFeeds
+    | ATJustReader
+    | ATNewsPlus
+    | ATPress
+    | ATVienna
+    | ATReadKit
+    | ATNewsJet
+    | ATAmber
+    | ATgzip
+    deriving (Show, Eq, Ord)
+
+data OperatingSystem
+    = OSUnknown
+    | OSWindows
+    | OSMac
+    | OSLinux
+    | OSAndroid
+    | OSIOS
+    deriving (Show, Eq, Ord)
+
+data UsageFlag
+    = UFWeb
+      { ufBrowserType     :: BrowserType
+      , ufOperatingSystem :: OperatingSystem
+      }
+    | UFApp
+      { ufAppType         :: AppType
+      , ufOperatingSystem :: OperatingSystem
+      }
+    | UFShareAction
+      { ufShareAction     :: ShareAction
+      }
+    | UFOPML
+    | UFAddSubscription
+    | UFSearchSubscriptions
+    | UFDiscoverySubscription
+    | UFAddDiscoverySubscription
+    | UFUnsubscribe
+    | UFRetrySubscription
+    | UFRenameSubscription
+    | UFRenameFolder
+    | UFEditSubscriptionFolders
+    | UFDragAndDrop
+    | UFSearch
+    | UFSearchTags
+    | UFSkip
+    | UFIgnore
+    | UFKeepUnread
+    | UFMarkAllAsRead
+    | UFStar
+    | UFTag
+    | UFReadability
+    | UFSetMobileLogin
+    | UFEnablePublicFeed
+    | UFDisablePublicFeed
+    | UFGenerateNewPublicFeed
+    | UFDeleteAccount
+    | UFExportOPML
+    | UFMarkAllAsReadD
+      { ufOlderThan       :: {-# UNPACK #-} !Int
+      }
+    deriving (Show, Eq, Ord)
+
+data UserUsageFlags
+    = UserUsageFlags
+      { uufPaidTill   :: PaidTill
+      , uufCountry    :: !T.Text
+      , uufUsageFlags :: Set UsageFlag
+      , uufReserved1  :: Set ()
+      , uufReserved2  :: Set ()
+      , uufReserved3  :: Set ()
+      , uufReserved4  :: Set ()
+      }
+    deriving (Show, Eq, Ord)
+
+data UsageFlags
+    = UsageFlags
+      { uflTime      :: {-# UNPACK #-} !UrTime
+      , uflFlags     :: HM.HashMap T.Text UserUsageFlags
+      , uflReserved1 :: Set ()
+      , uflReserved2 :: Set ()
+      , uflReserved3 :: Set ()
+      , uflReserved4 :: Set ()
+      }
     deriving (Show, Eq, Ord)
 
 data BgAction
@@ -833,6 +995,12 @@ data BgAction
       { baBlogFeedUrl   :: !T.Text
       , baTotalPosts    :: {-# UNPACK #-} !Int
       , baTotalComments :: {-# UNPACK #-} !Int
+      }
+    | BGMarkBlogReadD
+      { baBlogFeedUrl   :: !T.Text
+      , baTotalPosts    :: {-# UNPACK #-} !Int
+      , baTotalComments :: {-# UNPACK #-} !Int
+      , baOlderThan     :: {-# UNPACK #-} !Int
       }
     | BGSetOnlyUpdatedSubscriptions
       { baValue         :: !Bool
@@ -902,6 +1070,16 @@ data FullTextCache
       }
     deriving (Show, Eq, Ord)
 
+data OkErrorRedirect
+    = OEROK
+    | OERError
+      { oerError :: !T.Text
+      }
+    | OERRedirect
+      { oerUrl   :: !T.Text
+      }
+    deriving (Show, Eq, Ord)
+
 
 {-!
 deriving instance Binary Stats
@@ -918,6 +1096,7 @@ deriving instance Binary ScrollMode
 deriving instance Binary ListViewMode
 deriving instance Binary MarkReadMode
 deriving instance Binary PublicFeedType
+deriving instance Binary ApiKeys
 deriving instance Binary UserSettings
 deriving instance Binary PublicFeed
 deriving instance Binary UID
@@ -940,6 +1119,7 @@ deriving instance Binary Posts
 deriving instance Binary DiscoveryFeed
 deriving instance Binary PostsClearTime
 deriving instance Binary PostsSubscribers
+deriving instance Binary ActiveCheckSubscriptions
 deriving instance Binary CommentsKey
 deriving instance Binary Comments
 deriving instance Binary SubscriptionParentUrl
@@ -955,6 +1135,8 @@ deriving instance Binary PostsTaggedGuids
 deriving instance Binary ItemTag
 deriving instance Binary RemovedFeedInfo
 deriving instance Binary GRIds
+deriving instance Binary UserBackup
+deriving instance Binary DeletedUser
 deriving instance Binary ApiMode
 deriving instance Binary MsgTreePoint
 deriving instance Binary PostsReq
@@ -969,9 +1151,17 @@ deriving instance Binary Counters
 deriving instance Binary SITFeedDetails
 deriving instance Binary SubItemType
 deriving instance Binary SubItemRpc
+deriving instance Binary WelcomeState
 deriving instance Binary ShareAction
+deriving instance Binary BrowserType
+deriving instance Binary AppType
+deriving instance Binary OperatingSystem
+deriving instance Binary UsageFlag
+deriving instance Binary UserUsageFlags
+deriving instance Binary UsageFlags
 deriving instance Binary BgAction
 deriving instance Binary SearchResults
 deriving instance Binary FullTextCache
+deriving instance Binary OkErrorRedirect
 !-}
 #include "BinaryInstances.h"

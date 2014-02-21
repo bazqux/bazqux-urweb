@@ -444,7 +444,7 @@ defaultUserSettings u =
     , ustExactUnreadCounts    = False
     , ustPublicFeeds  = Nothing
     , ustCountry      = Nothing
-    , ustReserved6    = Nothing
+    , ustApiKeys      = Nothing
     , ustReserved7    = Nothing
     , ustReserved8    = Nothing
     , ustReserved9    = Nothing
@@ -712,3 +712,13 @@ defaultUsageFlags t =
 instance Resolvable UsageFlags where
     resolve a b =
         a { uflFlags = HM.unionWith resolve (uflFlags a) (uflFlags b) }
+
+defaultApiKeys =
+    ApiKeys
+    { akPocket    = Nothing
+    , akPocketRequest = Nothing
+    , akReserved1 = 0
+    , akReserved2 = 0
+    , akReserved3 = 0
+    , akReserved4 = 0
+    }
