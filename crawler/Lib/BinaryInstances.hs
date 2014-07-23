@@ -5,7 +5,6 @@ import Data.Ord
 import Data.Hashable
 import Data.Binary
 import Data.Binary.Get (getByteString)
-import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Internal as B
 import qualified Data.ByteString.Short as SB
 import qualified Data.ByteString.Short.Internal as SB
@@ -55,6 +54,6 @@ instance Binary SB.ShortByteString where
             let sb = SB.toShort bs
             SB.length sb `seq` return sb
 
-instance Hashable SB.ShortByteString where
-    hashWithSalt salt sb@(SB.SBS arr) =
-        hashByteArrayWithSalt arr 0 (SB.length sb) salt
+-- instance Hashable SB.ShortByteString where
+--     hashWithSalt salt sb@(SB.SBS arr) =
+--         hashByteArrayWithSalt arr 0 (SB.length sb) salt

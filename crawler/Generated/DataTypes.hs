@@ -7,11 +7,8 @@
 -- и передаваемых между Ur/Web и Haskell
 module Generated.DataTypes where
 
-import qualified Data.ByteString.Char8 as B
-import qualified Data.ByteString.Internal as B
 import qualified Data.ByteString.Short as SB
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
 import qualified Data.HashSet as HS
 import qualified Data.HashMap.Strict as HM
 import Lib.UrTime
@@ -20,18 +17,12 @@ import Lib.UnsafeRef
 import Lib.ReadSet (ReadSet)
 import URL
 import Data.Set (Set)
-import qualified Data.Set as Set
 import Data.Map (Map)
-import qualified Data.Map as Map
 import Data.IntMap (IntMap)
 import Data.IntSet (IntSet)
-import Data.Array
 import Data.Binary
-import Data.Binary.Get (getByteString)
-import Data.List
-import Data.Ord
 import Data.Hashable
-import Lib.BinaryInstances
+import Lib.BinaryInstances()
 
 instance Hashable ItemTag where
     hashWithSalt s ITStarred = s `hashWithSalt` (0 :: Int)
@@ -160,13 +151,16 @@ data MarkReadMode
 data PublicFeedType
     = PFTAll
     | PFTFolder
-      { pftFolder  :: !T.Text
+      { pftFolder     :: !T.Text
       }
     | PFTTag
-      { pftTagName :: !T.Text
+      { pftTagName    :: !T.Text
       }
     | PFTStarred
     | PFTAllTags
+    | PFTSmartStream
+      { pftStreamName :: !T.Text
+      }
     deriving (Show, Eq, Ord)
 
 data ApiKeys
@@ -344,7 +338,7 @@ data Attachment
       }
     | AGrOrigin
       { aFeed        :: !TURL
-      , aGuid        :: !T.Text
+      , aGuid        :: !SB.ShortByteString
       , aStreamTitle :: !T.Text
       , aHtmlUrl     :: !T.Text
       }
@@ -353,8 +347,8 @@ data Attachment
 data MsgKey
     = MsgKey
       { msgKeyBlogFeedUrl :: !T.Text
-      , msgKeyPostGuid    :: Maybe T.Text
-      , msgKeyCommentGuid :: Maybe T.Text
+      , msgKeyPostGuid    :: Maybe SB.ShortByteString
+      , msgKeyCommentGuid :: Maybe SB.ShortByteString
       }
     deriving (Show, Eq, Ord)
 
@@ -413,7 +407,7 @@ data BlogPostsScanned
     = BlogPostsScanned
       { bpsBlogFeedUrl   :: !TURL
       , bpsSubscribeTime :: {-# UNPACK #-} !UrTime
-      , bpsUrls          :: Map T.Text (Map TURL (UrTime, Maybe UrTime, CommentUrlState))
+      , bpsUrls          :: Map SB.ShortByteString (Map TURL (UrTime, Maybe UrTime, CommentUrlState))
       }
     deriving (Show, Eq, Ord)
 
@@ -486,7 +480,7 @@ data ActiveCheckSubscriptions
 data CommentsKey
     = CommentsKey
       { ckBlogFeedUrl :: !T.Text
-      , ckPostGuid    :: !T.Text
+      , ckPostGuid    :: !SB.ShortByteString
       }
     deriving (Show, Eq, Ord)
 
@@ -517,7 +511,7 @@ data ParentUrl
       }
     | PuFeed
       { puUrl   :: !TURL
-      , puGuid  :: Maybe T.Text
+      , puGuid  :: Maybe SB.ShortByteString
       }
     | PuCommentsFeed
       { puUrl   :: !TURL
@@ -569,6 +563,14 @@ data ScanList
       }
     deriving (Show, Eq, Ord)
 
+data FeedMask
+    = FeedMask
+      { fmPosts         :: !ReadSet
+      , fmComments      :: IntMap ReadSet
+      , fmTotalComments :: {-# UNPACK #-} !Int
+      }
+    deriving (Show, Eq, Ord)
+
 data PostsRead
     = PostsRead
       { prKey               :: (T.Text, TURL)
@@ -594,7 +596,7 @@ data PostsTagged
 data PostsTaggedGuids
     = PostsTaggedGuids
       { ptgBlogFeedUrl :: !TURL
-      , ptgGuids       :: IntMap T.Text
+      , ptgGuids       :: IntMap SB.ShortByteString
       , ptgReserved1   :: {-# UNPACK #-} !Int
       , ptgReserved2   :: {-# UNPACK #-} !Int
       , ptgReserved3   :: {-# UNPACK #-} !Int
@@ -667,6 +669,49 @@ data DeletedUser
       }
     deriving (Show, Eq, Ord)
 
+data FilterQuery
+    = FilterQuery
+      { fqQuery     :: !T.Text
+      , fqNegate    :: !Bool
+      , fqFeeds     :: HM.HashMap T.Text Bool
+      , fqReserved1 :: {-# UNPACK #-} !Int
+      , fqReserved2 :: {-# UNPACK #-} !Int
+      }
+    deriving (Show, Eq, Ord)
+
+data FilterFeedMasks
+    = FilterFeedMasks
+      { ffmLastUpdated :: Maybe UrTime
+      , ffmFeedMasks   :: HM.HashMap T.Text FeedMask
+      , ffmReserved1   :: {-# UNPACK #-} !Int
+      , ffmReserved2   :: {-# UNPACK #-} !Int
+      }
+    deriving (Show, Eq, Ord)
+
+data SmartStream
+    = SmartStream
+      { ssName      :: !T.Text
+      , ssQueries   :: [FilterQuery]
+      , ssFeedMasks :: FilterFeedMasks
+      , ssReserved1 :: {-# UNPACK #-} !Int
+      , ssReserved2 :: {-# UNPACK #-} !Int
+      }
+    deriving (Show, Eq, Ord)
+
+data Filters
+    = Filters
+      { fUser         :: !T.Text
+      , fVersion      :: {-# UNPACK #-} !Int
+      , fFilters      :: [FilterQuery]
+      , fFeedMasks    :: FilterFeedMasks
+      , fSmartStreams :: [SmartStream]
+      , fReserved1    :: {-# UNPACK #-} !Int
+      , fReserved2    :: {-# UNPACK #-} !Int
+      , fReserved3    :: {-# UNPACK #-} !Int
+      , fReserved4    :: {-# UNPACK #-} !Int
+      }
+    deriving (Show, Eq, Ord)
+
 data ApiMode
     = AMNormal
     | AMGRIdsOnly
@@ -713,22 +758,41 @@ data CommentsReq
 
 data TreeReq
     = TRPosts
-      { trReqs        :: [PostsReq]
-      }
-    | TRComments
-      { trOnExpand    :: !Bool
-      , trReq         :: CommentsReq
-      }
-    | TRSearch
-      { trQuery       :: !T.Text
-      , trFeeds       :: [(T.Text, Int, Int)]
-      , trPostTime    :: {-# UNPACK #-} !UrTime
-      , trBlogFeedUrl :: !T.Text
-      , trPostGuid    :: !T.Text
+      { trReqs         :: [PostsReq]
       }
     | TRTags
-      { trLastMsg     :: Maybe MsgKey
-      , trTags        :: Maybe [ItemTag]
+      { trLastMsg      :: Maybe MsgKey
+      , trTags         :: Maybe [ItemTag]
+      }
+    | TRComments
+      { trOnExpand     :: !Bool
+      , trReq          :: CommentsReq
+      }
+    | TRCommentsS
+      { trOnExpand     :: !Bool
+      , trStreamName   :: !T.Text
+      , trReq          :: CommentsReq
+      }
+    | TRSmartStream
+      { trStreamName   :: !T.Text
+      , trReqs         :: [PostsReq]
+      }
+    | TRSearchPosts
+      { trQuery        :: !T.Text
+      , trFeedMasksKey :: !T.Text
+      , trReqs         :: [PostsReq]
+      }
+    | TRSearchSmartStream
+      { trStreamName   :: !T.Text
+      , trQuery        :: !T.Text
+      , trFeedMasksKey :: !T.Text
+      , trReqs         :: [PostsReq]
+      }
+    | TRSearchTags
+      { trQuery        :: !T.Text
+      , trIdsKey       :: !T.Text
+      , trTags         :: Maybe [ItemTag]
+      , trLastMsg      :: Maybe MsgKey
       }
     deriving (Show, Eq, Ord)
 
@@ -820,6 +884,10 @@ data SubItemType
     | SITTag
       { sitTagName      :: !T.Text
       }
+    | SITSmartStream
+      { sitStreamName   :: !T.Text
+      , sitStreamFeeds  :: [T.Text]
+      }
     | SITStarred
     | SITAllTags
     deriving (Show, Eq, Ord)
@@ -892,6 +960,7 @@ data AppType
     | ATNewsJet
     | ATAmber
     | ATgzip
+    | ATUnread
     deriving (Show, Eq, Ord)
 
 data OperatingSystem
@@ -944,6 +1013,16 @@ data UsageFlag
     | UFMarkAllAsReadD
       { ufOlderThan       :: {-# UNPACK #-} !Int
       }
+    | UFMarkSearchAsReadD
+      { ufOlderThan       :: {-# UNPACK #-} !Int
+      }
+    | UFFilterApply
+    | UFFilterHide
+    | UFNewSmartStream
+    | UFEditFilter
+    | UFEditSmartStream
+    | UFDeleteFilter
+    | UFDeleteSmartStream
     deriving (Show, Eq, Ord)
 
 data UserUsageFlags
@@ -1002,6 +1081,22 @@ data BgAction
       , baTotalComments :: {-# UNPACK #-} !Int
       , baOlderThan     :: {-# UNPACK #-} !Int
       }
+    | BGMarkSearchRead
+      { baQuery         :: !T.Text
+      , baReadCounters  :: [(T.Text, Int, Int, Int, Int)]
+      , baOlderThan     :: {-# UNPACK #-} !Int
+      }
+    | BGMarkSmartStreamSearchRead
+      { baStreamName    :: !T.Text
+      , baQuery         :: !T.Text
+      , baReadCounters  :: [(T.Text, Int, Int, Int, Int)]
+      , baOlderThan     :: {-# UNPACK #-} !Int
+      }
+    | BGMarkSmartStreamRead
+      { baStreamName    :: !T.Text
+      , baReadCounters  :: [(T.Text, Int, Int, Int, Int)]
+      , baOlderThan     :: {-# UNPACK #-} !Int
+      }
     | BGSetOnlyUpdatedSubscriptions
       { baValue         :: !Bool
       }
@@ -1051,12 +1146,15 @@ data BgAction
       }
     deriving (Show, Eq, Ord)
 
-data SearchResults
-    = SearchResults
-      { srTotal     :: {-# UNPACK #-} !Int
-      , srTook      :: {-# UNPACK #-} !Int
-      , srTookReal  :: {-# UNPACK #-} !Int
-      , srMsgForest :: MsgForest
+data FilterResults
+    = FilterResults
+      { frTotalPosts     :: {-# UNPACK #-} !Int
+      , frTotalComments  :: {-# UNPACK #-} !Int
+      , frUnreadPosts    :: {-# UNPACK #-} !Int
+      , frUnreadComments :: {-# UNPACK #-} !Int
+      , frTook           :: {-# UNPACK #-} !Int
+      , frTookReal       :: {-# UNPACK #-} !Int
+      , frMsgForest      :: MsgForest
       }
     deriving (Show, Eq, Ord)
 
@@ -1129,6 +1227,7 @@ deriving instance Binary ParentPath
 deriving instance Binary UrlToScan
 deriving instance Binary QueueType
 deriving instance Binary ScanList
+deriving instance Binary FeedMask
 deriving instance Binary PostsRead
 deriving instance Binary PostsTagged
 deriving instance Binary PostsTaggedGuids
@@ -1137,6 +1236,10 @@ deriving instance Binary RemovedFeedInfo
 deriving instance Binary GRIds
 deriving instance Binary UserBackup
 deriving instance Binary DeletedUser
+deriving instance Binary FilterQuery
+deriving instance Binary FilterFeedMasks
+deriving instance Binary SmartStream
+deriving instance Binary Filters
 deriving instance Binary ApiMode
 deriving instance Binary MsgTreePoint
 deriving instance Binary PostsReq
@@ -1160,7 +1263,7 @@ deriving instance Binary UsageFlag
 deriving instance Binary UserUsageFlags
 deriving instance Binary UsageFlags
 deriving instance Binary BgAction
-deriving instance Binary SearchResults
+deriving instance Binary FilterResults
 deriving instance Binary FullTextCache
 deriving instance Binary OkErrorRedirect
 !-}

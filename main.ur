@@ -109,18 +109,23 @@ val bgactions = withUser "" (fn u => return ())
 
 fun mobileLogin l p k = withUser "mobileLogin"
                         (fn userId => setMobileLogin userId l p k)
-
+val getFiltersAndSmartStreams =
+    withUser "getFiltersAndSmartStreams" userGetFiltersAndSmartStreams
 fun opml () = withUser "OPML" (fn userId =>
     o <- userOPML True userId;
     setHeader (blessResponseHeader "Content-Disposition")
               "attachment; filename=bazqux-reader-subscriptions.xml";
     returnBlob (textBlob o) (blessMime "text/x-opml")) []
 
-fun isResultMv mv =
+fun isXMv what mv =
     case mv of
-      | MVFull _ => True
-      | MVShort { CachedMsg = Some _, ... } => True
+      | MVFull m => Js.strIndexOf what m.Msg.Debug <> -1
+      | MVShort { CachedMsg = _, Header = h } =>
+        Js.strIndexOf what h.ContentHash <> -1
       | _ => False
+val isResultMv = isXMv "full"
+val isSearchResultMv = isXMv "searchResult"
+val isFilteredOutMv = isXMv "filteredOut"
 fun isResult mi = isResultMv mi.MsgView
 
 datatype readabilityView
@@ -262,20 +267,37 @@ con subItem
     , FaviconStyle  : option string
     }
 
-fun getMW () : mw = Js.mw ()
-fun getSubItem idx : subItem = Js.getSubItem idx
-fun getSubItems idx : list subItem = Js.getSubItems idx
-fun getSubItemByUrl url : option subItem = Js.getSubItemByUrl url
-fun getSubItemByHash url : transaction (option subItem) =
-    a <- source (Js.getSubItemByHash url);
-    (* без этого urweb делает reorder и вызвает ф-ю, когда нужен результат,
-       а не тогда, когда ее вызвали *)
-    get a
-fun hideSubItems (sis : list subItem) : transaction {} =
-    when (not (Js.hideSubItems sis)) (alert "hideSubItems")
-fun updateCounters (si : subItem) p c =
-    x <- Js.updateCounters_ (si, p, c);
-    when x (debug "just forced to eval")
+ffi getFromLocalStorage jsFunc "getFromLocalStorage" : string -> string -> int -> transaction int
+ffi setmw jsFunc "setmw" effectful : mw -> bool
+ffi getuim jsFunc "uim" effectful : Basis.id -> uim
+ffi setuim jsFunc "setuim" effectful : Basis.id -> uim -> bool
+(* fun getMW () : mw = Js.mw () *)
+ffi getMW jsFunc "mw" effectful : {} -> mw
+(* fun getSubItem idx : subItem = Js.getSubItem idx *)
+ffi getSubItem jsFunc "getSubItem" effectful : int -> subItem
+(* fun getSubItems idx : list subItem = Js.getSubItems idx *)
+ffi getSubItems jsFunc "getSubItems" effectful : int -> list subItem
+(* fun getSubItemByUrl url : option subItem = Js.getSubItemByUrl url *)
+ffi getSubItemByUrl jsFunc "getSubItemByUrl" : string -> option subItem
+
+ffi getSubItemByHash jsFunc "getSubItemByHash" effectful : string -> transaction (option subItem)
+ffi getSubItemByHash' jsFunc "getSubItemByHash" effectful : string -> option subItem
+(* fun getSubItemByHash url : transaction (option subItem) = *)
+(*     a <- source (Js.getSubItemByHash url); *)
+(*     (\* без этого urweb делает reorder и вызвает ф-ю, когда нужен результат, *)
+(*        а не тогда, когда ее вызвали *\) *)
+(*     get a *)
+fun getSmartStreamByName name : option subItem =
+    getSubItemByHash' ("smartstream/" ^ Js.encodeURIComponent name)
+ffi setSubItems jsFunc "setSubItems" effectful : bool -> list subItemRpc -> bool
+ffi hideSubItems jsFunc "hideSubItems" : list subItem -> transaction {}
+(* fun hideSubItems (sis : list subItem) : transaction {} = *)
+(*     when (not (Js.hideSubItems sis)) (alert "hideSubItems") *)
+ffi updateCounters jsFunc "updateCounters" : subItem -> int -> int -> transaction {}
+ffi showUnread effectful : counters -> bool -> string
+(* fun updateCounters (si : subItem) p c = *)
+(*     x <- Js.updateCounters_ (si, p, c); *)
+(*     when x (debug "just forced to eval") *)
 
 fun hasChildren (UIForest f) =
     fc <- get f.FirstChild;
@@ -304,11 +326,11 @@ fun uimReadabilityMode (UIM uim) =
 fun viewModeByMsgKey getMsgTreeViewMode mkey =
     mtvm0 <- getMsgTreeViewMode;
     if mtvm0.NoOverride then
-        case Js.getSubItemByUrl mkey.BlogFeedUrl of
+        case getSubItemByUrl mkey.BlogFeedUrl of
           | None =>
 (*         debug ("si not found " ^ mkey.BlogFeedUrl); *)
             return (* defaultMsgTreeViewMode *)mtvm0
-          | Some (si : subItem) => get si.ViewMode
+          | Some si => get si.ViewMode
     else
         return mtvm0
 fun uimViewMode gmv u = viewModeByMsgKey gmv (uimMsgKey u)
@@ -486,7 +508,7 @@ fun msgContents key readability qs =
                <div class="msubject">{textWithLink m.Link (txt m.Subject)}</div>
                {case m.Tags of
                   | [] => <xml/>
-                  | t => <xml><div class="mtags">{["tags: " ^ intercalate ", " m.Tags]}</div></xml>}
+                  | t => <xml><div class="mtags">{["tags: " ^ intercalate ", " t]}</div></xml>}
                {if m.Author <> "" then <xml><div class="mauthor">{textWithLink m.AuthorUri (txt m.Author)}</div></xml>
                 else <xml/>}
                <div class="mtextPad"></div>
@@ -537,7 +559,7 @@ fun shareMenu mw uim shareId subject link readability key =
                        alert e.Error
                      | Some (OERRedirect r) =>
                        a <- mw.Po.NewClickHideBox Css.tagsDialog "Add to Pocket" <xml>
-                         <p>Please {hrefLink (txt "authorize to Pocket") r.Url}
+                         <p>{hrefLink (txt "Authorize to Pocket") r.Url}
                            to add an article and enable one-click article saving.</p>
                        </xml>;
                        mw.Po.Toggle mw.Popup a.2
@@ -556,6 +578,8 @@ fun shareMenu mw uim shareId subject link readability key =
           {b Css.btnTranslate SATranslate "Translate" (translateLink readability key)}
         </xml>
     end
+
+ffi attachmentXml jsFunc "attachmentXml" : attachment -> xbody
 
 fun msgNodeNew ultraCompact imgLoadCheck children showFeedTitles authorStyle toggleCollapsed select (mw : mw) (UIM uim)
     : transaction xbody =
@@ -631,13 +655,13 @@ fun msgNodeNew ultraCompact imgLoadCheck children showFeedTitles authorStyle tog
             if uim.Depth > 0 then <xml/> else
             case (showFeedTitles,
                   grOrigin [] (uimAttachments (UIM uim)),
-                  Js.getSubItemByUrl mkey.BlogFeedUrl) of
+                  getSubItemByUrl mkey.BlogFeedUrl) of
               | (_, (Some o,_), _) => (* origin показываем всегда *)
                 if icon then
                     ffLV (Some (Js.faviconStyle o.HtmlUrl)) o.StreamTitle
                 else
                     ff <xml><a href={bless o.HtmlUrl} target={"_blank"}>{txt o.StreamTitle} <div class={Css.fromFolderImported}>{[if o.Guid <> "" then "(imported)" else "(unsubscribed)"]}</div></a></xml>
-              | (True, _, Some (si : subItem)) =>
+              | (True, _, Some si) =>
                 if icon then
                     ffLV si.FaviconStyle si.Title
                 else
@@ -657,13 +681,17 @@ fun msgNodeNew ultraCompact imgLoadCheck children showFeedTitles authorStyle tog
 (*                        if List.length as > 1 then "s:" else ":"]} *)
                    </div></xml>}
               {List.mapX (fn a => <xml><div class="attachment">
-                {Js.attachmentXml a}</div></xml>) as}
+                {attachmentXml a}</div></xml>) as}
             </xml>
             end
         val noSubject = noSubject subject (UIM uim)
         val compact =
             case (mtvm.Posts, uim.Depth, lvm) of
               | (PVMShort, 0, LVMCompact) => True
+              | _ => False
+        val normalLV =
+            case (mtvm.Posts, uim.Depth, lvm) of
+              | (PVMShort, 0, LVMTwoLines) => True
               | _ => False
         val authorPicHidden =
             compact ||
@@ -784,7 +812,10 @@ fun msgNodeNew ultraCompact imgLoadCheck children showFeedTitles authorStyle tog
                               Js.strIndexOf "postHeader" cls = -1 &&
                               (Js.strIndexOf "clicker" cls <> -1 ||
                                Js.strIndexOf "msgFrame" cls <> -1 ||
-                               Js.strIndexOf "msgFooter" cls <> -1)) then
+                               Js.strIndexOf "msgFooter" cls <> -1 ||
+                               (Js.strIndexOf "newlineWrapper" cls <> -1 &&
+                                Js.strIndexOf "msubject" cls = -1)
+                              )) then
                              toggleFull'
                         else
                             select True True (UIM uim))) <xml>
@@ -840,9 +871,13 @@ fun msgNodeNew ultraCompact imgLoadCheck children showFeedTitles authorStyle tog
                  <xml>{timeLink link}{starButton}</xml>
                 }{msgButtons shareId link}
                 </xml>
+              val subj' = markReadNoSelectLink msubject "" link subject
               val subj =
                   if noSubject then <xml/>
-                  else markReadNoSelectLink msubject "" link subject
+                  else if normalLV then
+                    <xml><div class="newlineWrapper">{subj'}</div></xml>
+                  else
+                    subj'
               val anysubj =
                   if noSubject then
                       markReadNoSelectLink msubject "" link mh.ShortText
@@ -1028,15 +1063,15 @@ fun addSubscription t url l =
     else withUser "addSubscription"
     (fn userId =>
         h <- userSubscribe userId url None [];
-        s <- userSubscriptionsAndRenames False t "" "" [] userId;
-        return (case s of (x,siv,s,i,r) => (h,x,i,siv,s,r))) l
+        (x,siv,s,i,r) <- userSubscriptionsAndRenames False t "" "" [] userId;
+        return (h,x,i,siv,s,r)) l
 fun addDiscoverySubscription t url country query l =
     if url = "" then error <xml>Empty feed URL</xml>
     else withUser "addDiscoverySubscription"
     (fn userId =>
         h <- userDiscoverySubscribe userId url country query None [];
-        s <- userSubscriptionsAndRenames False t "" "" [] userId;
-        return (case s of (x,siv,s,i,r) => (h,x,i,siv,s,r))) l
+        (x,siv,s,i,r) <- userSubscriptionsAndRenames False t "" "" [] userId;
+        return (h,x,i,siv,s,r)) l
 fun renameSubscription t url to l =
     if url = "" then error <xml>Empty feed URL</xml>
     else withUser "renameSubscription"
@@ -1048,8 +1083,8 @@ fun renameFolder t from to l =
     else withUser "renameFolder"
     (fn userId =>
         h <- userRenameFolder userId from to;
-        s <- userSubscriptionsAndRenames False t "" "" [] userId;
-        return (case s of (x,siv,s,i,r) => (h,x,siv,s,i,r))) l
+        (x,siv,s,i,r) <- userSubscriptionsAndRenames False t "" "" [] userId;
+        return (h,x,siv,s,i,r)) l
 fun editSubscriptionFolders t url f add l =
     if url = "" || f = "" then error <xml>Empty feed URL or folder</xml>
     else withUser "editSubscriptionFolders"
@@ -1064,6 +1099,14 @@ fun removeSubscriptions t (urls : list string) =
              (fn userId =>
                  userUnsubscribe userId urls;
                  userSubscriptionsAndRenames False t "" "" [] userId)
+fun removeSubscriptions_ t (urls : list string) =
+    withUser "removeSubscriptions"
+             (fn userId =>
+                 userUnsubscribe userId urls;
+                 f <- userGetFiltersAndSmartStreams userId;
+                 s <- userSubscriptionsAndRenames False t "" "" [] userId;
+                 return (f,s)
+             )
 fun getTree mtvm reqs =
     withUser "getTree"
              (fn userId => userGetTree AMNormal userId mtvm reqs)
@@ -1071,6 +1114,61 @@ fun getTreeD url mtvm reqs =
     withUser "getTree"
              (fn userId => userGetTree (AMDiscovery { Url = url })
                                        userId mtvm reqs)
+fun editFilters name f t h siv =
+    withUser name (fn userId =>
+                      f userId;
+                      s <- userSubscriptionsAndRenames False t h siv [] userId;
+                      fs <- userGetFiltersAndSmartStreams userId;
+                      return (fs,s))
+
+fun addFilter query negate feeds =
+    editFilters "addFilter" (fn u => userAddFilter u query negate feeds)
+fun addSmartStream name query feeds =
+    editFilters "addSmartStream" (fn u => userAddSmartStream u name query feeds)
+fun deleteFilter query negate =
+    editFilters "deleteFilter" (fn u => userDeleteFilter u query negate)
+fun deleteSmartStream query =
+    editFilters "deleteSmartStream" (fn u => userDeleteSmartStream u query)
+fun editFilter query0 negate0 query negate feeds =
+    editFilters "editFilter" (fn u => userEditFilter u query0 negate0 query negate feeds)
+fun editSmartStream name query feeds =
+    editFilters "editSmartStream" (fn u => userEditSmartStream u name query feeds)
+
+fun clearSubscriptionsHandler x =
+    withUser "clearSubscriptionsHandler" (fn _ => return ())
+             (BGClearAllSubscriptions :: []);
+    redirectToMain
+
+val clearSubscriptions : transaction page =
+    infoPage "Clear subscriptions" <xml>
+      <p>Are you really sure you want unsubscribe from all your subscriptions?</p>
+      <p>This operation can NOT be undone!</p>
+      <form>
+        <submit value={"Clear subscriptions"}
+                action={clearSubscriptionsHandler}/>
+      </form>
+      <br/>
+    </xml>
+
+fun deleteAccountHandler f =
+    withUser "deleteAccuntHandler" (userDeleteAccount True) [];
+    x <- getUser ""; (* чтобы cookie удалить *)
+    infoPage "Account deleted" <xml>
+      <p>Your account was deleted. You can come back any time and start a new free trial.</p>
+      <br/>
+    </xml>
+
+val deleteAccount : transaction page =
+    c <- fresh;
+    infoPage "Delete account" <xml>
+      <p>Are you really sure you want to delete your subscriptions, starred and tagged items, read states, payments, settings, public feeds and mobile login?</p>
+      <p>This operation can NOT be undone!</p>
+      <form>
+(*         <label for={c}<checkbox{#ImSure} id={c}/>I'm really sure</label> *)
+        <submit value={"Delete account"} action={deleteAccountHandler}/>
+      </form>
+      <br/>
+    </xml>
 
 fun toggleFolder backgroundRpc si =
     vm <- get si.ViewMode;
@@ -1090,9 +1188,16 @@ fun toggleFolder backgroundRpc si =
 fun renameDialog ps popup what name act =
     tid <- fresh;
     text <- source name;
-    let val ren = t <- get text; when (t <> "") (act t; ps.Hide) in
+    let val ren =
+            t <- get text;
+            if t = name then
+                ps.Hide
+            else
+                c <- Js.checkName what t;
+                withSome (fn t => act t; ps.Hide) c
+    in
     d <- ps.New Css.renameDialog <xml>
-      Rename{[what]} "{[name]}" to<br/>
+      Rename {[what]} "{[name]}" to<br/>
         <ctextbox id={tid}
           class="renameInput" source={text} size={30}
           onkeydown={fn k => if k.KeyCode = 13 then ren else
@@ -1103,9 +1208,16 @@ fun renameDialog ps popup what name act =
     Js.select tid;
     Js.focus tid
     end
+fun setDefaultFeed setFeed =
+    Js.setLocationHash "folder/";
+    dsi <- defaultSubItem;
+    setFeed dsi
 fun unsubscribeLiI ps unsubscribe setFeed title act (sis : list subItem) : xbody =
     ps.LiI Css.btnEmpty title (
     c <- (case sis of
+          | { SIType = SITSmartStream s, ... } :: [] =>
+            confirm ("Are you sure you want to delete smart stream \""
+              ^ s.StreamName ^ "\"?")
           | si :: [] =>
             confirm ("Are you sure you want to unsubscribe from \""
               ^ si.Title ^ "\"?")
@@ -1113,9 +1225,7 @@ fun unsubscribeLiI ps unsubscribe setFeed title act (sis : list subItem) : xbody
               ^ show (List.length sis) ^ " subscriptions and delete the folder? This action can not be undone."));
     when c ((* Js.trackEvent "UI" "Unsubscribe" uid; *)
             act;
-            Js.setLocationHash "folder/";
-            dsi <- defaultSubItem;
-            setFeed dsi;
+            setDefaultFeed setFeed;
             unsubscribe sis))
 
 val tupleEq : eq (string * string) =
@@ -1128,6 +1238,7 @@ val eqPFT : eq publicFeedType =
       | (PFTAllTags, PFTAllTags) => True
       | (PFTTag { TagName = t1 }, PFTTag { TagName = t2 }) => t1 = t2
       | (PFTFolder { Folder = f1 }, PFTFolder { Folder = f2 }) => f1 = f2
+      | (PFTSmartStream { StreamName = s1 }, PFTSmartStream { StreamName = s2 }) => s1 = s2
       | _ => False)
 
 fun enablePublicFeed t = withUser "enablePublicFeed" (userEnablePublicFeed t)
@@ -1167,6 +1278,7 @@ fun publicFeedDialog typ (ps : popups) (popup : source xbody) publicFeeds backgr
           | PFTAllTags => "Tags"
           | PFTTag { TagName = t } => "tag \"" ^ t ^ "\""
           | PFTFolder { Folder = f } => "folder \"" ^ f ^ "\""
+          | PFTSmartStream { StreamName = s } => "smart stream \"" ^ s ^ "\""
       ]}:</p>
       {dyn_ (pf <- signal publicFeeds;
              return (case List.assoc typ pf of
@@ -1207,6 +1319,15 @@ fun feedAddressDialog f ps popup  =
     ps.Toggle popup d
     end
 
+ffi set_setDiscoveryFeed jsFunc "set_setDiscoveryFeed" : (string -> string -> option string -> option string -> option msgTreeViewMode -> transaction {}) -> transaction {}
+con dragAndDropInfo =
+    { What          : subItemType
+    , InsertAfter   : option subItemType
+    , SourceFolder  : option string
+    , TargetFolder  : option string
+    }
+ffi registerOnDragAndDrop jsFunc "registerOnDragAndDrop" : (dragAndDropInfo -> transaction {}) -> transaction {}
+
 val discoverySubItemIndex = -100
 fun discoverySubItemUrl currentFeed =
     cf <- signal currentFeed;
@@ -1216,7 +1337,7 @@ fun discoverySubItemUrl currentFeed =
       | _ =>
         None)
 
-fun subscriptionsWidget currentFeed updateCurrentFeed (onUpdateSubInfo : subItem -> subItem -> transaction {}) setFeed backgroundRpc ps popup onlyUpdatedSubscriptions exactUnreadCounts subscribeDiscoveryFeed clearMtvm refresh =
+fun subscriptionsWidget currentFeed updateCurrentFeed (onUpdateSubInfo : subItem -> subItem -> transaction {}) setFeed backgroundRpc ps popup onlyUpdatedSubscriptions exactUnreadCounts subscribeDiscoveryFeed clearMtvm refresh editStreamDialog =
     Js.setOnSetFeed (fn i => setFeed (getSubItem i));
     Js.setOnToggleFolder (fn i => toggleFolder backgroundRpc (getSubItem i));
     selected <- source (None : option subItem);
@@ -1233,7 +1354,18 @@ fun subscriptionsWidget currentFeed updateCurrentFeed (onUpdateSubInfo : subItem
     lastChangedReadCounters <- source [];
     bgRefresh <- source False;
     publicFeeds <- source [];
-    let val queueUpdate =
+    rpcRunning <- source False;
+    filters <- source ([] : list filterQuery);
+    smartStreams <- source ([] : list (string * list filterQuery));
+    let val updateFiltersAndSmartStreams =
+            x <- tryWithBGRpcList backgroundRpc
+                (fn l => tryRpc (getFiltersAndSmartStreams l));
+            case x of
+              | Some (f,ss) =>
+                set filters f;
+                set smartStreams ss
+              | None => return ()
+        val queueUpdate =
             q <- get queueUpdateSrc; q
             (* если в updateSubscriptions' делать
                updateSetTimeout (queueSubscriptions updateSubscriptions'),
@@ -1271,7 +1403,7 @@ fun subscriptionsWidget currentFeed updateCurrentFeed (onUpdateSubInfo : subItem
                  set html x);
             when (not tagsOnly || Option.isSome x)
                  (set subItemsVersion siv);
-            when (Js.setSubItems (Option.isNone x, sirs)) (
+            when (setSubItems (Option.isNone x) sirs) (
             crc <- Js.getChangedReadCounters;
             set lastChangedReadCounters crc;
             (case subUrlRenames of
@@ -1325,8 +1457,13 @@ fun subscriptionsWidget currentFeed updateCurrentFeed (onUpdateSubInfo : subItem
                Read устанавливается при первоначальной загрузке и обновляется
                только в UI, а Total может обновляться с сервера.
              *)
+            r <- get rpcRunning;
+            if tagsOnly && r then queueUpdate
+            (* дабы не пускать слишком много запросов,
+             особенно, если 's' нажать и держать *) else
+            set rpcRunning True;
             uc <- get updateCount;
-            s <- withBGRpcList backgroundRpc
+            s <- tryWithBGRpcList backgroundRpc
                 (fn l =>
                     t <- get lastRenTime;
                     h <- get titleHash;
@@ -1338,6 +1475,7 @@ fun subscriptionsWidget currentFeed updateCurrentFeed (onUpdateSubInfo : subItem
                     tryRpc (subscriptions tagsOnly t h
                                           (if bg then "bg" ^ siv else siv)
                                           crc l));
+            set rpcRunning False;
             case s of
               | Some s =>
                 set rpcErrorsCount 0;
@@ -1415,7 +1553,7 @@ fun subscriptionsWidget currentFeed updateCurrentFeed (onUpdateSubInfo : subItem
                           rpc (renameFolder t folder to l))
                       (fn (h, x, siv, s, i, rens) =>
                           h0 <- Js.getLocationHash;
-                          when (h0 = "folder/" ^ folder)
+                          when (h0 = "folder/" ^ folder || h0 = "smartstream/" ^ folder || h0 = "tag/" ^ folder)
                                (Js.setLocationHash h);
                           updateSubscriptions' False (x,siv, s,i,rens))
         fun retryScanning (si : subItem) =
@@ -1435,9 +1573,17 @@ fun subscriptionsWidget currentFeed updateCurrentFeed (onUpdateSubInfo : subItem
             queueRpcB backgroundRpc
                       (fn l =>
                           t <- get lastRenTime;
-                          rpc (removeSubscriptions t
+                          if Js.alwaysFalse () then
+                              s <- rpc (removeSubscriptions t
+                                    (List.mapPartial subItemUrl sis) l);
+                              f <- rpc (getFiltersAndSmartStreams []);
+                              return (f,s)
+                          else
+                              rpc (removeSubscriptions_ t
                                    (List.mapPartial subItemUrl sis) l))
-                      (fn r =>
+                      (fn ((fs,ss),r) =>
+                          set filters fs;
+                          set smartStreams ss;
                           List.app clearMtvm (List.mapPartial subItemUrl sis);
                           updateSubscriptions' False r)
         fun onDragAndDrop dd =
@@ -1452,6 +1598,23 @@ fun subscriptionsWidget currentFeed updateCurrentFeed (onUpdateSubInfo : subItem
         fun publicFeedLiI typ =
             ps.LiI Css.btnEmpty "Public feed"
                    (publicFeedDialog typ ps popup publicFeeds backgroundRpc)
+        fun filterAction f =
+            queueRpcB backgroundRpc
+                      (fn l =>
+                          t <- get lastRenTime;
+                          h <- get titleHash;
+                          siv <- get subItemsVersion;
+(*                     crc <- get lastChangedReadCounters; *)
+(*                     bg <- get bgRefresh; *)
+                          set bgRefresh False;
+                          Js.clearChangedReadCountersSet;
+                          f t h siv l)
+                      (fn ((fs,ss),upd) =>
+                          set filters fs;
+                          set smartStreams ss;
+                          updateSubscriptions' False upd)
+        fun deleteSS name =
+            filterAction (fn t h siv l => rpc (deleteSmartStream name t h siv l))
    in
     allTagsMenu <- ps.NewMenu Css.foldersMenu <xml>
        {ps.LiI Css.btnEmpty "Sort tags"
@@ -1498,6 +1661,10 @@ fun subscriptionsWidget currentFeed updateCurrentFeed (onUpdateSubInfo : subItem
 (*                                         Js.trackEvent "UI" "ExportOPML" uid; *)
                                         ps.Hide; redirect (bless "/opml")}>
             <li>{buttonSymbol Css.btnEmpty}Export OPML</li></a>
+          <a link={clearSubscriptions}>
+            <li>{buttonSymbol Css.btnEmpty}Clear subscriptions</li></a>
+          <a link={deleteAccount}>
+            <li>{buttonSymbol Css.btnEmpty}Delete account</li></a>
         </xml>
         end} />
     </xml>;
@@ -1547,16 +1714,32 @@ fun subscriptionsWidget currentFeed updateCurrentFeed (onUpdateSubInfo : subItem
 (*                 {ps.LiI Css.btnEmpty "Unsubscribe" clearSubscriptions : xbody}</xml> *)
               | SITStarred => pfMenuContents PFTStarred
               | SITAllTags => pfMenuContents PFTAllTags
-              | SITTag t => pfMenuContents (PFTTag t)
-              (* TODO: переименование тегов *)
+              | SITTag t => Some <xml>
+                {ps.LiI Css.btnEmpty "Rename tag"
+                        (renameDialog ps popup "tag" t.TagName (renameF t.TagName)) : xbody}
+                {publicFeedLiI (PFTTag t)}
+                </xml>
+              | SITSmartStream { StreamName = s, ... } =>
+                Some <xml>
+                {ps.LiI Css.btnEmpty "Edit stream"
+                       (editStreamDialog s) : xbody}
+                {ps.LiI Css.btnEmpty "Rename stream"
+                       (renameDialog ps popup "smart stream" s (renameF s)) : xbody}
+                {unsubscribeLiI ps (fn _ => deleteSS s)
+                                setFeed "Delete stream"
+                             (Js.forceImpure (hideSubItems (si :: [])))
+                             (si :: []) : xbody}
+                <hr/>
+                {publicFeedLiI (PFTSmartStream { StreamName = s })}
+                </xml>
               | SITSearch _ => None
               | SITFolder { Folder = f } =>
                 if f = "" then None else Some <xml>
                 {ps.LiI Css.btnEmpty "Rename folder"
-                       (renameDialog ps popup " folder" f (renameF f)) : xbody}
+                       (renameDialog ps popup "folder" f (renameF f)) : xbody}
                 {unsubscribeLiI ps unsubscribe setFeed "Delete folder"
                              (Js.forceImpure (hideSubItems (si :: [])))
-                             (Js.getSubItems si.Index) : xbody}
+                             (getSubItems si.Index) : xbody}
                 {displayIfC context
                  (ps.LiI Css.btnEmpty "Sort folder"
                   (sort (BGSortFolder { Folder = f })
@@ -1607,7 +1790,6 @@ fun subscriptionsWidget currentFeed updateCurrentFeed (onUpdateSubInfo : subItem
             case (getSubItem id).SIType of
               | SITAll => showMenu subMenu
               | SITAllTags => showMenu allTagsMenu
-              | SITTag t => showPublicFeedMenu (PFTTag t)
               | SITStarred => showPublicFeedMenu PFTStarred
               | _ =>
                 (case subItemMenuContents True (getSubItem id) of
@@ -1617,7 +1799,7 @@ fun subscriptionsWidget currentFeed updateCurrentFeed (onUpdateSubInfo : subItem
                    | None => return None)
     in
         Js.setOnSubscriptionRightClick onSubscriptionRightClick;
-        Js.registerOnDragAndDrop onDragAndDrop;
+        registerOnDragAndDrop onDragAndDrop;
         set queueUpdateSrc queueUpdate_;
         Js.registerUpdateSubscriptions
             (fn bg =>
@@ -1639,6 +1821,20 @@ fun subscriptionsWidget currentFeed updateCurrentFeed (onUpdateSubInfo : subItem
             , TagsImported = tagsImported
             , SubMenu = subMenu
             , SubItemMenuContents = subItemMenuContents
+            , Filters = filters
+            , SmartStreams = smartStreams
+            , DeleteFilter =
+               fn query negate => filterAction (fn t h siv l => rpc (deleteFilter query negate t h siv l))
+            , DeleteSmartStream = deleteSS
+            , AddSmartStream =
+               fn name query feeds => filterAction (fn t h siv l => rpc (addSmartStream name query feeds t h siv l))
+            , EditSmartStream =
+               fn name query feeds => filterAction (fn t h siv l => rpc (editSmartStream name query feeds t h siv l))
+            , AddFilter =
+               fn query negate feeds => filterAction (fn t h siv l => rpc (addFilter query negate feeds t h siv l))
+            , EditFilter =
+               fn q0 n0 query negate feeds => filterAction (fn t h siv l => rpc (editFilter q0 n0 query negate feeds t h siv l))
+            , UpdateFiltersAndSmartStreams = updateFiltersAndSmartStreams
             }
     end end end
 
@@ -1726,11 +1922,14 @@ fun mkUIForest (MsgForest f) =
                 , NextReqId = nextReqId
            })
 
-fun feedKeyboardActionCF currentFeed currentSearchFeed act =
+fun getCurrentFeed currentFeed currentSearchFeed =
     cf <- get currentFeed;
-    csi <- (case cf.SIType of
-              | SITSearch _ => get currentSearchFeed
-              | _ => return cf);
+    case cf.SIType of
+      | SITSearch _ => get currentSearchFeed
+      | _ => return cf
+
+fun feedKeyboardActionCF currentFeed currentSearchFeed act =
+    csi <- getCurrentFeed currentFeed currentSearchFeed;
     Js.feedKeyboardAction csi.Index act
 
 fun msgsWidget msgDivId po popup sharePopup backgroundRpc currentFeed currentSearchFeed getMsgTreeViewMode updateTags loading =
@@ -1871,7 +2070,6 @@ fun msgsWidget msgDivId po popup sharePopup backgroundRpc currentFeed currentSea
         fun processRead mark act (UIM uim) =
             c <- mark (UIM uim);
             item <- get currentFeed;
-            (* TODO: ничего не делать в поиске? *)
             let val (up, rc, uc) = c
                 val mid = uim.Mi.MsgId
                 val bfu = mid.MsgKey.BlogFeedUrl
@@ -1886,21 +2084,33 @@ fun msgsWidget msgDivId po popup sharePopup backgroundRpc currentFeed currentSea
                         else
                             return (getSubItemByUrl bfu)
                       | _ => return (getSubItemByUrl bfu)
+                fun updCounters si =
+                    case mid.CommentId of
+                      | None =>
+                        updateCounters si (-up) (up-uc)
+                      | _ =>
+                        updateCounters si 0 (-uc)
             in
             List.app (fn (UIForest f) =>
                          modify f.ResultsCount (fn c => c-rc);
                          modify f.UnreadCount (fn c => c-uc)
                      ) uim.Parents;
             Js.markChangedReadCounters bfu;
+            (case (isSearchResultMv uim.Mi.MsgView, item.SIType) of
+               | (True, SITSearch _) =>
+                 updCounters item
+                 (* для поиска создается временный subItem,
+                    обновляем его счетчики отдельно *)
+               | _ => return ());
+            List.app
+                (fn t => withSome updCounters (getSmartStreamByName t))
+                uim.Mi.Tags;
             si <- tryCur item;
             case si : option subItem of
                 None => return ()
               | Some si =>
-                (case mid.CommentId of
-                  | None =>
-                     updateCounters si (-up) (up-uc)
-                   | _ =>
-                     updateCounters si 0 (-uc));
+                when (not (isFilteredOutMv uim.Mi.MsgView))
+                     (updCounters si);
                 c <- get si.Counters;
                 Js.forceImpure (backgroundRpc.AddAction
                                     (act mid c.TotalComments uc))
@@ -1958,10 +2168,10 @@ fun msgsWidget msgDivId po popup sharePopup backgroundRpc currentFeed currentSea
             text <- source (intercalate ", " ts);
             tid <- fresh;
             let val edit =
-                    tl <- Js.getTagsList tid;
-                    when (tl.1)
+                    (ok,tags) <- Js.getTagsList tid;
+                    when ok
                          (po.Hide;
-                          replaceITTags tl.2 (UIM uim))
+                          replaceITTags tags (UIM uim))
             in
             d <- po.NewMenu Css.tagsDialog <xml>
               Enter tags separated by comma<br/>
@@ -1986,7 +2196,7 @@ fun msgsWidget msgDivId po popup sharePopup backgroundRpc currentFeed currentSea
             text <- source "";
             let val new =
                     t <- get text;
-                    tn <- Js.checkTagName t;
+                    tn <- Js.checkName "tag" t;
                     case tn of
                       | Some t =>
                         ts <- get uim.Tags;
@@ -2024,15 +2234,14 @@ fun msgsWidget msgDivId po popup sharePopup backgroundRpc currentFeed currentSea
             end
         fun removeAppendReqById rqacc id =
             let fun go acc ars = case ars of
-                        [] => (rqacc, Js.reverse acc)
+                        [] => (rqacc, List.rev acc)
                       | (AppendReq ar) :: ars =>
                         if Js.eq_id ar.Id id then
                             (AppendReq ar :: rqacc, revAppend acc ars)
                         else go (AppendReq ar :: acc) ars
             in
-                ars <- get appendRequests;
-                case go [] ars of (r, ars') =>
-                set appendRequests ars';
+                (r, ars) <- Monad.mp (go []) (get appendRequests);
+                set appendRequests ars;
                 return r
             end
         (* удаляет AppendReq-и из всех нижних поддеревьев *)
@@ -2079,7 +2288,7 @@ fun msgsWidget msgDivId po popup sharePopup backgroundRpc currentFeed currentSea
                          markRead (UIM uim))
             else
                 return ()
-        val mw : mw = Js.mw ()
+        val mw = getMW ()
         fun toggleCollapsed a b =
             tc <- get toggleCollapsed_;
             tc a b
@@ -2180,8 +2389,7 @@ fun msgsWidget msgDivId po popup sharePopup backgroundRpc currentFeed currentSea
                       | MVShort s => s.Header.Author
             in
                 if author = "" then return Css.authorUnknown else
-                a <- get authors;
-                case a of (s, rs, as) =>
+                (s, rs, as) <- get authors;
                 (case lookupS author as of
                   | Some s => return s
                   | None =>
@@ -2190,7 +2398,7 @@ fun msgsWidget msgDivId po popup sharePopup backgroundRpc currentFeed currentSea
                               | ([], []) => (Css.authorUnknown, [], [])
                               (* ??? *)
                               | (st :: s, rs) => (st, s, st :: rs)
-                              | ([], rs) => getS (Js.reverse rs) []
+                              | ([], rs) => getS (List.rev rs) []
                         val (st, s, rs) = getS s rs
                     in
                         set authors (s, rs, (author, st) :: as);
@@ -2249,7 +2457,8 @@ fun msgsWidget msgDivId po popup sharePopup backgroundRpc currentFeed currentSea
         val onScroll =
             st <- Js.scrollTop msgDivId;
             lsp <- get lastScrollPos;
-            if st = lsp then return () else
+            fs <- Js.isFullScreen;
+            if st = lsp || fs then return () else
             (* дабы не выделяло первое сообщение при выборе фида *)
             set lastScrollPos st;
             h <- Js.clientHeight msgDivId;
@@ -2269,9 +2478,11 @@ fun msgsWidget msgDivId po popup sharePopup backgroundRpc currentFeed currentSea
                       | SITStarred => return True
                       | SITAllTags => return True
                       | SITTag _ => return True
+                      | SITSmartStream _ => return True
                       | SITSearch _ =>
                         sf <- get currentSearchFeed;
                         showFeedTitlesT sf
+                fun notSmartStream t = Option.isNone (getSmartStreamByName t)
             in
             cf <- get currentFeed;
             showFeedTitles <- showFeedTitlesT cf;
@@ -2280,7 +2491,7 @@ fun msgsWidget msgDivId po popup sharePopup backgroundRpc currentFeed currentSea
             x <- List.mapXM (fn (mi, subForest) =>
                            read <- source mi.Read;
                            starred <- source mi.Starred;
-                           tags <- source mi.Tags;
+                           tags <- source (List.filter notSmartStream mi.Tags);
                            keepUnread <- source False;
                            selected <- source False;
                            collapsed <- source Expanded;
@@ -2297,7 +2508,7 @@ fun msgsWidget msgDivId po popup sharePopup backgroundRpc currentFeed currentSea
                            atps <- source ATPSNone;
                            st <- source True;
                            id <- fresh;
-                           when (not (Js.setuim id
+                           when (not (setuim id
                                   (UIM
                                    { Mi = mi
                                    , Starred = starred
@@ -2322,7 +2533,7 @@ fun msgsWidget msgDivId po popup sharePopup backgroundRpc currentFeed currentSea
                                    , Prev = prev
                                    , Next = next
                                    }))) (alert "setuim?");
-                           let val uim : uim = Js.uim id
+                           let val uim : uim = getuim id
                            in
                                (case prev of
                                   | (UIM p) :: _ =>
@@ -2376,6 +2587,9 @@ fun msgsWidget msgDivId po popup sharePopup backgroundRpc currentFeed currentSea
                 in
                     (case (rq, p.ParentUIM) of
                        | ( TRComments { OnExpand = True, ... }
+                         , Some (UIM uim) ) =>
+                         set uim.Collapsed (Collapsed (areq :: []))
+                       | ( TRCommentsS { OnExpand = True, ... }
                          , Some (UIM uim) ) =>
                          set uim.Collapsed (Collapsed (areq :: []))
                        | _ =>
@@ -2512,19 +2726,20 @@ fun msgsWidget msgDivId po popup sharePopup backgroundRpc currentFeed currentSea
                                            after;
                                            checkAppend 1 False
                                                        (fn _ => return ()))
+                    val expand =
+                        set loadingComments True;
+                        set uim.LoadingChildren True;
+                        checkAppend 1 False
+                            (fn _ =>
+                                set loadingComments False;
+                                set uim.LoadingChildren False;
+                                rollOut)
                 in
                 case (ars, ch) of
-                  | ( (AppendReq
-                       { TreeReq = TRComments { OnExpand = True, ... }
-                       , InsertPoint = ip, ... }) :: []
-                    , [] ) =>
-                    set loadingComments True;
-                    set uim.LoadingChildren True;
-                    checkAppend 1 False
-                        (fn _ =>
-                            set loadingComments False;
-                            set uim.LoadingChildren False;
-                            rollOut)
+                  | ((AppendReq { TreeReq = TRComments { OnExpand = True, ... }
+                                , ... }) :: [], []) => expand
+                  | ((AppendReq { TreeReq = TRCommentsS { OnExpand = True, ... }
+                                , ... }) :: [], []) => expand
                   | _ =>
                     rollOut
                 end))
@@ -2750,7 +2965,7 @@ fun msgsWidget msgDivId po popup sharePopup backgroundRpc currentFeed currentSea
                            )
             end
     in
-        when (not (Js.setmw
+        when (not (setmw
             { FullUIM = fullUIM
             , ListViewMode = listViewMode
             , MsgDivId = msgDivId
@@ -2792,6 +3007,7 @@ fun msgsWidget msgDivId po popup sharePopup backgroundRpc currentFeed currentSea
         , CheckAppend = fn after => checkAppend 3 True after
         , AfterAppendAction = afterAppendAction
         , SetForest = fn mf =>
+            Js.clearPrevScrollTop;
             set lastPostsViewMode PVMFull;
             set lastScrollPos 0;
             set scrollAfter None;
@@ -2812,8 +3028,8 @@ fun msgsWidget msgDivId po popup sharePopup backgroundRpc currentFeed currentSea
             set html x;
             checkAppend 3 False (fn _ => return ())
         , IsForestEmpty =
-            uif <- signal uiForest;
-            fc <- signal (case uif of UIForest f => f.FirstChild);
+            UIForest f <- signal uiForest;
+            fc <- signal f.FirstChild;
             return (Option.isNone fc)
         , SelectedUIM = selectedUIM
         , ToggleRead = whenNotScrolling (withSelected mw.ToggleRead)
@@ -3131,18 +3347,46 @@ fun addUrlAndRedirect user url =
     h <- userSubscribe user url None [];
     redirect (bless ("/#" ^ h))
 
+fun setNewSessionCookie uid params =
+    s <- newSession uid params;
+    sid <- sessionCookie;
+    setCookie sid {Value = s.Key, Expires = Some s.Expire,
+                   Secure = False}
+
+fun login_ f =
+    u <- getUserByMobileLogin f.Login f.Password;
+    setNewSessionCookie u [];
+    redirectToMain
+
+fun login () =
+    i <- fresh;
+    infoPage "Login" <xml>
+      <p>Sign in with your login &amp; password from the 'Mobile login' setting.</p>
+      <form>
+        <p>Login<br/>
+        <textbox{#Login} class="mlLogin" id={i} /><br/>
+        </p>
+        <p>Password<br/>
+        <password{#Password} class="mlPassword" /><br/>
+        </p>
+        <submit value={"Sign in"} action={login_}/>
+      </form>
+      <br/>
+      <active code={Js.select i; Js.focus i; return <xml/>} />
+    </xml>
+
 fun callback lt addUrl (qs : option queryString) : transaction page =
     case qs of
         None => error <xml>Empty query string for sign in callback</xml>
       | Some qs =>
         h <- getHost;
-        u <- loginCallback lt h (effectfulUrl (callback lt addUrl)) (show qs);
+        (uid,who) <- loginCallback lt h (effectfulUrl (callback lt addUrl)) (show qs);
 (*         debug ("User authenticated " ^ u); *)
         httpRef <- getCookie referrer;
         withSome (fn _ => clearCookie referrer) httpRef;
         params <-
             Monad.mp (List.append
-                          (("Who", Option.get "-" u.2) ::
+                          (("Who", Option.get "-" who) ::
                            ("Referrer", Option.get "-" httpRef) :: []))
                      (List.mapM
                           (fn n =>
@@ -3150,13 +3394,10 @@ fun callback lt addUrl (qs : option queryString) : transaction page =
                               return (n, Option.get "-" p))
                           ("Country" :: "Region" :: "City"
                                      :: "IP" :: "User-Agent" :: []));
-        s <- newSession u.1 params;
-        sid <- sessionCookie;
-        setCookie sid {Value = s.Key, Expires = Some s.Expire,
-                       Secure = False};
+        setNewSessionCookie uid params;
         setCookie freshSignIn {Value = (), Expires = None, Secure = False};
         let fun add url =
-                addUrlAndRedirect (case u.1 of EMail e => e.Id | Url u => u.Id)
+                addUrlAndRedirect (case uid of EMail e => e.Id | Url u => u.Id)
                                   url
         in
             qs <- parseQueryStringUtf8Only (show qs);
@@ -3197,42 +3438,6 @@ fun sign_out _ =
        | None => return ());
     clearCookie sid;
     redirectToMain
-
-fun clearSubscriptionsHandler x =
-    withUser "clearSubscriptionsHandler" (fn _ => return ())
-             (BGClearAllSubscriptions :: []);
-    redirectToMain
-
-val clearSubscriptions : transaction page =
-    infoPage "Clear subscriptions" <xml>
-      <p>Are you really sure you want to clear all your subscriptions?</p>
-      <p>This operation can NOT be undone!</p>
-      <form>
-        <submit value={"Clear subscriptions"}
-                action={clearSubscriptionsHandler}/>
-      </form>
-      <br/>
-    </xml>
-
-fun deleteAccountHandler f =
-    withUser "deleteAccuntHandler" (userDeleteAccount True) [];
-    x <- getUser ""; (* чтобы cookie удалить *)
-    infoPage "Account deleted" <xml>
-      <p>Your account was deleted. You can come back any time and start a new free trial.</p>
-      <br/>
-    </xml>
-
-val deleteAccount : transaction page =
-    c <- fresh;
-    infoPage "Delete account" <xml>
-      <p>Are you really sure you want to delete your subscriptions, starred and tagged items, read states, payments, settings, public feeds and mobile login?</p>
-      <p>This operation can NOT be undone!</p>
-      <form>
-(*         <label for={c}<checkbox{#ImSure} id={c}/>I'm really sure</label> *)
-        <submit value={"Delete account"} action={deleteAccountHandler}/>
-      </form>
-      <br/>
-    </xml>
 
 val backToMain =
     <xml><a href={bless "/"}>Home</a><p/></xml>
@@ -3284,7 +3489,8 @@ fun qa q a = qaX q (txt a)
 
 fun feeddler f = f (txt "Feeddler") "http://www.chebinliu.com/projects/iphone/feeddler-rss-reader/" (* "https://itunes.apple.com/app/feeddler-rss-reader-pro/id365710282" *)
 fun mrReader f = f  <xml>Mr.&nbsp;Reader</xml> "http://www.curioustimes.de/mrreader/" (* "https://itunes.apple.com/app/mr.-reader/id412874834" *)
-fun justReader f = f (txt "JustReader") "http://justreader.net"(* "https://play.google.com/store/apps/details?id=ru.enacu.myreader" *)
+fun unreadApp f = f  <xml>Unread</xml> "http://jaredsinclair.com/unread/" (* "https://itunes.apple.com/app/mr.-reader/id412874834" *)
+fun justReader f = f (txt "JustReader") (* "http://justreader.net" -- сайт сдох *)"https://play.google.com/store/apps/details?id=ru.enacu.myreader"
 fun newsPlus f = f (txt "News+") "http://newsplus.co"
 fun viennaRss f = f <xml>Vienna&nbsp;RSS</xml> "http://www.vienna-rss.org"
 fun slowFeeds f = f <xml>Slow&nbsp;Feeds</xml> "http://zoziapps.ch/slowfeeds/"
@@ -3299,7 +3505,7 @@ val subscribeBookmarklet = "javascript:{void(window.open('https://bazqux.com/add
 fun faqText (link : xbody -> string -> xbody) =
     <xml>
       {qaX "Are there any mobile apps?"
-          <xml>Try {mrReader link} on iPad, {feeddler link} or {slowFeeds link} on iPhone/iPad, {newsPlus link} (gReader) and {justReader link} on Android. BazQux Reader can be used as Fever server in {reeder link}, {press link} and {readKit link}.<br/>Tell developers of your favorite mobile app to support BazQux Reader! Its {link (txt "API") apiUrl} is a copy of Google Reader API so it's very simple to integrate it.</xml>}
+          <xml>Try {mrReader link} on iPad, {feeddler link} or {slowFeeds link} on iPhone/iPad, {newsPlus link} (gReader) and {justReader link} on Android. BazQux Reader can be used as Fever server in {reeder link}, {unreadApp link}, {press link} and {readKit link}.<br/>Tell developers of your favorite mobile app to support BazQux Reader! Its {link (txt "API") apiUrl} is a copy of Google Reader API so it's very simple to integrate it.</xml>}
 
       {qaX "How to import my feeds?"
            <xml>Read our knowledge base {link <xml>article</xml> "http://bazqux.uservoice.com/knowledgebase/articles/282171"}.</xml>}
@@ -3430,20 +3636,21 @@ fun helpText addSub =
       {kb "- or =" "change article font size (saved per browser)"}
       {kb "_ or +" "change reader font size (saved per browser)"}
       {kb "f" "fullscreen"}
-      {kb "1" "expanded view"}
-      {kb "2" "expanded view without comments"}
+      {kb "1" "expanded view with expanded comments"}
+      {kb "2" "expanded view"}
       {kb "3" "magazine view"}
       {kb "4" "mosaic view"}
       {kb "5" "list view"}
       {kb "6" "toggle compact/normal list view mode"}
-      {kb "0" "default subscription view modes in starred and tagged items"}
+      {kb "0" "mixed view mode (in starred/tagged items and smart streams)"}
+      {kb "w" "edit filters and smart streams"}
       {kb "h" "help"}
       <p/>
       <p>Mouse hints:</p>
       <b>Right click</b> on subscription to show the context menu<br/>
       <b>Shift+Click</b> on header in list view to mark as read/unread<br/>
       <p/>
-      <p>Filter hints:</p>
+      <p>Search hints:</p>
       <b>img:true</b> to show only messages with images<br/>
       <b>author:john</b> to filter specific author<br/>
       <b>subject:bazqux</b> for messages with subjects containing "bazqux"<br/>
@@ -3462,6 +3669,10 @@ fun helpText addSub =
       {l "Facebook community" "https://www.facebook.com/BazQuxReader"}<br/>
       {l "UserVoice" "http://bazqux.uservoice.com"} for feature requests.<br/>
       {l "hello@bazqux.com" "mailto:hello@bazqux.com"} for any questions.<br/>
+      <br/>
+      {l "Chrome extension" "https://chrome.google.com/webstore/detail/bazqux-notifier/fgoenlfbfnofepaodjepdhkoepoogedb"} (displays number of unread items)<br/>
+      {l "Opera extension" "https://addons.opera.com/extensions/details/bazqux-notifier"} (displays number of unread items)<br/>
+      {l "Chrome app" "https://chrome.google.com/webstore/detail/bazqux-reader-your-rss-fe/ojgfbobcblfebofgadefjfggnlclddko"} (adds a button to your apps page)<br/>
       <br/>
       {l "Subscribe" subscribeBookmarklet} bookmarklet (drag it to your bookmarks bar).<br/>
       <br/>
@@ -3544,13 +3755,14 @@ fun signInUI addUrl =
            Please sign in to add subscription.
            </div></xml>
       }
-      <p class="motto">RSS reader that shows comments to posts</p>
+      <p class="motto">Fast, clean and unique feed reader</p>
 
       <img class="screenShot" width={510} height={288}
            src={bless "/images/screenshot_v4.png"} />
 
       <div class="signIn"><div class="signInInner">
         <p class="startToday">Start your free trial today!</p>
+(*         <p class="startToday">Start my free 30 day trial</p> *)
         <a class="signInWith facebook" link={sign_in Facebook addUrl}>
         </a><a class="signInWith twitter" link={sign_in Twitter addUrl}>
         </a><a class="signInWith google" link={sign_in Google addUrl}>
@@ -3566,42 +3778,57 @@ fun signInUI addUrl =
 
       <div class="landingText">
         <div class="column1">
-          <h3 class="first">Read all discussions in one place</h3>
-          <p>BazQux Reader shows blog posts and comments
-          in one seamless stream, tracks what was read
-          and displays only new discussions next time.</p>
-(*  and marks read discussions. *)
-          <p>Comments from Reddit, Livejournal, blogs
-          with comment feeds, Disqus and Facebook widgets are supported.</p>
+          <h3 class="first">Clean user interface</h3>
+          <p>We designed the reader to make sure that nothing disturbs you from reading. With many features it stays clean and doesn't&nbsp;get in the way.</p>
+
+          <h3>Fast</h3>
+          BazQux Reader is one of the fastest readers on market. It gives you a fast interface, fast feed updates and fast sync with apps.
+(*           Thanks to our powerful servers, BazQux Reader is fast *)
+(*           both in terms of feed updates and user interface. *)
+
+(*           <h3 class="first">Read all discussions in one place</h3> *)
+(*           <p>BazQux Reader shows blog posts and comments *)
+(*           in one seamless stream, tracks what was read *)
+(*           and displays only new discussions next time.</p> *)
+(* (\*  and marks read discussions. *\) *)
+(*           <p>Comments from Reddit, Livejournal, blogs *)
+(*           with comment feeds, Disqus and Facebook widgets are supported.</p> *)
 
 (*           <h3>Filter</h3> *)
 (*           Apply filter and read only things interesting to you. *)
           <h3>Mobile and desktop apps</h3>
-          <p>Thanks to our Google Reader compatible API, BazQux Reader is supported by {mrReader hrefLink}, {feeddler hrefLink}, {slowFeeds hrefLink}, {justReader hrefLink}, {newsPlus hrefLink} and {viennaRss hrefLink}.</p>
-          <p>{reeder hrefLink}, {press hrefLink} and {readKit hrefLink} can be used with BazQux Reader as a Fever server.</p>
+          <p>Use {mrReader hrefLink}, {feeddler hrefLink}, {slowFeeds hrefLink}, {justReader hrefLink}, {newsPlus hrefLink} and {viennaRss hrefLink}. On iOS, Android and Mac.</p>
+          <p>{reeder hrefLink}, {unreadApp hrefLink}, {press hrefLink} and {readKit hrefLink} works with BazQux Reader set as a&nbsp;Fever server.</p>
 (*           Thanks to Google Reader compatible API BazQux is already supported *)
 (*           by Mr.&nbsp;Reader, Feeddler and JustReader apps. *)
 
           <h3>Full-text articles</h3>
-          Read the text of feeds inside BazQux Reader, powered by Readability.
+          Read the full content of truncated feeds inside the reader, powered by Readability.
 (*           Read full distilled post content right inside rss reader thanks to great Readability service. *)
 
-          <h3>Photoblogs</h3>
-          A mosaic or magazine view mode to quickly skim through picture rich blogs.
+          <h3>Multiple view modes</h3>
+          You can choose your view for each feed. List, mosaic, magazine, expanded. And mixed view for folders and the latest stream.
+(*           <h3>Photoblogs</h3> *)
+(*           A mosaic or magazine view mode to quickly skim through picture rich blogs. *)
 
         </div>
         <div class="column2">
-          <h3 class="first">Enjoy the speed</h3>
-          Thanks to our powerful servers, BazQux Reader is one of the fastest feed readers. BazQux Reader gives you a fast user interface, fast feed updates and fast sync with apps.
-(*           Thanks to our powerful servers, BazQux Reader is fast *)
-(*           both in terms of feed updates and user interface. *)
-
-          <h3>Subscribe to Google+ and Facebook pages</h3>
-          Just enter the URL in the "Add subscription"
+(*           <h3 class="first">Read all discussions in one place</h3> *)
+(*           <h3 class="first">Read posts and comments in one place</h3> *)
+          <h3 class="first">Read the comments</h3>
+          <p>Yes, you can read the comments right inside the reader! And it will track what was read and display only new comments next time. Just like with posts.</p>
+(*             BazQux Reader shows blog posts and comments *)
+(*           in one seamless stream, tracks what was read *)
+(*           and displays only new discussions next time. *)
+(*  and marks read discussions. *)
+(*           <p>Comments from Reddit, Livejournal, blogs *)
+(*           with comment feeds, Disqus and Facebook widgets are supported.</p> *)
+          <h3>Subscribe to Twitter, Google+ and Facebook</h3>
+          Enter the URL to the "Add subscription"
           dialog to add the page like a regular feed.
 
           <h3>Share and read later</h3>
-          Share articles via E-mail, Facebook, Google+ or Twitter. Save them to Evernote, Pinboard, Pocket or Instapaper.
+          Share articles via E-mail, Facebook, Google+ or Twitter. Save them to Pocket, Instapaper, Evernote or Pinboard.
 (*           Any post or comment can be shared via E-mail, *)
 (*           Twitter, Facebook, Google+, Tumblr or saved to Pinboard, Pocket, Evernote or Instapaper. *)
 
@@ -3609,7 +3836,7 @@ fun signInUI addUrl =
           Organize articles with stars or tags.
 
           <h3>Search</h3>
-          Search in feeds, folders or tagged items.
+          Search in feeds, folders or tagged items. Unread or all.
 (*           <h3>Advanced search</h3> *)
 (*           It looks like filter. You still see discussions trees *)
 (*           and reader remembers what you've seen. *)
@@ -3624,7 +3851,7 @@ fun signInUI addUrl =
 
           <h3>Quick start</h3>
 (*           Sign in, add feeds and start reading. You can add your backup (Takeout.zip or OPML) from Google Reader. *)
-          Sign in, import OPML or Takeout.zip file and start reading.
+          Sign in, find your favorite feeds or import OPML and start reading.
         </div>
       </div>
       <span class={clearBoth}></span>
@@ -3651,6 +3878,180 @@ fun buyOpt r id (name : string) price = <xml><label for={id}>
 (*     <br/><span class="buyOptionDesc">{desc}</span> *)
   </div>
 </label></xml>
+
+fun initEditQueryBox mbps src what fullWhat q edit =
+    i <- fresh;
+    e <- Js.editQueryFeeds q.Feeds;
+    modifying <- source None;
+    query <- source q.Query;
+    let val close =
+            case mbps of
+              | Some ps => ps.Hide
+              | _ => set src None
+        val ok =
+            q <- get query;
+            f <- e.GetFeeds;
+(*             if q = "" then *)
+(*                 alert "Please enter non-empty query" *)
+(*             else if List.length f = 0 then *)
+(*                 alert "Please select at least one feed" *)
+            set modifying
+                (Some
+                <xml><div class="searchFiltering">
+                  <span class="loadingGif"></span> Modifying {[what]}...
+                </div></xml>);
+            edit q f;
+            close
+    in
+    set src (Some <xml>
+      <div class="editQuery">
+        <h1>Edit {[fullWhat]}</h1>
+        <div class="filterSubLine">
+          Query
+          <ctextbox id={i} source={query} class="editQueryInput" size={30}
+          onkeydown={fn k =>
+                        if k.KeyCode = 13 then
+                            stopPropagation;
+                            (* а то list view раскрывает *)
+                            ok else
+                        return()} />
+          {dyn_ (Monad.mp (Option.get <xml>{textButton "OK" ok}{textButton "Cancel" close}</xml>) (signal modifying))}
+        </div>
+        <div class="filterSubLine">
+          Feeds
+          {textButton "Select all" e.SelectAll}{textButton "Select none" e.SelectNone}
+        </div>
+        <div class="editQueryFeeds">
+          {e.Xml}
+        </div>
+      </div>
+    </xml>);
+    e.UpdateFolders;
+    Js.select i;
+    Js.focus i
+    end
+
+fun editSmartStreamAction ssWidget currentFeed currentSearchFeed reloadFeed name =
+ fn q f =>
+    ssWidget.EditSmartStream name q f;
+    cf <- getCurrentFeed currentFeed currentSearchFeed;
+    case cf.SIType of
+      | SITSmartStream s =>
+        when (s.StreamName = name)
+             (reloadFeed ())
+      | _ => return ()
+fun editSmartStreamDialog ps popup ssWidget currentFeed currentSearchFeed reloadFeed name =
+    ss <- get ssWidget.SmartStreams;
+    case List.find (fn (n,_) => n = name) ss of
+      | Some (_, q :: _) =>
+        editXml <- source None;
+        box <- ps.New Css.buyBox
+                      (dyn_ (Monad.mp (Option.get <xml/>) (signal editXml)));
+        ps.Toggle popup box;
+        initEditQueryBox (Some ps) editXml "smart stream"
+                         ("smart stream \"" ^ name ^ "\"") q
+                         (editSmartStreamAction
+                              ssWidget currentFeed
+                              currentSearchFeed reloadFeed name)
+      | _ => return ()
+
+fun filtersBox ps ssWidget currentFeed currentSearchFeed setFeed reloadFeed editQueryXml =
+    let fun subline l r =
+            <xml><div class="filterSubLine">
+              <div class="filterLeft">{[l]}</div>
+              <div class="filterRight">{r}</div>
+              <div class="clearBoth"></div>
+            </div></xml>
+        fun line inProgress what fullWhat editAction deleteAction q prefixXml =
+            removing <- source False;
+            return (dyn_ (r <- signal removing; return <xml>
+              <div class="filterLine">
+                {prefixXml}
+                {subline "In" (Js.displayQueryFeeds q.Feeds)}
+                {subline "" <xml>
+                  {if r then
+                       <xml><div class="searchFiltering">
+                         <span class="loadingGif"></span> Deleting {[what]}...
+                       </div></xml>
+                   else <xml>
+                      {textButton "edit"
+                          (ip <- get inProgress;
+                           when (not ip) (
+                           initEditQueryBox None editQueryXml what fullWhat q editAction
+                           ))}
+                      {textButton "delete"
+                          (ip <- get inProgress;
+                           when (not ip) (
+                           c <- confirm ("Are you sure you want to delete this " ^ what ^ "?");
+                           when c
+                                (set inProgress True;
+                                 set removing True;
+                                 deleteAction;
+                                 set inProgress False)))}
+                  </xml>}
+                </xml>}
+              </div></xml>))
+    in
+    ps.New Css.buyBox
+       (dyn_ (fs <- signal ssWidget.Filters;
+              ss <- signal ssWidget.SmartStreams;
+              return <xml><active code={
+              inProgress <- source False;
+              filters <-
+                List.mapXM (fn f =>
+                  line inProgress "filter" "filter"
+                       (fn q feeds =>
+                           ssWidget.EditFilter f.Query f.Negate q f.Negate feeds;
+                           cf <- getCurrentFeed currentFeed currentSearchFeed;
+                           when (Js.subItemHasQueryFeeds cf.Index f.Feeds feeds)
+                                (reloadFeed ())
+                       )
+                       (ssWidget.DeleteFilter f.Query f.Negate;
+                        cf <- getCurrentFeed currentFeed currentSearchFeed;
+                        when (Js.subItemHasQueryFeeds cf.Index f.Feeds [])
+                             (reloadFeed ())
+                       )
+                       f <xml>
+                    {subline (if f.Negate then "Hide" else "Show") <xml>
+                      <span class="filterQuery">{[f.Query]}</span></xml>}
+                  </xml>) fs;
+              smartStreams <-
+                List.mapXM (fn (name,qs) =>
+                  case qs of [] => return <xml/> | q :: _ =>
+                  line inProgress "smart stream"
+                       ("smart stream \"" ^ name ^ "\"")
+                       (editSmartStreamAction ssWidget currentFeed currentSearchFeed reloadFeed name)
+                       (cf <- getCurrentFeed currentFeed currentSearchFeed;
+                        (case cf.SIType of
+                          | SITSmartStream s =>
+                            when (s.StreamName = name)
+                                 (setDefaultFeed setFeed)
+                          | _ => return ());
+                        ssWidget.DeleteSmartStream name)
+                       q <xml>
+                    {subline "Stream" <xml>
+                      <span class="smartStreamName">{[name]}</span></xml>}
+                    {subline "Query" <xml>
+                      <span class="filterQuery">{[q.Query]}</span></xml>}
+                  </xml>) ss;
+              return <xml>
+                {dyn_ (Monad.mp (Option.get <xml/>) (signal editQueryXml))}
+                <h1>Filters</h1>
+                {case fs of
+                   | [] => <xml><div class="filtersNone">You have no active filters. Search for the things you'd like to hide or show and click 'New filter' button.</div></xml>
+                   | _ => <xml>{filters}<div class="filtersEnd"></div></xml>}
+                <h1 class="smartStreamsPadding">Smart streams</h1>
+                {case ss of
+                   | [] => <xml><div class="filtersNone">You have no active smart streams. Search for the things you'd like to monitor and click 'New smart stream' button.</div></xml>
+                   | _ => <xml>{smartStreams}<div class="filtersEnd"></div></xml>}
+              </xml>} /></xml>))
+(*     smartStreamsBox <- ps.NewInfoBox "Smart streams" *)
+(*        (dyn_ (ss <- signal ssWidget.SmartStreams; *)
+(*               return (List.mapX (fn (name,qs) => <xml> *)
+(*                 <div class="smartStreamLine"><div class="smartStreamName">{[name]}</div> *)
+(*                   {textButton "delete" (ssWidget.DeleteSmartStream name)} *)
+(*               </div></xml>) ss))); *)
+    end
 
 fun add qs =
 (*     u <- currentUrl; (\* вызывает crash? *\) *)
@@ -3719,6 +4120,7 @@ and buyText paidTill =
     o1 <- fresh;
     o2 <- fresh;
     o3 <- fresh;
+    o4 <- fresh;
     return <xml>
          <h1>Buy now</h1>
          <p>{[case paidTill of
@@ -3736,14 +4138,17 @@ and buyText paidTill =
 (*          <p>What option would you like to take?</p> *)
          <form>
            <radio{#Option}>
-             {buyOpt <xml><radioOption value={"readeryear"} id={o3} checked={True}/></xml> o3
+             {buyOpt <xml><radioOption value={"readeryear"} id={o1} checked={True}/></xml> o1
                   "Good money" "29/year"
                   (* <xml>less than $2<sup>50</sup>/month</xml> *)}
              {buyOpt <xml><radioOption value={"readeryear19"} id={o2} /></xml> o2
                   "Standard" "19/year"
                   (* <xml>less than $2/month</xml> *)}
-             {buyOpt <xml><radioOption value={"readeryear9"} id={o1} /></xml> o1
+             {buyOpt <xml><radioOption value={"readeryear9"} id={o3} /></xml> o3
                   "Some money" "9/year"
+                  (* <xml>only 75&cent;/month</xml> *)}
+             {buyOpt <xml><radioOption value={"reader_lifetime"} id={o4} /></xml> o4
+                  "Great money" "99 lifetime subscription"
                   (* <xml>only 75&cent;/month</xml> *)}
            </radio>
            <submit action={buy}
@@ -3843,8 +4248,8 @@ and mobileLoginBox ps popup login =
       }
       <br/>
       <p>Use {mrReader hrefLink} on iPad, {feeddler hrefLink} or {slowFeeds hrefLink} on iPhone/iPad, {newsPlus hrefLink} (gReader), {justReader hrefLink} and {amberRssReader hrefLink} on Android and {viennaRss hrefLink} on Mac.</p>
-      <p>{reeder hrefLink} on iPhone, {press hrefLink} on Android and {readKit hrefLink} on Mac can be used by setting bazqux.com as a Fever server (see <a target={"_blank"} href={bless "http://blog.bazqux.com/2013/09/reeder-press-and-readkit-via-fever-api.html"}>how to</a>).</p>
-      <p>BazQux Reader supports Google Reader API.</p>
+      <p>{reeder hrefLink} and {unreadApp hrefLink} on iPhone, {press hrefLink} on Android and {readKit hrefLink} on Mac can be used by setting bazqux.com as a Fever server (see <a target={"_blank"} href={bless "http://blog.bazqux.com/2013/09/reeder-press-and-readkit-via-fever-api.html"}>how to</a>).</p>
+      <p>BazQux Reader supports both Google Reader and Fever APIs.</p>
       <p>Please tell developers of your favorite client app to add support
       for BazQux Reader!</p>
       <p>API documentation is {apiLink (txt "here")}.</p>
@@ -3890,6 +4295,7 @@ and userUI paidTill uid : transaction page =
     clearMtvmSrc <- source (fn _ => return ());
     refreshSrc <- source (return ());
     viewModeJustSet <- source False;
+    filteringIsInProgress <- source None;
     let fun subscribeDiscoveryFeed u =
             s <- get subscribeDiscoveryFeedSrc;
             s u
@@ -3958,10 +4364,13 @@ and userUI paidTill uid : transaction page =
                    | Some si => set currentFeed si
                    | None => return ())
     in
+    editStreamDialog <- source (fn _ => return ());
     ssWidget <- subscriptionsWidget
         currentFeed updateCurrentFeed onUpdateSubInfo setFeed backgroundRpc
         ps popup onlyUpdatedSubscriptions exactUnreadCounts
-        subscribeDiscoveryFeed clearMtvm refresh;
+        subscribeDiscoveryFeed clearMtvm refresh
+        (fn n => e <- get editStreamDialog; e n);
+    set editStreamDialog (editSmartStreamDialog ps popup ssWidget currentFeed currentSearchFeed (fn () => refresh));
     msgsWidget <- msgsWidget msgDivId ps popup sharePopup
                              backgroundRpc
                              currentFeed currentSearchFeed getMsgTreeViewMode
@@ -3969,7 +4378,7 @@ and userUI paidTill uid : transaction page =
     infoMessage <- infoMessageAtTheTop;
     searchQuery <- source "";
     searchCounters <- source emptyCounters;
-    searchResults <- source (None : option searchResults);
+    searchResults <- source (None : option filterResults);
     settingHash <- source 0;
     subscribeUrlId <- fresh;
     endDivId <- fresh;
@@ -4012,7 +4421,7 @@ and userUI paidTill uid : transaction page =
             Css.bodyScale0 :: Css.bodyScale1 :: Css.bodyScale2 ::
             Css.bodyScale3 :: Css.bodyScale4 :: Css.bodyScale5 :: []
         fun changeScale what scales src f =
-            s <- Js.getFromLocalStorage uid (what ^ "Scale") 0;
+            s <- getFromLocalStorage uid (what ^ "Scale") 0;
             let val s' = f s
             in
                 Js.saveToLocalStorage uid (what ^ "Scale") s';
@@ -4119,6 +4528,8 @@ and userUI paidTill uid : transaction page =
                       | SITStarred => updFolder' si ",SITStarred"; return True
                       | SITAllTags => updFolder' si ",SITAllTags"; return True
                       | SITTag t => updFolder' si t.TagName; return True
+                      | SITSmartStream s =>
+                        updFolder' si s.StreamName; return True
                       | SITSearch _ =>
                         csf <- get currentSearchFeed;
                         upd csf
@@ -4139,44 +4550,36 @@ and userUI paidTill uid : transaction page =
         fun setAscending x =
             m <- modifyMsgTreeViewMode None (setF [#Ascending] x);
             when m refresh
-        fun isTagSi si =
+        fun isMixedViewSi si =
             case si.SIType of
               | SITStarred => return True
               | SITAllTags => return True
               | SITTag _ => return True
-              | SITSearch _ =>
-                csf <- get currentSearchFeed;
-                isTagSi csf
-              | _ => return False
-        fun isTagSiS si =
-            case si.SIType of
-              | SITStarred => return True
-              | SITAllTags => return True
-              | SITTag _ => return True
+              | SITSmartStream _ => return True
               | SITSearch _ =>
                 csf <- signal currentSearchFeed;
-                isTagSiS csf
+                isMixedViewSi csf
               | _ => return False
-        val isTag =
+        val isMixedView =
             si <- get currentFeed;
-            isTagSi si
+            current (isMixedViewSi si)
         fun setViewMode name expanded posts f =
-            t <- isTag;
+            mixed <- isMixedView;
             m <- modifyMsgTreeViewMode (Some name)
                 (fn vm =>
-                    setF [#NoOverride] (f (not t))
+                    setF [#NoOverride] (f (not mixed))
                     (setF2 [#ExpandedComments] [#Posts] expanded posts vm));
             when m refresh
         val withCommentsVM =
             ( vmWithComments
             , fn vm => vm.ExpandedComments
-            , setViewMode "expanded view" True PVMFull id
-            , "Expanded view")
+            , setViewMode "expanded view with expanded comments" True PVMFull id
+            , "Expanded view with expanded comments")
         val fullVM =
             ( vmFull
             , fn vm => not vm.ExpandedComments && vm.Posts = PVMFull
-            , setViewMode "expanded view without comments" False PVMFull id
-            , "Expanded view without comments")
+            , setViewMode "expanded view" False PVMFull id
+            , "Expanded view")
         val shortVM =
             ( vmShort
             , fn vm => not vm.ExpandedComments && vm.Posts = PVMShort
@@ -4192,11 +4595,11 @@ and userUI paidTill uid : transaction page =
             , fn vm => not vm.ExpandedComments && vm.Posts = PVMMosaic
             , setViewMode "mosaic view" False PVMMosaic id
             , "Mosaic view" )
-        val combinedVM =
+        val mixedVM =
             ( vmCombined
             , fn vm => vm.NoOverride
-            , setViewMode "default subscription view" False PVMFull (fn _ => True)
-            , "Use subscription view modes" )
+            , setViewMode "mixed view" False PVMFull (fn _ => True)
+            , "Mixed view (using each feed view modes)" )
         val subscriptionTitle =
             dyn_ (f <- signal currentFeed; return (txt f.Title))
         fun setForest f =
@@ -4242,8 +4645,6 @@ and userUI paidTill uid : transaction page =
                                 <span class="loadingGif"></span> Loading...
                               </div></xml>
                           else <xml/>))
-(*         fun msgForest u tp tc vm = *)
-(*             withUser "msgForest" (fn userId => feedMsgForest AMNormal userId u tp tc vm) *)
         fun tagsForest ts vm =
             withUser "tagsForest" (fn userId => tagsMsgForest AMNormal userId ts vm)
         fun folderForest feeds vm =
@@ -4255,19 +4656,28 @@ and userUI paidTill uid : transaction page =
                                   AMDiscovery { Url = feed }
                                 | _ => AMNormal)
                              userId feeds [] vm)
+        fun smartStreamForest name feeds vm =
+            withUser "smartStreamForest"
+                     (fn userId =>
+                         smartStreamMsgForest AMNormal userId name feeds vm)
         fun getUrls (onlyUnread : bool) (si : subItem) =
-            Monad.mp (List.sort (fn a b => a.1 > b.1))
-                     (List.mapPartialM (fn s =>
-                c <- get s.Counters;
-                return (case s.SIType of
-                  | SITFeed { Subscription = { State = SSFeed f, ... }, ... } =>
-                    if not onlyUnread ||
-                       c.ReadPosts <> c.TotalPosts ||
-                       c.ReadComments <> c.TotalComments then
-                        Some (show f.Url, c.ReadPosts, c.ReadComments, c.TotalPosts, c.TotalComments)
-                    else
-                        None
-                  | _ => None)) (getSubItems si.Index))
+            Js.getUrls si.Index
+(*             Monad.mp (List.sort (fn a b => a.1 > b.1)) *)
+(*                      (\* а зачем все-таки сортировка? *\) *)
+(*                      (List.mapPartialM (fn s => *)
+(*                 c <- get s.Counters; *)
+(*                 return (case s.SIType of *)
+(*                   | SITFeed { Subscription = { State = SSFeed f, ... }, ... } => *)
+(*                     if not onlyUnread || *)
+(*                        c.ReadPosts <> c.TotalPosts || *)
+(*                        c.ReadComments <> c.TotalComments then *)
+(*                         Some (show f.Url, c.ReadPosts, c.ReadComments, c.TotalPosts, c.TotalComments) *)
+(*                     else *)
+(*                         None *)
+(*                   | _ => None)) (getSubItems si.Index)) *)
+         fun getUrlsOnly si =
+             Js.getUrlsOnly si.Index
+(*              Monad.mp (List.mp (fn (u,_,_,_,_) => u)) (getUrls False si) *)
          fun setFolderForest si feeds vm =
              if isNull feeds then
                  c <- get si.Counters;
@@ -4319,7 +4729,11 @@ and userUI paidTill uid : transaction page =
              (fn l =>
                  set loading True;
                  showInfo null "Loading..." infoMessage
-                          (rpc (folderForest feeds vm l)))
+                          (case si.SIType of
+                             | SITSmartStream s =>
+                               rpc (smartStreamForest s.StreamName feeds vm l)
+                             | _ =>
+                               rpc (folderForest feeds vm l)))
              (fn (uc,(MsgForest f)) =>
                  (case (feeds,uc) of
                     | ((feed, _,_,-1,_) :: [],
@@ -4384,8 +4798,8 @@ and userUI paidTill uid : transaction page =
                       setForest mf;
                       set msgTreeSpacerText loadingIndicator;
                       set loading False)
-        fun setFeed_ si =
-            ps.Hide;
+        fun setFeed_ hide si =
+            when hide ps.Hide;
             case paidTill of PTFreeTrialFinished _ => return () | PTPaidFinished _ => return () | _ =>
             set searchQuery "";
             Js.selectSubItem si.Index;
@@ -4396,6 +4810,7 @@ and userUI paidTill uid : transaction page =
             case (si.SIType, c) of
                | (SITFolder _, _) => setFolder si vm
                | (SITAll, _) => setFolder si vm
+               | (SITSmartStream _, _) => setFolder si vm
                | (SITStarred, _) => setTags si (Some (ITStarred :: [])) c
                | (SITAllTags, _) => setTags si None c
                | (SITTag t, _) =>
@@ -4444,16 +4859,19 @@ and userUI paidTill uid : transaction page =
                  , FaviconStyle  = faviconStyle
                  })
         fun subscribeDiscoveryFeed url =
-            discovery.Hide;
             c <- discovery.GetCountry;
             q <- discovery.GetQuery;
+            discovery.Hide;
             ssWidget.AddDiscoverySubscription url c q
-        fun searchForest q feeds vm =
-            withUser "searchForest"
-                     (fn userId => searchMsgForest userId q feeds vm)
-        fun searchTagsForest q tags vm =
-            withUser "searchTagsForest"
-                     (fn userId => searchTagsMsgForest userId q tags vm)
+        fun filterForest q feeds vm =
+            withUser "filterForest"
+                     (fn userId => filterMsgForest userId None q feeds vm)
+        fun filterSmartStreamForest n q feeds vm =
+            withUser "filterSmartStreamForest"
+                     (fn userId => filterMsgForest userId (Some n) q feeds vm)
+        fun filterTagsForest q tags vm =
+            withUser "filterTagsForest"
+                     (fn userId => filterTagsMsgForest userId q tags vm)
         fun setEmptyResult x =
             set msgTreeSpacerText
                <xml><div class="emptySetFeedResult">{x}
@@ -4487,7 +4905,7 @@ and userUI paidTill uid : transaction page =
              setCurrentFeed si;
              set currentSearchFeed csi;
              vm <- getMsgTreeViewMode;
-             tags <- return (case csi.SIType of
+             (taggedFeed, tags) <- return (case csi.SIType of
                | SITStarred => (True, Some (ITStarred :: []))
                | SITAllTags => (True, None)
                | SITTag t => (True, Some (ITTag { TagName = t.TagName } :: []))
@@ -4495,8 +4913,9 @@ and userUI paidTill uid : transaction page =
              du <- current (discoverySubItemUrl currentSearchFeed);
              feeds <- (case du of
                | Some u => return ((u, 0, 0, 1000000000, 1000000000) :: [])
-               | _ => getUrls vm.UnreadOnly csi);
-             if isNull feeds && not tags.1 then
+               | _ => getUrls False (*vm.UnreadOnly все фиды,
+                                     чтобы Total-ы были правильные *) csi);
+             if isNull feeds && not taggedFeed then
                  (if isNull (getSubItems csi.Index) then
                       setEmptyResult <xml>
                         <h3>No subscriptions to search.</h3>
@@ -4512,35 +4931,36 @@ and userUI paidTill uid : transaction page =
                        (fn l =>
                         set loading True;
                         showInfo Css.searching "Searching..." infoMessage
-                           (if tags.1 then
-                                rpc (searchTagsForest q tags.2 vm l)
-                            else rpc (searchForest q feeds vm l)))
-             (fn sr =>
-                 let val (pc,cc) =
-                         case sr.MsgForest of
-                           | MsgForest mf =>
-                             List.foldl
-                                 (fn (mi, MsgForest mf) (pc,cc) =>
-                                     (if isResult mi then pc+1 else pc,
-                                      if notNull mf.List then
-                                          cc + mf.ResultsCount else cc))
-                                 (0,0)
-                                 mf.List
+                           (if taggedFeed then
+                                r <- rpc (filterTagsForest q tags vm l);
+                                return ([], r)
+                            else
+                                case csi.SIType of
+                                  | SITSmartStream ss =>
+                                    rpc (filterSmartStreamForest ss.StreamName q feeds vm l)
+                                  | _ =>
+                                    rpc (filterForest q feeds vm l)
+                       ))
+             (fn (uc,sr) =>
+                 when (not taggedFeed) (* в тегах mark all as read пока нет *)
+                      (Js.updateAndSaveReadCounters feeds uc);
+                 let val (up,uc) = (sr.UnreadPosts, sr.UnreadComments)
+                     val (tp,tc) = (sr.TotalPosts, sr.TotalComments)
                  in
                      set searchCounters
-                         { ReadPosts = 0, TotalPosts = pc
-                         , ReadComments = 0, TotalComments = cc
+                         { ReadPosts = tp-up, TotalPosts = tp
+                         , ReadComments = tc-uc, TotalComments = tc
                          , Scanning = 0, ScanningComments = 0
                          , Error = 0, Feed = 1, ScannedPercent = 100 };
                      set searchResults (Some sr);
                      setForest sr.MsgForest;
                      set loading False;
-                     if pc+cc = 0 && sr.Total <> 0 && vm.UnreadOnly then
+                     if vm.UnreadOnly && up+uc = 0 && tp+tc > 0 then
                         setEmptyResult <xml>
                           <h3>Nothing found in unread items.</h3>
                           {searchInAllItemsBtn}
                         </xml>
-                     else if pc+cc = 0 then
+                     else if tp+tc = 0 then
                         setEmptyResult <xml>
                           <h3>Nothing found, sorry.</h3>
                         </xml>
@@ -4555,7 +4975,7 @@ and userUI paidTill uid : transaction page =
                      | SITSearch _ => get currentSearchFeed
                      | _ => return cf);
             search' q csi
-        fun reloadFeed () =
+        fun reloadFeed' hide () =
             hash <- Js.getLocationHash;
             qsi <- searchQueryAndSubItem hash;
             case qsi of
@@ -4564,7 +4984,7 @@ and userUI paidTill uid : transaction page =
                 si <- getSubItemByHash hash;
                 cf <- get currentFeed;
                 (case si of
-                   | Some si => setFeed si
+                   | Some si => setFeed_ hide si
                    | None =>
                      when (isPrefixOf "subscription/" hash)
                           (let val url = Js.decodeURIComponent (strsuffix hash (strlen "subscription/"))
@@ -4611,6 +5031,7 @@ and userUI paidTill uid : transaction page =
 (*                                     end *)
 (*                                   | _ => return ()) *)
                                end))
+        fun reloadFeed () = reloadFeed' True ()
         fun onhashchange () =
             sh <- get settingHash;
             if sh > 0 then
@@ -4621,6 +5042,7 @@ and userUI paidTill uid : transaction page =
             feedKeyboardActionCF currentFeed currentSearchFeed act
         fun markAllRead d =
             si <- get currentFeed;
+            csi <- get currentSearchFeed;
             cnt <- get si.Counters;
             let val up = cnt.TotalPosts - cnt.ReadPosts in
             ok <- (if up > 50 && d = 0 then
@@ -4646,22 +5068,48 @@ and userUI paidTill uid : transaction page =
                         только при флажке auto update
                       *)
                      List.app
-                         (fn (u, _, _, tp, tc) =>
-                             Js.markChangedReadCounters u;
-                             backgroundRpc.AddAction
-                                 (if d = 0 then
-                                      BGMarkBlogRead ({ BlogFeedUrl = u
-                                                      , TotalPosts = tp
-                                                      , TotalComments = tc
-                                                     })
-                                  else
-                                      BGMarkBlogReadD ({ BlogFeedUrl = u
-                                                       , TotalPosts = tp
-                                                       , TotalComments = tc
-                                                       , OlderThan = d
-                                                      })
-                         ))
+                         (fn (u, _, _, _, _) =>
+                             Js.markChangedReadCounters u)
                          urls;
+                     (case (si.SIType, csi.SIType) of
+                       | (SITSearch { Query = q }, SITSmartStream s) =>
+                         backgroundRpc.AddAction
+                             (BGMarkSmartStreamSearchRead
+                                  { StreamName = s.StreamName
+                                  , Query = q
+                                  , ReadCounters = urls
+                                  , OlderThan = d
+                             })
+                       | (SITSearch { Query = q }, _) =>
+                         backgroundRpc.AddAction
+                             (BGMarkSearchRead { Query = q
+                                               , ReadCounters = urls
+                                               , OlderThan = d
+                             })
+                       | (SITSmartStream s, _) =>
+                         backgroundRpc.AddAction
+                             (BGMarkSmartStreamRead { StreamName = s.StreamName
+                                                    , ReadCounters = urls
+                                                    , OlderThan = d
+                             })
+                       | _ =>
+                         List.app
+                             (fn (u, _, _, tp, tc) =>
+                                 Js.markChangedReadCounters u;
+                                 backgroundRpc.AddAction
+                                     (if d = 0 then
+                                          BGMarkBlogRead { BlogFeedUrl = u
+                                                         , TotalPosts = tp
+                                                         , TotalComments = tc
+                                                         }
+                                      else
+                                          BGMarkBlogReadD { BlogFeedUrl = u
+                                                          , TotalPosts = tp
+                                                          , TotalComments = tc
+                                                          , OlderThan = d
+                                                          }
+                             ))
+                             urls);
                      (* refresh *)reloadFeed ()
 (*                      queueCRpcB backgroundRpc *)
 (*                                 (fn l => rpc (bgactions l)) *)
@@ -4674,6 +5122,7 @@ and userUI paidTill uid : transaction page =
             when (not ex)
                  (infoMessage.Error e;
                   backgroundRpc.OnError;
+                  set filteringIsInProgress None;
                   set msgsWidget.Appending False;
                   set msgsWidget.AppendingRpc False;
                   set msgsWidget.AfterAppendAction (return ());
@@ -4685,9 +5134,12 @@ and userUI paidTill uid : transaction page =
                           (msgsWidget.CheckAppend (fn _ => return ());
                            checkAppendLoop ()) 1000
         val scroll =
+            fs <- Js.isFullScreen;
+(*             st <- Js.scrollTop msgDivId; *)
+(*             debug ("onscroll, scrollTop = " ^ show st); *)
             s <- get msgsWidget.Scrolling;
             a <- get scrollTimeoutActive;
-            if a || s > 0 then return () else
+            if fs || a || s > 0 then return () else
                  (set scrollTimeoutActive True;
                   Js.setTimeout "msgsWidget.CheckAppend"
                       (msgsWidget.CheckAppend
@@ -4739,18 +5191,18 @@ and userUI paidTill uid : transaction page =
                                      | LVMTwoLines => LVMCompact)
         fun displayOr d f a =
             if d then (Js.setLocationHash f; reloadFeed ()) else a
-        fun init helpBox welcomeBox =
+        fun init helpBox welcomeBox filtersBox editQueryXml =
             withSome (fn _ => Js.trackEvent "User" "Login" uid) fl;
             Js.trackEvent "UI" "MainPage" uid;
             Js.jsInit;
             Js.set_subscribeDiscoveryFeed subscribeDiscoveryFeed;
-            Js.set_setDiscoveryFeed setDiscoveryFeed;
+            set_setDiscoveryFeed setDiscoveryFeed;
             Js.set_discoveryHide discovery.Hide;
             set subscribeDiscoveryFeedSrc subscribeDiscoveryFeed;
             set clearMtvmSrc discovery.ClearMtvm;
             changeMsgScale id;
             changeBodyScale id;
-            set setFeedSrc setFeed_;
+            set setFeedSrc (setFeed_ True);
             set onUpdateSubInfoSrc onUpdateSubInfo;
             set refreshSrc (reloadFeed ());
             onConnectFail (err "Can't connect to the server");
@@ -4807,6 +5259,10 @@ and userUI paidTill uid : transaction page =
                   Some (if k.ShiftKey
                         then msgsWidget.Later
                         else msgsWidget.LaterPost)
+              else if check (87 (* W *) :: 119 :: 1062 :: 1094 :: []) then
+                  Some (set editQueryXml None;
+                        ps.Toggle popup filtersBox;
+                        ssWidget.UpdateFiltersAndSmartStreams)
               else if check (88 (* X *) :: 120 :: 1063 :: 1095 :: []) then
                   Some (toggleFolderOr msgsWidget.IgnorePost)
               else if check (71 (* G *) :: 103 :: 1055 :: 1087 ::
@@ -4831,7 +5287,7 @@ and userUI paidTill uid : transaction page =
               else if check (54 (* 6 *) :: []) then
                   Some (ps.Hide; toggleListViewMode)
               else if check (48 (* 0 *) :: []) then
-                  Some (ps.Hide; combinedVM.3)
+                  Some (ps.Hide; mixedVM.3)
               else if check (83 (* S *) :: 115 :: 1067 :: 1099 :: []) then
                   Some (displayOr d "starred" msgsWidget.ToggleStarred)
               else if check (84 (* T *) :: 116 :: 1045 :: 1077 :: []) then
@@ -4870,13 +5326,18 @@ and userUI paidTill uid : transaction page =
               (* специальные клавиши *)
               return (
               if check (27 :: []) then
-                  Some (a <- ps.IsActive;
-                        dd <- get displayDiscovery;
-                        if a then
-                            ps.Hide
-                        else if dd then
-                            discovery.Hide
-                        else msgsWidget.TryMakeShort)
+                  Some (ef <- get editQueryXml;
+                        fbv <- ps.IsVisible filtersBox;
+                        case (fbv,ef) of
+                          | (True, Some _) => set editQueryXml None
+                          | _ =>
+                            a <- ps.IsActive;
+                            dd <- get displayDiscovery;
+                            if a then
+                                ps.Hide
+                            else if dd then
+                                discovery.Hide
+                            else msgsWidget.TryMakeShort)
               else if check (32 :: []) then
                   Some (if k.ShiftKey then msgsWidget.PrevOrPageUp else msgsWidget.NextOrPageDown)
               else if check (13 :: []) then
@@ -4895,9 +5356,12 @@ and userUI paidTill uid : transaction page =
                   None));
 
             queueRpcB backgroundRpc (fn l => rpc (subscriptionsAndSettings l))
-                (fn (x,siv, s,(ous, ti, renames,searches,us), ws) =>
+                (fn ( x, siv, s, (ous, ti, renames, searches, us)
+                    , (ws, fs, ss)) =>
                     set onlyUpdatedSubscriptions ous;
                     set welcomeState ws;
+                    set ssWidget.Filters fs;
+                    set ssWidget.SmartStreams ss;
                     set msgsWidget.ScrollMode us.ScrollMode;
                     set msgsWidget.ListViewMode us.ListViewMode;
                     set msgsWidget.UltraCompact us.UltraCompact;
@@ -4949,6 +5413,7 @@ and userUI paidTill uid : transaction page =
               {ps.LiI Css.btnEmpty "Items older than a week" (m 7)}
               {ps.LiI Css.btnEmpty "Items older than two weeks" (m 14)}
               {ps.LiI Css.btnEmpty "Items older than a month" (m 30)}
+              {ps.LiI Css.btnEmpty "Items older than a year" (m 365)}
             </xml>)
             end
     in
@@ -4985,11 +5450,12 @@ and userUI paidTill uid : transaction page =
     </xml>;
     helpBox <- ps.NewInfoBox "Help" (helpText ssWidget.AddSubscription);
     recommendBox <- ps.NewInfoBox "Recommend" <xml>
-      <p>Like the reader? Please spread the word:</p>
-      <p>{hrefLinkStopPropagation <xml>Vote</xml> "http://alternativeto.net/software/bazqux-reader/"} on alternativeto.net<br/>
-      {hrefLinkStopPropagation <xml>Tweet</xml> "https://twitter.com/intent/tweet?text=I'm%20going%20to%20%23replacereader%20with%20%23BazQuxReader&url=https%3A%2F%2Fbazqux.com"} on replacereader.com<br/>
-      {hrefLinkStopPropagation <xml>Post</xml> "https://plus.google.com/share?url=https%3A%2F%2Fbazqux.com"} on Google+<br/>
-      {hrefLinkStopPropagation <xml>Share</xml> "https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fbazqux.com"} on Facebook<br/>
+      <p>Love the reader? Please spread the word:</p>
+      <p>Like BazQux Reader on {hrefLinkStopPropagation <xml>AlternativeTo</xml> "http://alternativeto.net/software/bazqux-reader/"}<br/>
+      Give it 5 stars on the {hrefLinkStopPropagation <xml>Chrome Web Store</xml> "https://chrome.google.com/webstore/detail/bazqux-reader-your-rss-fe/ojgfbobcblfebofgadefjfggnlclddko"}<br/>
+      Share on {hrefLinkStopPropagation <xml>Facebook</xml> "https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fbazqux.com"}<br/>
+      Share on {hrefLinkStopPropagation <xml>Google+</xml> "https://plus.google.com/share?url=https%3A%2F%2Fbazqux.com"}<br/>
+      {hrefLinkStopPropagation <xml>Tweet</xml> "https://twitter.com/intent/tweet?text=I'm%20going%20to%20%23replacereader%20with%20%23BazQuxReader&url=https%3A%2F%2Fbazqux.com"} about the reader<br/>
       {hrefLinkStopPropagation <xml>Mail</xml> "mailto:?subject=BazQux%20Reader&body=Try%20this%20great%20RSS%20reader%20https%3A%2F%2Fbazqux.com"} a friend<br/></p>
       {likeButtons}
     </xml>;
@@ -5045,6 +5511,8 @@ and userUI paidTill uid : transaction page =
                    {item MRMManual "On click"}
                  </xml>
              end));
+    editQueryXml <- source None;
+    filtersBox <- filtersBox ps ssWidget currentFeed currentSearchFeed (setFeed_ False) (reloadFeed' False) editQueryXml;
     optMenu <- ps.NewMenu Css.optMenu <xml>
       {ps.Li "Help" (trackHelpClick;
                     ps.Toggle popup helpBox.2)}
@@ -5057,6 +5525,11 @@ and userUI paidTill uid : transaction page =
       {ps.LiInfoBox popup recommendBox : xbody}
       <hr/>
       {ps.Li "Mobile login" toggleMobileLoginBox}
+      {ps.Li "Filters & streams" (
+          set editQueryXml None;
+          ps.Toggle popup filtersBox;
+          ssWidget.UpdateFiltersAndSmartStreams)}
+(*         {ps.Li "Smart streams" (ps.Toggle popup smartStreamsBox.2)} *)
       <span class="subscriptionsMenuItem">
          {ssWidget.SubMenu.2}
          {ps.LiSub "Subscriptions"}
@@ -5131,7 +5604,7 @@ and userUI paidTill uid : transaction page =
     return
         { Oninit =
             showInfo null "Loading..." infoMessage
-                             (init helpBox welcomeBox)
+                             (init helpBox welcomeBox filtersBox editQueryXml)
         , Onunload = set exiting True; backgroundRpc.OnUnload
         , Onresize =
             msgsWidget.CheckAppend (fn _ => return ());
@@ -5153,7 +5626,7 @@ and userUI paidTill uid : transaction page =
               onkeydown={fn k => if k.KeyCode = 13 then search else
                                  if k.KeyCode = 27 then stopPropagation; preventDefault (* без этого в Safari все равно вызывается обработчик по-умолчанию *); Js.blur searchBoxId
                                  else return()}
-          /><a onclick={fn _ => search} class={Css.button}>Filter</a>(* {buttonChar "D"} *)
+          /><a onclick={fn _ => search} class={Css.button}>Search</a>(* {buttonT' null Css.btnSmartStream "Search" "" search} *)
         </span>
         <span class="topToolBar">
           {let fun buyButton mode t =
@@ -5198,23 +5671,28 @@ and userUI paidTill uid : transaction page =
              si <- signal currentFeed;
              cnt <- signal si.Counters;
              vm <- msgTreeViewMode;
+             let val showComments =
+                     case si.SIType of
+                       | SITFeed _ => vm.ExpandedComments
+                       | _ => vm.NoOverride || vm.ExpandedComments
+             in
              return <xml>
                <a onclick={fn _ => ps.Toggle popup msgMenu;
                               Js.adjustMenuHeight Css.foldersMenu}
                   class={Css.button}><span class={Css.buttonText}>
                   {if vm.UnreadOnly then
-                       <xml>{[Js.showUnread
-                                  cnt vm.ExpandedComments]}&nbsp;New</xml>
+                       <xml>{[showUnread cnt showComments]}&nbsp;New</xml>
                   else <xml>All items</xml>}</span>{buttonSymbol Css.btnDown}
                </a>
-             </xml> } />
+             </xml>
+             end} />
           <dyn signal={
              si <- signal currentFeed;
              vm <- msgTreeViewMode;
-             isTag <- isTagSiS si;
+             mixed <- isMixedViewSi si;
              let fun vmBtn (cls, active, setvm, name) sep hint =
                     <xml><span class={ifClass sep rightSeparator
-                                      (ifClass (if isTag then
+                                      (ifClass (if mixed then
                                                     (if hint = "0" then
                                                          vm.NoOverride
                                                      else
@@ -5233,8 +5711,8 @@ and userUI paidTill uid : transaction page =
                   vmBtn fullVM True "2"}{
                   vmBtn magazineVM True "3"}{
                   vmBtn mosaicVM True "4"}{
-                  vmBtn shortVM isTag "5"}{
-                  if isTag then vmBtn combinedVM False "0" else <xml/>
+                  vmBtn shortVM mixed "5"}{
+                  if mixed then vmBtn mixedVM False "0" else <xml/>
                  }
                </span>
              </xml> end } />
@@ -5298,6 +5776,82 @@ and userUI paidTill uid : transaction page =
         {dyn_ (signal scannedPercent)}
         <dyn signal=
              {sr <- signal searchResults;
+              c <- signal searchCounters;
+              vm <- msgTreeViewMode;
+              sf <- signal currentSearchFeed;
+              cf <- signal currentFeed;
+              ip <- signal filteringIsInProgress;
+              let val canFilter =
+                      sf.Index <> discoverySubItemIndex
+                      &&
+                      case sf.SIType of
+                        | SITAll => True
+                        | SITFolder _ => True
+                        | SITFeed _ => True
+                        | _ => False
+                  val query =
+                      case cf.SIType of
+                        | SITSearch s => s.Query
+                        | _ => ""
+                  val newSmartStream =
+                      text <- source "";
+                      tid <- fresh;
+                      let val edit =
+                              t <- get text;
+                              sn <- Js.checkName "smart stream" t;
+                              case sn of
+                                | Some name =>
+                                  ps.Hide;
+                                  set filteringIsInProgress (Some "Creating new smart stream");
+                                  u <- getUrlsOnly sf;
+                                  ssWidget.AddSmartStream name query u;
+                                  set filteringIsInProgress None;
+                                  Js.setLocationHash ("smartstream/" ^ Js.encodeURIComponent name)
+                                | None => return ()
+                      in
+                      d <- ps.NewMenu Css.tagsDialog <xml>
+                        Enter smart stream name<br/>
+                          <ctextbox id={tid}
+                            class="tagsInput" source={text} size={30}
+                            onkeydown={fn k =>
+                                          if k.KeyCode = 13 then
+                                              stopPropagation;
+                                              (* а то list view раскрывает *)
+                                              edit else
+          (*                                 if k.KeyCode = 27 then po.Hide else *)
+                                          return()}
+                            />{textButton "OK" edit}
+                        <span class="dialogHint">
+                        <p>Smart stream is a virtual feed containing items matching your search query. Use it to monitor new interesting content in selected feeds.</p>
+                        <p>You can edit or delete smart streams in settings.</p>
+                        </span>
+                      </xml>;
+                      ps.Toggle popup d;
+                      Js.focus tid
+                      end
+                  fun addF negate message =
+                      ps.Hide;
+(*                       c <- confirm (message ^ " Current and new items in selected feeds will be filtered. You can edit or delete created filter in settings."); *)
+(*                       when c *)
+                           (set filteringIsInProgress (Some "Creating filter");
+                              u <- getUrlsOnly sf;
+                              ssWidget.AddFilter query negate u;
+                              set filteringIsInProgress None;
+                              sf <- get currentSearchFeed;
+                              setFeed sf)
+                  val newFilter =
+                      d <- ps.NewMenu Css.tagsDialog <xml>
+                        <p>What type of filter would you like to create?</p>
+                        {textButton "Hide found items" (addF True "")}
+                        {textButton "Show found items only" (addF False "")}<br/>
+
+                        <span class="dialogHint">
+                        <p>Filters let you automatically hide items matching (or not matching) your search query. Use them to read only interesting content in selected feeds.</p>
+                        <p>Hidden items are not marked as read and will appear again if you delete the filter. You can edit or delete filters in settings.</p>
+                        </span>
+                      </xml>;
+                      ps.Toggle popup d
+              in
               return (case sr of
                   None => <xml/>
                 | Some sr => <xml>
@@ -5305,7 +5859,42 @@ and userUI paidTill uid : transaction page =
 (*                     Found {[sr.Total]} *)
 (*                   </div> *)
                     (* {[if sr.Total > 100 then "100+" else show sr.Total]} *)
-                  <div class="searchTime">Found {[sr.Total]} ({[sr.TookReal]} ms)</div></xml>)
+                  <div class="searchTime">
+                    <span title={"search took " ^ show sr.Took ^ " ms"}>
+                      {[let val t = c.TotalPosts + c.TotalComments
+                            val u = sr.UnreadPosts + sr.UnreadComments
+                        in
+(*                             if vm.UnreadOnly = False then *)
+                                "Found " ^ show t ^
+                                (if t <> 1 then " items" else " item") ^
+                                (if u > 0 then " (" ^ show u ^ " unread)" else "")
+(*                             else *)
+(*                                 "Found " ^ show u ^ *)
+(*                                 (if t > 0 then " unread" else "") ^ *)
+(*                                 (if u <> 1 then " items" else " item") ^ *)
+(*                                 (if t <> u then " (" ^ show t ^ " total)" else "") *)
+                        end]}
+                    </span>
+                    </div>
+                    {if canFilter then <xml>
+                      <div class="searchButtons">
+                        {case ip of
+                           | Some p =>
+                              <xml><div class="searchFiltering"><span class="loadingGif"></span> {[p]}...</div></xml>
+                           | None => <xml>
+                      {(* buttonT' Css.buttonLeft Css.displayNone "Apply" "" *)
+                       textButton "New filter" newFilter
+(*                       {(\* buttonT' Css.buttonLeft Css.displayNone "Apply" "" *\) *)
+(*                        textButton "Apply" *)
+(*                        (addF False ("Are you sure you want to only see items matching \"" ^ query ^ "\"?")) *)
+(*                       }{(\* buttonT' Css.buttonMiddle Css.displayNone "Hide" "" *\) *)
+(*                         textButton "Hide" *)
+(*                        (addF True ("Are you sure you want to hide items matching \"" ^ query ^ "\"?")) *)
+                      }{(* buttonT' Css.buttonRight Css.displayNone "New smart stream" "" *)
+                        textButton "New smart stream" newSmartStream}</xml>}
+                     </div></xml> else <xml/>}
+                  </xml>)
+              end
              } />
         {msgsWidget.Html}
         <div class="clearBoth"></div>

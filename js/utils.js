@@ -2,6 +2,9 @@ function whine(msg)
 {
     throw msg; // убираем urweb-овский alert
 }
+function atr(s) { // фикс urweb-овского atr
+    return s.replace(/\"/g, "&quot;");
+}
 
 try{
     // http://www.opera.com/support/kb/view/827/
@@ -338,7 +341,7 @@ function videoPreviewImg(s)
                 url: 'http://vimeo.com/api/v2/video/' + m[2] + '.json?callback=?',
                 cache: true,
                 success: function(data, textStatus, jqXHR) {
-                    var e = elt(id);
+                    var e = elem(id);
                     if (data[0] != undefined)
                     {
                         var thumb = data[0].thumbnail_large;
@@ -347,7 +350,7 @@ function videoPreviewImg(s)
                     }
                 },
                 error: function (jqXHR, textStatus) {
-                    var e = elt(id);
+                    var e = elem(id);
                     if (e) nextMessageImage(e);
                 }
             });
@@ -467,13 +470,13 @@ function apCheck(id)
 }
 function apOnload(id)
 {
-    var e = elt(id); if (e) e.className = 'authorPic';
+    var e = elem(id); if (e) e.className = 'authorPic';
 // TODO: стоит проверять размер картинки, если 1х1
 // (как у blogspot-овского blank.gif), то это тот же error ?
 }
 function apOnerror(id)
 {
-    var e = elt(id); if (e) e.style.display = 'inline';
+    var e = elem(id); if (e) e.style.display = 'inline';
 }
 
 function downloadLink(x, kind, popupInner)
@@ -515,7 +518,7 @@ function downloadLink(x, kind, popupInner)
     }
     if (details != '')
         details = ' (' + details + ')';
-    var link = '<div class="downloadLink '+kind+'"><a target=_blank title="'+decodeURIComponent(atr(x._Url))+'"href="'+atr(x._Url)+'">'+atr(t)+'</a>'
+    var link = '<div class="downloadLink '+kind+'"><a target=_blank title="'+decodeURIComponent(atr(x._Url))+'" href="'+atr(x._Url)+'">'+eh(t)+'</a>'
     var popup = popupInner != null ? cat(", <a target=bqrPopup onclick='enclosurePopup(event,", cat(cs(kind == "video" ? '' : link + details), cat(",", cat(popupInner, ",\""+kind+"\")' href='"+atr(x._Url) +"'>popup</a>")))) : "";
     return cat(link + details, cat(popup, '</div>'));
 }
@@ -555,7 +558,7 @@ function attachmentXml(x)
             + '" type="' + x._Mime + '" /></video>';
         var a = v;
         var id = fresh();
-        var act = cat('elt(\''+id+'\').innerHTML = ', cs(v));
+        var act = cat('elem(\''+id+'\').innerHTML = ', cs(v));
         if ((navigator.userAgent.match(/(firefox|opera)/i)
              && (x._Mime == "video/mp4" || x._Mime == "video/x-m4v"))
             || x._Mime == 'video/x-flv' || x._Mime == 'video/x-f4v'
@@ -565,7 +568,7 @@ function attachmentXml(x)
             v = 'flowplayer(\''+id+'\', \'/images/flowplayer/flowplayer-3.2.16.swf\', { clip: { url : \'' + x._Url.replace(/'/g, "\\'") + '\', autoPlay: true, scaling: \'fit\' }, canvas: {background: \'#000000\'} })';
             a = '<div class=bqrMsgVideo id=' + id + '></div><script>'
                 +v+ '</script>';
-            act = cat('elt(\''+id+'\').innerHTML = \'\';', v);
+            act = cat('elem(\''+id+'\').innerHTML = \'\';', v);
         }
         var r =
         cat('<div class=bqrMsgVideo id=' + id + '>'
@@ -602,7 +605,7 @@ function attachmentXml(x)
             return cat(
                 '<div class=bqrMsgAudio id=' + id + '>'
                 + '<div class=bqrMsgAudioInner onclick="',
-                cat(cat('elt(\''+id+'\').innerHTML = ', cs(a)),
+                cat(cat('elem(\''+id+'\').innerHTML = ', cs(a)),
                     cat('"><div class="btnPlayAudioOuter"><div class="btnPlayAudio"></div></div></div></div>', downloadLink(x, 'audio', cs(a)))));
         }
         else {
@@ -737,19 +740,19 @@ function toXml(x)
 }
 var fromXml = toXml;
 
-function elt(id)
+function elem(id)
 {
     return document.getElementById(id);
 }
 
 function getProp(id, prop)
 {
-    return elt(id)[prop];
+    return elem(id)[prop];
 }
 
 function setProp(id, prop, val)
 {
-    elt(id)[prop] = val;
+    elem(id)[prop] = val;
 }
 
 function getStyle(el, styleProp)
@@ -790,20 +793,20 @@ function mkKeyIdentifier(code)
 
 function offsetTopLeft(child)
 {
-    var e = elt(child);
-    return e ? {_Top : e.offsetTop, _Left : e.offsetLeft} : null;
+    var e = elem(child);
+    return e ? {_Top : Math.round(e.offsetTop), _Left : Math.round(e.offsetLeft)} : null;
 }
 function offsetBottomRight(child)
 {
     var e = $('#'+child+' .buttonLeft');
     if (e.length == 0) {
-        e = elt(child).childNodes[0]; // используется только для меню
-        return {_Top : e.offsetTop + e.clientHeight, _Left : e.offsetLeft + e.clientWidth}
+        e = elem(child).childNodes[0]; // используется только для меню
+        return {_Top : Math.round(e.offsetTop + e.clientHeight), _Left : Math.round(e.offsetLeft + e.clientWidth)}
     } else {
         e = e[0];
         p = e.offsetParent; // msgToolBar
         return { _Top : 0 // e.offsetTop + p.offsetTop + e.clientHeight
-               , _Left : e.offsetLeft + p.offsetLeft//  + e.clientWidth
+               , _Left : Math.round(e.offsetLeft + p.offsetLeft)//  + e.clientWidth
                }
     }
 }
@@ -817,12 +820,12 @@ var pixelsPerMsec = 3.2;
 
 function offsetParentScrollTop(id)
 {
-    var e = elt(id);
-    return e ? e.offsetParent.scrollTop : 0;
+    var e = elem(id);
+    return e ? Math.round(e.offsetParent.scrollTop) : 0;
 }
 function setOffsetParentScrollTop(id, st)
 {
-    var e = elt(id);
+    var e = elem(id);
     if (e) e.offsetParent.scrollTop = st;
 }
 
@@ -830,17 +833,17 @@ function scrollToElement(child, mode, after)
 {
     var offset = offsetTopLeft(child);
     if (offset != null) {
-        var span = elt(child);
+        var span = elem(child);
 //         var msgBody = span.parentNode;
 //         var msgFrame = msgBody.parentNode;
-        var t = span.offsetTop;
+        var t = Math.round(span.offsetTop);
 //         var l = msgFrame.offsetLeft
-//             - elt("uw-1").children[0].children[0].offsetLeft;
+//             - elem("uw-1").children[0].children[0].offsetLeft;
 //             // TODO: сделать id-шку заголовку
 //         var w = msgBody.clientWidth+5;
 //         var h = msgFrame.clientHeight - (span.offsetTop - msgFrame.offsetTop);
         var msgTree = span.offsetParent;
-        var st0 = msgTree.scrollTop;
+        var st0 = Math.round(msgTree.scrollTop);
         var sl = msgTree.scrollLeft;
         var ch = msgTree.clientHeight;
         var st=t; // все-таки как курсор плохо, новые сообщения снизу
@@ -885,8 +888,8 @@ function scrollToElement(child, mode, after)
         // , {easing:'easeOutElastic'});
         // http://gsgd.co.uk/sandbox/jquery/easing/
 //        $("#" + parent).scrollTo( { top:offset._Top, left:0 }, 100);
-//        elt(parent).scrollTop = offset;//._Top;
-//         elt(parent).scrollLeft = offset._Left;
+//        elem(parent).scrollTop = offset;//._Top;
+//         elem(parent).scrollLeft = offset._Left;
     }
     // child.parentNode -- msgBody -- правильный clientWidth
     // и offsetLeft можно смотреть
@@ -900,7 +903,7 @@ function expandMessage(h0, id, after)
     execF(after); return;
     // как-то не очень выглядит разворачивание сообщения как свитка
     // в обе стороны
-//     var snap = elt(id);
+//     var snap = elem(id);
 //     if (!snap) { execF(after); return; }
 //     var msgFrame = snap.parentNode.parentNode;
 //     if (!msgFrame) { execF(after); return; }
@@ -945,14 +948,14 @@ function scrollEasing(mode)
 
 function collapseComments(minHeight, id, mode, after)
 {
-    var g = elt(id);
+    var g = elem(id);
     if (!g) { execF(after); return; }
     var msgTree = g.offsetParent;
     if (!msgTree) { execF(after); return; }
-    var h = Math.min(msgTree.clientHeight - (g.offsetTop - msgTree.scrollTop),
-                     g.clientHeight);
-    var h0 = Math.max(msgTree.scrollTop - g.offsetTop,
-                      minHeight);
+    var h = Math.round(Math.min(msgTree.clientHeight - (g.offsetTop - msgTree.scrollTop),
+                                g.clientHeight));
+    var h0 = Math.round(Math.max(msgTree.scrollTop - g.offsetTop,
+                                 minHeight));
 //    alert('h='+h+'; h0='+h0+'; h-h0='+(h-h0));
     if (h-h0 <= 0) { execF(after); return; }
     if (!g || isMobile || mode == 'immediate') {
@@ -973,13 +976,13 @@ function collapseComments(minHeight, id, mode, after)
 
 function expandComments(minHeight, id, mode, after)
 {
-    var g = elt(id);
+    var g = elem(id);
     if (!g || isMobile || mode == 'immediate') { execF(after); return; }
     var msgTree = g.offsetParent;
-    var h0 = Math.max(msgTree.scrollTop - g.offsetTop,
-                      minHeight);
-    var h = Math.min(msgTree.clientHeight - (g.offsetTop - msgTree.scrollTop),
-                     g.clientHeight);
+    var h0 = Math.round(Math.max(msgTree.scrollTop - g.offsetTop,
+                                 minHeight));
+    var h = Math.round(Math.min(msgTree.clientHeight - (g.offsetTop - msgTree.scrollTop),
+                                g.clientHeight));
 //    alert('h='+h+'; h0='+h0+'; h-h0='+(h-h0));
     if (h <= 0) { execF(after); return; }
 
@@ -994,7 +997,7 @@ function expandComments(minHeight, id, mode, after)
 
 function moveUpDown(f, id, mode, after)
 {
-    var g = elt(id);
+    var g = elem(id);
     var l = execF(f, g.clientHeight);
     var st = Math.min(g.scrollHeight - g.clientHeight, Math.max(0, g.scrollTop + l));
     l = Math.abs(st - g.scrollTop);
@@ -1133,17 +1136,17 @@ function setTimeoutUr(what, code, time)
     }, time);
 }
 function showId(i) { return i; }
-function focus(i) { var e = elt(i); if (e) { e.focus();}  };
-function setReadOnly(i, r) { var e = elt(i); if (e) e.setAttribute("readonly", r); };
-function blur(i) { elt(i).blur(); };
-function inputValue(i) { var e = elt(i); return e ? e.value : ""; };
+function focus(i) { var e = elem(i); if (e) { e.focus();}  };
+function setReadOnly(i, r) { var e = elem(i); if (e) e.setAttribute("readonly", r); };
+function blur(i) { elem(i).blur(); };
+function inputValue(i) { var e = elem(i); return e ? e.value : ""; };
 function select(i) {
-    var e = elt(i);
+    var e = elem(i);
     if (!e) return;
 //     if (e.className && e.className.search("Url") != -1 && !navigator.userAgent.match(/msie\s(\d)/i))
 //         e.type = "url";
     e.setAttribute("autocapitalize", "none");
-    elt(i).select();
+    elem(i).select();
 }
 function openLink(l) {
     if (l.indexOf("mailto:") == 0) {
@@ -1206,8 +1209,8 @@ function subItemNode(node)
 
 function totalOffsetTop(node) {
     var o = 0;
-    do { o += node.offsetTop;
-         if (node.offsetParent) o -= node.offsetParent.scrollTop;
+    do { o += Math.round(node.offsetTop);
+         if (node.offsetParent) o -= Math.round(node.offsetParent.scrollTop);
        } while (node = node.offsetParent);
     return o;
 }
@@ -1219,7 +1222,7 @@ function nodeToSubItem(node)
 
 }
 
-function dragMark() { return elt("uw1"); }
+function dragMark() { return elem("uw1"); }
 function siNodeParentSubItem(n)
 {
     while (n) {
@@ -1257,14 +1260,14 @@ function findDragTarget(y, folderOK, nodeCheck)
     for (var domId in arrayKeys(domIdToSubItemIndex).sort(function(a,b){return a - b}))
     {
         var si = subItems[domIdToSubItemIndex[domId]];
-        var node = elt('cls'+domId);
-        if (node && node.offsetTop > 0) // видимая нода
+        var node = elem('cls'+domId);
+        if (node && Math.round(node.offsetTop) > 0) // видимая нода
             lastNode = node;
         if (si == null || node == null || !nodeCheck(node, si)) {
 //            r._Before = true; // под следующей нельзя?? -- так тоже теги не работают
             continue;
         }
-        var nodeY = node.offsetTop;
+        var nodeY = Math.round(node.offsetTop);
         var ch = node.clientHeight;
         var nodeTO = totalOffsetTop(node);
         var o = y - nodeTO;
@@ -1276,7 +1279,7 @@ function findDragTarget(y, folderOK, nodeCheck)
             last.ch = ch;
             minO = Math.abs(o);
             last.si = r._SubItem ? r._SubItem : subItems[0];
-            last.node = r._Node ? r._Node : elt('cls0');
+            last.node = r._Node ? r._Node : elem('cls0');
             r._SubItem = si;
             r._Node = node;
             r._ToFolder = false;
@@ -1333,7 +1336,7 @@ var lastDragTarget = null;
 var onDragAndDrop = null;
 var onDragAndDropStart = null;
 
-function registerOnDragAndDrop(c) { return function() { onDragAndDrop = c; } }
+function registerOnDragAndDrop(c) { onDragAndDrop = c; }
 function registerOnDragAndDropStart(c) { onDragAndDropStart = c; }
 function isDragAndDropActive() { return draggingSubItem != null; }
 
@@ -1355,7 +1358,8 @@ function onSubItemDragAndDrop(event)
         var y = event.originalEvent.clientY;
         var dt = null;
         if (dhash == "tags" || dhash == "starred" ||
-            dhash.indexOf("folder/") == 0)
+            dhash.indexOf("folder/") == 0 ||
+            dhash.indexOf("smartstream/") == 0)
             // top-level
             dt = findDragTarget(y, false,
                                 function (n,si)
@@ -1375,8 +1379,8 @@ function onSubItemDragAndDrop(event)
         if (dt == null)
             return;
         lastDragTarget = dt;
-        var siO = dt._Node.offsetTop + 1;
-        var ch = dt._Node.clientHeight;
+        var siO = Math.round(dt._Node.offsetTop) + 1;
+        var ch = Math.round(dt._Node.clientHeight);
         var mark = dragMark();
         mark.style.display = 'block';
         $(mark).toggleClass('folderRectangle', dt._ToFolder);
@@ -1435,7 +1439,7 @@ function onSubItemDragAndDrop(event)
                     dt._Before ? dt._Node : dt._Node.nextSibling);
             if (isFolder(draggingSubItem) || draggingSubItem._Hash == "tags")
                 draggingSubItemNode.parentNode.insertBefore(
-                    elt("folder" + draggingSubItem._Index),
+                    elem("folder" + draggingSubItem._Index),
                     draggingSubItemNode.nextSibling);
         }
 
@@ -1504,10 +1508,12 @@ function hasOnscreenKeyboard()
     return ('ontouchstart' in document || isMobile);
 }
 
+var prevScrollTop = 0;
+
 function jsInit()
 {
+    var b = document.getElementsByTagName("body")[0];
     if ('ontouchstart' in document || isMobile) {
-        var b = document.getElementsByTagName("body")[0];
         b.className = b.className.replace(/noTouch/g, "");
     }
     else {
@@ -1521,8 +1527,34 @@ function jsInit()
 
     }
     $('#uw0').attr('autocomplete', 'on');
-}
+    if (navigator.userAgent.match(/iPad;.*CPU.*OS 7_\d/i) && !navigator.standalone) {
+        b.className += ' ipad ios7';
+    }
 
+    $('.right').on('scroll', function(e) {
+        var st = $('.right').scrollTop();
+        if (!isFullScreen())
+            prevScrollTop = st;
+//        uw_debug('onscroll ' + st);
+    });
+    $(document).on('webkitfullscreenchange mozfullscreenchange fullscreenchange',  function(e) {
+        if (!isFullScreen())
+            elem('uw-1').scrollTop = prevScrollTop;
+//        uw_debug('set scrollTop = ' + prevScrollTop1);
+    });
+
+}
+function isFullScreen()
+{
+    var e = document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement;
+    var r = (e || document.fullScreen || document.mozFullScreen || document.webkitIsFullScreen) ? true : false;
+//    uw_debug('isFullScreen ' + r);
+    return r;
+}
+function clearPrevScrollTop()
+{
+    prevScrollTop = 0;
+}
 var opmlOkCode = null;
 function opmlForm(body)
 {
@@ -1536,7 +1568,7 @@ function opmlForm(body)
 function opmlUpload(code)
 {
     opmlOkCode = code;
-    elt("opmlFile").click();
+    elem("opmlFile").click();
     opmlOkCode = null;
 }
 
@@ -1545,6 +1577,8 @@ _gaq.push(['_setAccount', 'UA-32263037-1']);
 
 function loadGoogleAnalytics(login)
 {
+//     var b = $("body")[0];
+//     alert(b.clientWidth + 'x' + b.clientHeight);
     if (location.host != "bazqux.com") return;
     // были какие-то дикие тормоза у iPad с IP адресом
     // из-за них почему-то ajax тормозил
@@ -1573,14 +1607,14 @@ function trackEvent(category, action, user)
     _gaq.push(['_trackEvent', category, action, user])
 }
 
-function complete(id) { return elt(id) ? elt(id).complete : false; }
-function offsetTop(id) { return elt(id) ? elt(id).offsetTop : 0; }
-function scrollTop(id) { return elt(id).scrollTop; }
-function scrollLeft(id) { return elt(id).scrollLeft; }
-function setScrollTop(id, x) { elt(id).scrollTop = x; }
-function setScrollLeft(id, x) { elt(id).scrollLeft = x; }
-function clientHeight(id) { return elt(id).clientHeight; }
-function scrollHeight(id) { return elt(id).scrollHeight; }
+function complete(id) { return elem(id) ? elem(id).complete : false; }
+function offsetTop(id) { return elem(id) ? Math.round(elem(id).offsetTop) : 0; }
+function scrollTop(id) { return Math.round(elem(id).scrollTop); }
+function scrollLeft(id) { return Math.round(elem(id).scrollLeft); }
+function setScrollTop(id, x) { elem(id).scrollTop = x; }
+function setScrollLeft(id, x) { elem(id).scrollLeft = x; }
+function clientHeight(id) { return Math.round(elem(id).clientHeight); }
+function scrollHeight(id) { return Math.round(elem(id).scrollHeight); }
 
 function execMsgOnClick(code)
 {
@@ -1594,9 +1628,18 @@ function execMsgOnClick(code)
 //         n = n.parentNode;
 //     }
 // //    if (n) // не выделяем сообщение при щелчке по кнопке
-    // ^ нафиг не надо, гуглоридер выделяет сообщения при шелчке по ссылке
-    if (code != null) // окошко может исчезнуть, и код убъется
+    // ^ нафиг не надо, гуглоридер выделяет сообщения при щелчке по ссылке
+    if (code != null) { // окошко может исчезнуть, и код убъется
+//        uw_debug("msgOnClick " + cn);
+        // onclick при выделении текста все равно приходит
+        // и отличить его от обычного клика похоже никак нельзя
+        // в safari, при выделении многострочного текста не приходит.
+        // По-идее, можно было бы ловить mousedown/up и проверять изменение
+        // selection-а, но он может и не измениться, да и геморойно это.
+        // Даже в GMail, если заголовки выделять,
+        // они сворачиваются/разворачиваются.
         execF(execF(execF(code, cn), uw_mouseEvent()));
+    }
 }
 
 function msgOnClick(cls, code, inner)
@@ -1629,7 +1672,7 @@ function subItemCls(si, s, cs, cnt, vm)
 {
     var p = cnt._TotalPosts - cnt._ReadPosts;
     var cc = cnt._TotalComments - cnt._ReadComments;
-    var c = (vm._ExpandedComments || isFolder(si)) ? cc : 0;
+    var c = (vm._ExpandedComments || isCommentCountsVisible(si)) ? cc : 0;
     var r = [];
 //     if (isFolder(si) && !vm._ExpandedComments && p==0 && cc != 0)
 //         r.push("unreadCommentsOnlyInChildren")
@@ -1669,12 +1712,12 @@ function setExactUnreadCounts(e)
 
 function setClass(id, cls)
 {
-    var e = elt(id);
+    var e = elem(id);
     if (e) e.className = cls;
 }
 function setInnerHTML_(id, h)
 {
-    var e = elt(id);
+    var e = elem(id);
     if (e) e.innerHTML = h;
 }
 
@@ -1785,7 +1828,7 @@ function feedKeyboardAction(idx, action)
     }
     var domIdx = domIdToSubItemIndex[selectedFeedDomIdx] == idx ? selectedFeedDomIdx : last(subItems[idx]._DomIds);
     var si = subItems[idx];
-    var node = elt("cls"+domIdx);
+    var node = elem("cls"+domIdx);
     if (!node) return;
     if (action == "toggleFolder") {
         var p =
@@ -1811,12 +1854,12 @@ function selectNextFeed(domIdx, f, unreadOnly)
 {
     var maxIdx = domIdToSubItemIndex.length - 1;
     var di = domIdx;
-    var hasParent = siNodeParentSubItem(elt('cls'+domIdx)) != null;
+    var hasParent = siNodeParentSubItem(elem('cls'+domIdx)) != null;
     while ((di = f(di)) != domIdx) // на всякий случай проверяем на циклы
     {
         if (di > maxIdx) break;//di = 0;
         if (di < 0) break; //di = maxIdx;
-        var node = elt('cls'+di);
+        var node = elem('cls'+di);
         if (node && (node.offsetTop > 0 || di == 0)) { // видимая нода
             if (unreadOnly) {
                 var si = nodeToSubItem(node);
@@ -1837,10 +1880,9 @@ function selectNextFeed(domIdx, f, unreadOnly)
 }
 
 var start = 0;
-function setSubItems(tuple)
+function setSubItems(sameHash, ls0)
 {
-    var sameHash = tuple._1;
-    var ls = tuple._2;
+    var ls = ls0;
 //    uw_debug("setSubItems");
 //     if (ls) {
 //         var si = ls._1;
@@ -1921,15 +1963,15 @@ function setSubItems(tuple)
                 var rc0 = c0._ReadComments;
                 var rp = c._ReadPosts;
                 var rc = c._ReadComments;
-                var folder = isFolder(si)
-                if ((vm0._ExpandedComments != vm._ExpandedComments && !folder)
+                var ccVisible = isCommentCountsVisible(si);
+                if ((vm0._ExpandedComments != vm._ExpandedComments && !ccVisible)
                     || rp0 != rp || rc0 != rc)
                 {
                     c._ReadPosts = rp0;
                     c._ReadComments = rc0;
                     var fixRp = rp0 - rp;
-                    var fixRc = ((vm0._ExpandedComments || folder) ? rc0 : 0)
-                        - ((vm._ExpandedComments || folder) ? rc : 0);
+                    var fixRc = ((vm0._ExpandedComments || ccVisible) ? rc0 : 0)
+                        - ((vm._ExpandedComments || ccVisible) ? rc : 0);
                     for (var f = si._ParentFolders; f; f=f._2)
                     {
                         if (rpFixes[f._1] != undefined) {
@@ -1968,7 +2010,7 @@ function setSubItems(tuple)
             setSelectedFlags(upd, sel);
     }
 
-    ls = tuple._2;
+    ls = ls0;
     for (; ls; ls = ls._2) {
         var si = ls._1;
         updateSubItem(subItems[si._Index]);
@@ -2011,16 +2053,333 @@ function getSubItemByHash(hash)
 }
 function getSubItems(idx)
 {
+    var si = subItems[idx];
     var r = null;
-    for (var i in subItems)
-    {
-        var si = subItems[i];
-        if (si._Index == idx && !isFolder(si)) r = {_1:si, _2:r};
-        for (var p = si._ParentFolders; p; p=p._2)
-            if (p._1 == idx) r = {_1:si, _2:r};
+    if (si && si._Hash && si._Hash.indexOf("smartstream/") == 0) {
+        var s = si._SIType.v._StreamFeeds;
+        while (s) {
+            var si = urlToSubItem[s._1];
+            if (si)
+                r = {_1:si, _2:r};
+            s = s._2;
+        }
+    } else {
+        for (var i in subItems)
+        {
+            var si = subItems[i];
+            if (si._Index == idx && !isFolder(si)) r = {_1:si, _2:r};
+            for (var p = si._ParentFolders; p; p=p._2)
+                if (p._1 == idx) r = {_1:si, _2:r};
+        }
     }
     return r;
 }
+function getUrls(idx) {
+    var s = getSubItems(idx);
+    var r = null;
+    while (s) {
+        var u = siFeedUrl(s._1);
+        if (u) {
+            var c = s._1._Counters.data;
+            r = { _1:{_1:u, _2:c._ReadPosts, _3:c._ReadComments, _4:c._TotalPosts, _5:c._TotalComments}, _2:r};
+        }
+        s = s._2;
+    }
+    return r;
+}
+function getUrlsOnly(idx) {
+    var s = getSubItems(idx);
+    var r = null;
+    while (s) {
+        var u = siFeedUrl(s._1);
+        if (u)
+            r = { _1:u, _2:r};
+        s = s._2;
+    }
+    return r;
+}
+function subItemHasQueryFeeds(idx, feeds, feeds2)
+{
+    var l = getUrlsOnly(idx);
+    var f = {};
+    while (l) { f[l._1] = true; l = l._2; }
+    while (feeds) {
+        if (f[feeds._1._1] == true)
+            return true;
+        feeds = feeds._2;
+    }
+    while (feeds2) {
+        if (f[feeds2._1] == true)
+            return true;
+        feeds2 = feeds2._2;
+    }
+    return false;
+}
+var eqf = {};
+function eqfFolderCheckMark(domId)
+{
+    var urls = eqf.folderFeeds[eqf.domIdToFolderIndex[domId]];
+    var checked = 0; var unchecked = 0;
+    for (var i in urls) {
+        if (eqf.checkedFeeds[urls[i]] == true) checked++; else unchecked++;
+    }
+//    elem('eqfCheck'+domId).className =
+    return (checked == 0 ? "btnCheckBox0" :
+            unchecked == 0 ? "btnCheckBox1" : "btnCheckBoxU");
+}
+function editQueryFeeds(feeds)
+{
+    eqf = { checkedFeeds : {},
+            domIdToUrl : {},
+            domIdToFolderIndex : {},
+            feedDomIds : {},
+            folderIndexToDomId : {},
+            folderFeeds : {}, // [folderIndex] -> [url1,...]
+            feedFolders : {} // [url] -> [folderIndex1,...]
+          };
+    while (feeds) { eqf.checkedFeeds[feeds._1._1] = true; feeds = feeds._2; }
+    var r = [];
+    r.push("<span class=subscriptions>");
+
+    var lastFolder = null;
+//     function folderClass(domId) { return eqfFolderCheckMark(domId) == "btnCheckBoxU" ? "folderExpanded" : "folderCollapsed"; }
+
+    var prevDomId = null;
+    for (var domId in arrayKeys(domIdToSubItemIndex).sort(function(a,b){return a - b}))
+    {
+        var si = subItems[domIdToSubItemIndex[domId]];
+        var u = siFeedUrl(si);
+        var f = siFolderName(si);
+        if (!u && !f) continue;
+        var folder = siNodeParentSubItem(elem('cls'+domId));
+        if (folder) {
+            if (!lastFolder || lastFolder != folder._Index) {
+                lastFolder = folder._Index;
+                r.push('<div class="folder folderCollapsed" id="eqfFolder'+lastFolder+'">');
+                eqf.domIdToFolderIndex[prevDomId] = folder._Index;
+                eqf.folderIndexToDomId[folder._Index] = prevDomId;
+                eqf.folderFeeds[folder._Index] = [];
+            }
+            eqf.folderFeeds[lastFolder].push(u);
+        } else if (lastFolder) {
+            r.push("</div>");
+            lastFolder = null;
+        }
+        if (u) {
+            eqf.domIdToUrl[domId] = u;
+            var di = eqf.feedDomIds[u];
+            if (di) di.push(domId); else eqf.feedDomIds[u] = [domId];
+            if (eqf.checkedFeeds[u] != true)
+                eqf.checkedFeeds[u] = false;
+        }
+        var l =
+            "<li title=\"" + atr(si._Title) + "\" id='eqfCls"+domId+
+            "' onclick='eqfToggleFeed("+domId+
+            ")' class="+(eqf.checkedFeeds[u] ? "eqfChecked" : "")+" ><span class=subscriptionItem><span id='eqfCheck"+domId+"' class="+
+            (//f ? eqfFolderCheckMark(domId) :
+             eqf.checkedFeeds[u] == true ? "btnCheckBox1" : "btnCheckBox0") +
+            " ></span><span class=" +
+            (si._FaviconStyle
+             ? "favicon style='" + si._FaviconStyle + "'></span>"
+             : "btnFolder onclick='uw_event=event;eqfToggleFolder("+domId+");return false;'></span>") +
+            "<span class=buttonText>" + eh(si._Title) + "</span></span></li>";
+        r.push(l);
+        prevDomId = domId;
+    }
+//     setTimeout(function () { eqfUpdateFolders(); },0);
+    if (lastFolder) r.push("</div>");
+    r.push("</span>")
+    return { _Xml : r.join(""),
+             _SelectAll : function () { eqfSelect(true); },
+             _SelectNone : function () { eqfSelect(false); },
+             _GetFeeds : function () {
+                 var r = null;
+                 for (var u in eqf.checkedFeeds) {
+                     if (eqf.checkedFeeds[u] == true)
+                         r = { _1 : u, _2 : r };
+                 }
+                 return r;
+             },
+             _UpdateFolders : eqfUpdateFolders
+           };
+}
+function eqfUpdate(domId, cls) {
+    var e = elem('eqfCheck'+domId);
+    if (e.className != cls) e.className = cls;
+    e = elem('eqfCls'+domId);
+    if (cls == "btnCheckBox1")
+        $(e).addClass("eqfChecked");
+    else
+        $(e).removeClass("eqfChecked");
+}
+function eqfUpdateFolders(noToggle) {
+    for (var domId in eqf.domIdToFolderIndex) {
+        var cls = eqfFolderCheckMark(domId);
+        eqfUpdate(domId, cls);
+        if (!noToggle && cls == "btnCheckBoxU")
+            eqfToggleFolder(domId, true);
+    }
+}
+function eqfToggleFolder(domId, noStop)
+{
+    $('#eqfCls'+domId).toggleClass('folderExpanded');
+    $('#eqfFolder'+eqf.domIdToFolderIndex[domId]).toggleClass('folderExpanded');
+    $('#eqfCls'+domId).toggleClass('folderCollapsed');
+    $('#eqfFolder'+eqf.domIdToFolderIndex[domId]).toggleClass('folderCollapsed');
+    if (!noStop) uw_stopPropagation();
+}
+function eqfUpdateFeed(url)
+{
+    var di = eqf.feedDomIds[url];
+    var cls = eqf.checkedFeeds[url] ? "btnCheckBox1" : "btnCheckBox0";
+    for (var i in di)
+        eqfUpdate(di[i], cls);
+}
+function eqfToggleFeed(domId)
+{
+    var u = eqf.domIdToUrl[domId];
+    var fi = eqf.domIdToFolderIndex[domId];
+    if (u) {
+        eqf.checkedFeeds[u] = (eqf.checkedFeeds[u] != true);
+        eqfUpdateFeed(u);
+    } else { // folder
+        var c = eqfFolderCheckMark(domId);
+        var e = !(c == "btnCheckBox1");
+        var ff = eqf.folderFeeds[eqf.domIdToFolderIndex[domId]];
+        for (var i in ff) {
+            eqf.checkedFeeds[ff[i]] = e;
+            eqfUpdateFeed(ff[i]);
+        }
+    }
+    eqfUpdateFolders(true);
+}
+function eqfSelect(sel) {
+    for (var u in eqf.checkedFeeds) {
+        eqf.checkedFeeds[u] = sel;
+        eqfUpdateFeed(u);
+    }
+    eqfUpdateFolders(true);
+}
+function displayQueryFeeds(feeds)
+{
+    if (feeds == null)
+        return "no feeds selected";
+    var usedFeeds = {};
+    while (feeds) { usedFeeds[feeds._1._1] = true; feeds = feeds._2; }
+
+    // собираем список папок и toplevel фидов
+    var toplevel = [];
+    var lastFolder = null;
+    for (var domId in arrayKeys(domIdToSubItemIndex).sort(function(a,b){return a - b}))
+    {
+        var si = subItems[domIdToSubItemIndex[domId]];
+        var u = siFeedUrl(si);
+        if (!u) continue;
+        var folder = siNodeParentSubItem(elem('cls'+domId));
+        if (folder) {
+            if (!lastFolder || lastFolder.si._Index != folder._Index) {
+                lastFolder = { folder : true, si : folder, usedFeeds : [], excludedFeeds : [] };
+                toplevel.push(lastFolder);
+            }
+            if (usedFeeds[u] == true)
+                lastFolder.usedFeeds.push(si);
+            else
+                lastFolder.excludedFeeds.push(si);
+        }
+        else {
+            lastFolder = null;
+            toplevel.push({ si : si, used : usedFeeds[u] });
+        }
+    }
+
+    // Анализируем, что короче -- показать список включенных папок/фидов или
+    // список исключенных
+    var icnt = 0;
+    var ecnt = 0;
+    for (var i in toplevel) {
+        var t = toplevel[i];
+        if (t.folder) {
+            var u = t.usedFeeds.length;
+            var e = t.excludedFeeds.length;
+            if (e == 0) { icnt++; }; // папка полностью включена
+            if (u == 0) { ecnt++; }; // полностью исключена
+            if (u > e) {
+                icnt += 1+e; // folder (exluding e feeds)
+                ecnt += e;   // Latest exluding e feeds
+            } else {
+                icnt += u;   // u feeds
+                if (u == e)
+                    ecnt += e; // u >= e
+                else
+                    ecnt += 1+u; // Latest exluding folder (but including u feeds)
+            }
+        } else {
+            if (t.used) icnt++; else ecnt++;
+        }
+    }
+
+    var incl = icnt < ecnt;
+
+    // Собираем результат
+    var r = [];
+    function add(si) {
+        var l =
+            "<div class=ffeed><div class=ffeedName title=\"" + atr(si._Title) +
+            "\"><span class=" +
+            (si._FaviconStyle
+             ? "favicon style='" + si._FaviconStyle + "'></span>"
+             : (si._Index == 0 ? "btnLatest></span>" : "btnFolder></span>")) +
+            eh(si._Title) + "</div><div class=ffeedRm>x</div></div>";
+        r.push(l);
+    }
+
+    if (!incl) {
+        add(subItems[0]); // Latest
+        if (ecnt > 0)
+            r.push("<span class=ffLatestExcluding>excluding</span>");
+    }
+
+    for (var i in toplevel) {
+        var t = toplevel[i];
+        var si = t.si;
+        if (t.folder) {
+            var u = t.usedFeeds.length;
+            var e = t.excludedFeeds.length;
+            if (incl) {
+                if (u == 0) continue; // полностью исключена
+                if (e == 0) add(si); // полностью включена
+                else if (u > e) {
+                    add(si);
+                    r.push("<span class=ffExcluding><span class=ffExcludingText>(excluding</span>");
+                    for (var j in t.excludedFeeds)
+                        add(t.excludedFeeds[j]);
+                    r.push("<span class=ffExcludingText>)</span></span><span class=ffExcludingPad></span>");
+                } else {
+                    for (var j in t.usedFeeds)
+                        add(t.usedFeeds[j]);
+                }
+            } else {
+                if (e == 0) continue; // полностью включена
+                if (u == 0) add(si); // полностью исключена
+                else if (u >= e) {
+                    for (var j in t.excludedFeeds)
+                        add(t.excludedFeeds[j]);
+                } else {
+                    add(si);
+                    r.push("<span class=ffExcluding><span class=ffExcludingText>(but including</span>");
+                    for (var j in t.usedFeeds)
+                        add(t.usedFeeds[j]);
+                    r.push("<span class=ffExcludingText>)</span></span><span class=ffExcludingPad></span>");
+                }
+            }
+        } else {
+            if ((incl && t.used) || (!incl && !t.used))
+                add(si);
+        }
+    }
+    return r.join("");
+}
+
 function updateSource(s)
 {
     for (var ls = s.dyns; ls; ls = ls.next)
@@ -2034,6 +2393,14 @@ function isFolder(si)
     // starred и all tags -- не папки (all tags просто подписка, которая
     // выводит все теги
 }
+function isCommentCountsVisible(si)
+{
+    return isFolder(si) || isSmartStream(si);
+}
+function isSmartStream(si)
+{
+    return si._Hash.indexOf("smartstream/") == 0;
+}
 function isTag(si)
 {
     return si._Hash == "starred" || si._Hash == "tags" || siTagName(si) != null;
@@ -2043,23 +2410,31 @@ function siUrl(si)
     return (typeof(si._SIType) == "object" && si._SIType.v._Subscription)
             ? si._SIType.v._Subscription._Url : null;
 }
+function siFeedUrl(si)
+{
+    return (typeof(si._SIType) == "object" && si._SIType.v._Subscription &&
+            typeof(si._SIType.v._Subscription._State) == "object")
+            ? si._SIType.v._Subscription._State.v._Url : null;
+}
 function updateSubItem(si)
 {
     var cnt = si._Counters.data;
     var vm = si._ViewMode.data;
-    var uc = showUnread(cnt, vm._ExpandedComments || isFolder(si));
+    var uc = showUnread(cnt, isCommentCountsVisible(si) ?
+                        (vm._NoOverride || vm._ExpandedComments)
+                        : vm._ExpandedComments);
     var c  = subItemCls(si, si._Selected, si._ChildSelected, cnt, vm);
     var ucC = "unreadCount sp" + Math.round(cnt._ScannedPercent/5)*5;
     var fs = si._FaviconStyle;
     for (var d = si._DomIds; d; d=d._2) {
         var i = d._1;
-        var clsE = elt("cls" + i);
-        var ucE = elt("uc" + i);
+        var clsE = elem("cls" + i);
+        var ucE = elem("uc" + i);
         if (clsE.className != c) clsE.className = c;
         if (ucE.className != ucC) ucE.className = ucC;
         if (ucE.innerHTML != uc) ucE.innerHTML = uc;
         if (fs) {
-            var fav = elt("fav" + i);
+            var fav = elem("fav" + i);
             if (fav.style && fav.style.cssText != fs) fav.style.cssText = fs;
         }
 //         if (cnt._Error == 1 && !isFolder(si))
@@ -2070,17 +2445,14 @@ function updateSubItem(si)
     }
     if (si._Hash.indexOf("folder/") == 0 || si._Hash == "tags")
     {
-        var fE = elt("folder"+si._Index);
+        var fE = elem("folder"+si._Index);
         var cls = "folder " + (vm._FolderExpanded ? "folderExpanded" : "folderCollapsed");
         if (fE.className != cls) fE.className = cls;
     }
 
     updateSource(si._Counters);
 }
-function updateCounters(x) {
-    var si = x._1;
-    var up = x._2;
-    var uc = x._3;
+function updateCounters(si,up,uc) {
 //    var si = getSubItem(idx);
     si._Counters.data._ReadPosts -= up;
     si._Counters.data._ReadComments -= uc;
@@ -2094,17 +2466,21 @@ function updateCounters(x) {
             si._Counters.data._ReadComments -= uc;
         updateSubItem(si);
     }
-    return function () { return false; }
+    return false;
 }
 function updateReadCounters(c)
 {
     var si = getSubItemByUrl(c._1);
+    if (si == null)
+        si = getSubItemByHash(c._1);
     if (si == null) return; // а надо ли???
     var d = si._Counters.data;
     var up = d._ReadPosts - c._2;
     var uc = d._ReadComments - c._3;
     var utp = d._TotalPosts - c._4;
     var utc = d._TotalComments - c._5;
+    if (up == 0 && uc == 0 && utp == 0 && utc == 0)
+        return;
     d._ReadPosts -= up;
     d._ReadComments -= uc;
     d._TotalPosts -= utp;
@@ -2151,7 +2527,7 @@ function retryScanning(idx)
     c._Error = 0;
     updateSubItem(si);
 //     for (var d=si._DomIds; d; d=d._2)
-//         subItemCharSpan(elt("cls"+d._1)).innerHTML = "R";
+//         subItemCharSpan(elem("cls"+d._1)).innerHTML = "R";
 }
 // function subItemCharSpan(node)
 // {
@@ -2165,7 +2541,7 @@ function hideSubItems(sis)
     {
         var si = s._1;
         for (var d=si._DomIds; d; d=d._2)
-            elt("cls"+d._1).style.display = "none";
+            elem("cls"+d._1).style.display = "none";
         var c = si._Counters.data;
 
         for (var p = si._ParentFolders; p; p = p._2) {
@@ -2232,7 +2608,7 @@ function setupSearchAutocomplete(id, list, search)
         delay: 0,
         select: function( event, ui )  {
             if (!(event.which == 13 || event.keyCode == 13))
-                setTimeout(function () { elt(id).onchange(); execF(search); }, 1);
+                setTimeout(function () { elem(id).onchange(); execF(search); }, 1);
         },
         source: function( request, response ) {
             var matcher = new RegExp( $.ui.autocomplete.escapeRegex( request.term ), "i" );
@@ -2264,7 +2640,7 @@ function splitTagsText(s)
 
 function isAutocompleteActive(id)
 {
-    if (!elt(id)) return false;
+    if (!elem(id)) return false;
     return $( "#" + id ).data( "ui-autocomplete" ).menu.active ? true : false;
 }
 
@@ -2340,8 +2716,10 @@ function setupSubscriptionAutocomplete(type, id)
             continue;
         if (type == "folder" && si._Hash.indexOf("folder/") != 0)
             continue;
+        if (type == "smartstream" && si._Hash.indexOf("smartstream/") != 0)
+            continue;
         subs.push({ label : si._Title, value : parseInt(domId), url : siUrl(si) });
-//         var node = elt('cls'+domId);
+//         var node = elem('cls'+domId);
 //         if (node && node.offsetTop > 0) // видимая нода
 //             lastNode = node;
     }
@@ -2396,7 +2774,7 @@ function setupSubscriptionAutocomplete(type, id)
     }).data("uiAutocomplete");
 
     ac._renderItem = function( ul, item ) {
-        var li = elt('cls'+item.value).cloneNode(true);
+        var li = elem('cls'+item.value).cloneNode(true);
         li.innerHTML = '<a>'+li.innerHTML+'</a>';
         li.className = li.className.replace(/folderExpanded/, 'folderCollapsed');
         return $(li).removeClass('selected').removeClass('mouseOver')
@@ -2493,7 +2871,7 @@ function toLowerCase(s)
 
 function makePasswordInput(i)
 {
-    var e = elt(i);
+    var e = elem(i);
     if (e) e.setAttribute("type","password");
 }
 
@@ -2509,8 +2887,8 @@ function trimString(str) {
 
 function getTagsList(id)
 {
-    if (!elt(id)) return {_1:false, _2:null};
-    var ts = splitTagsText(elt(id).value);
+    if (!elem(id)) return {_1:false, _2:null};
+    var ts = splitTagsText(elem(id).value);
     var uniqueTags = [];
     $.each(ts, function(i, el){
         if(el != '' && $.inArray(el, uniqueTags) === -1)
@@ -2522,23 +2900,44 @@ function getTagsList(id)
     return {_1:true, _2:arrayToList(uniqueTags)};
 }
 
-
 function checkTagName(tn)
 {
+    return checkName('tag', tn);
+}
+
+function capitalizeFirstLetter(string)
+{
+    return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
+function checkName(what, tn)
+{
     tn = trimString(tn);
+    if (what == '')
+        return tn;
+    var What = capitalizeFirstLetter(what);
     if (tn == '') {
-        alert('Tag name can\'t be empty.');
+        alert(What+' name can\'t be empty.');
         return null;
     }
     if (tn.replace(/[,\"<>\?&\/\\\^]/g,'') != tn) {
-        alert('Invalid tag name "' + tn + '". Tag names can\'t contain following symbols: ",<,>,?,&,/,\\,^');
+        alert('Invalid '+what+' name "' + tn + '". '+What+' names can\'t contain following symbols: ",<,>,?,&,/,\\,^');
         return null;
     }
     for (var i in subItems)
     {
         var si = subItems[i];
-        if (isFolder(si) && si._Title.toLowerCase() == tn.toLowerCase()) {
-            alert('Invalid tag name "' + tn + '". Tag name can\'t be the same as existing folder name.');
+        if (what != 'folder' && siFolderName(si) == tn) {
+            alert('Invalid '+what+' name "' + tn + '". '+What+' name can\'t be the same as an existing folder name.');
+            return null;
+        }
+        if (what != 'tag' && siTagName(si) == tn) {
+            alert('Invalid '+what+' name "' + tn + '". '+What+' name can\'t be the same as an existing tag name.');
+            return null;
+        }
+        if (// what != 'smart stream' &&
+            siSmartStreamName(si) == tn) {
+            alert('Invalid '+what+' name "' + tn + '". '+What+' name can\'t be the same as an existing smart stream name.');
             return null;
         }
     }
@@ -2573,6 +2972,10 @@ function siTagName(si)
 {
     return typeof(si._SIType) == "object" ? si._SIType.v._TagName : null;
 }
+function siSmartStreamName(si)
+{
+    return typeof(si._SIType) == "object" ? si._SIType.v._StreamName : null;
+}
 function siFolderName(si)
 {
     return typeof(si._SIType) == "object" ? si._SIType.v._Folder : null;
@@ -2585,7 +2988,7 @@ function mw(_) {
 function setmw(mw) { mw_ = mw; return true; }
 var uims_ = {};
 function clearuims() { uims_ = {}; return true; }
-function setuim(id) { return function(uim) {uims_[id] = uim; return true; }}
+function setuim(id, uim) {uims_[id] = uim; return true; }
 function uim(id) { return uims_[id]; }
 function getCharCode() { return uw_event.charCode; }
 
@@ -2600,7 +3003,8 @@ function updateAndSaveReadCounters(feeds, uc)
     for (var c = feeds; c != null; c = c._2)
         readCounters[c._1._1] = c._1;
     for (var c = uc; c != null; c = c._2) {
-        readCounters[c._1._1] = c._1;
+        if (c._1._1.indexOf('smartstream/') != 0)
+            readCounters[c._1._1] = c._1;
         updateReadCounters(c._1);
     }
 }
@@ -2693,7 +3097,7 @@ function saveToLocalStorage(user, key, val)
 var setDiscoveryFeed = null;
 var subscribeDiscoveryFeed = null;
 var discoveryHide = null;
-function set_setDiscoveryFeed(x) { return function () { setDiscoveryFeed = x;} }
+function set_setDiscoveryFeed(x) { setDiscoveryFeed = x; }
 function set_subscribeDiscoveryFeed(s) { subscribeDiscoveryFeed = s; }
 function set_discoveryHide(h) { discoveryHide = h; }
 
@@ -3020,3 +3424,7 @@ var countriesList =
     , "ZM - Zambia"
     , "ZW - Zimbabwe"
     ]
+
+function fixedEncodeURIComponent (str) {
+    return encodeURIComponent(str).replace(/[!'()]/g, escape).replace(/\*/g, "%2A");
+}

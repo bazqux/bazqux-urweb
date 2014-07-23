@@ -4,13 +4,13 @@
 #include "Rts.h"
 
 uw_unit uw_Ur_ffi_init(uw_context ctx) { 
-static int argc = 6;
+static int argc = 7;
 static char* arg0 = "/tmp/coreader.exe";
 static char* argv[20]; argv[0]=arg0; int i; for(i=1; i<20;i++)argv[i]=NULL; 
 argv[1] = "+RTS";
 argv[2] = "-N6";
 argv[3] = "-T";
-argv[4] = "-A10m";
+argv[4] = "-A64m";
 argv[5] = "-I0";
 argv[6] = "-M15G";
 static char** argv_ = argv;
@@ -559,6 +559,84 @@ uw_Basis_string uw_Ur_ffi_userRetrySubscription_(uw_context ctx, uw_Basis_string
 
 }
 
+extern HsPtr uw_HsFFI_userDeleteFilter(HsPtr ctx, HsPtr pLen, HsPtr a1, HsPtr a2, HsPtr a3);
+uw_Basis_string uw_Ur_ffi_userDeleteFilter_(uw_context ctx, uw_Basis_string x1, uw_Basis_string x2, uw_Basis_string x3)
+{
+    long size;
+    char* cr = uw_HsFFI_userDeleteFilter(ctx, &size, x1, x2, x3);
+    long sz = size >= 0 ? size : -size;
+    uw_Basis_string r = uw_malloc(ctx, sz + 1);
+    memcpy(r, cr, sz);
+    r[sz] = '\0';
+    if (size >= 0) return r; else uw_error(ctx, FATAL, r);
+
+}
+
+extern HsPtr uw_HsFFI_userDeleteSmartStream(HsPtr ctx, HsPtr pLen, HsPtr a1, HsPtr a2);
+uw_Basis_string uw_Ur_ffi_userDeleteSmartStream_(uw_context ctx, uw_Basis_string x1, uw_Basis_string x2)
+{
+    long size;
+    char* cr = uw_HsFFI_userDeleteSmartStream(ctx, &size, x1, x2);
+    long sz = size >= 0 ? size : -size;
+    uw_Basis_string r = uw_malloc(ctx, sz + 1);
+    memcpy(r, cr, sz);
+    r[sz] = '\0';
+    if (size >= 0) return r; else uw_error(ctx, FATAL, r);
+
+}
+
+extern HsPtr uw_HsFFI_userAddFilter(HsPtr ctx, HsPtr pLen, HsPtr a1, HsPtr a2, HsPtr a3, HsPtr a4);
+uw_Basis_string uw_Ur_ffi_userAddFilter_(uw_context ctx, uw_Basis_string x1, uw_Basis_string x2, uw_Basis_string x3, uw_Basis_string x4)
+{
+    long size;
+    char* cr = uw_HsFFI_userAddFilter(ctx, &size, x1, x2, x3, x4);
+    long sz = size >= 0 ? size : -size;
+    uw_Basis_string r = uw_malloc(ctx, sz + 1);
+    memcpy(r, cr, sz);
+    r[sz] = '\0';
+    if (size >= 0) return r; else uw_error(ctx, FATAL, r);
+
+}
+
+extern HsPtr uw_HsFFI_userEditFilter(HsPtr ctx, HsPtr pLen, HsPtr a1, HsPtr a2, HsPtr a3, HsPtr a4, HsPtr a5, HsPtr a6);
+uw_Basis_string uw_Ur_ffi_userEditFilter_(uw_context ctx, uw_Basis_string x1, uw_Basis_string x2, uw_Basis_string x3, uw_Basis_string x4, uw_Basis_string x5, uw_Basis_string x6)
+{
+    long size;
+    char* cr = uw_HsFFI_userEditFilter(ctx, &size, x1, x2, x3, x4, x5, x6);
+    long sz = size >= 0 ? size : -size;
+    uw_Basis_string r = uw_malloc(ctx, sz + 1);
+    memcpy(r, cr, sz);
+    r[sz] = '\0';
+    if (size >= 0) return r; else uw_error(ctx, FATAL, r);
+
+}
+
+extern HsPtr uw_HsFFI_userAddSmartStream(HsPtr ctx, HsPtr pLen, HsPtr a1, HsPtr a2, HsPtr a3, HsPtr a4);
+uw_Basis_string uw_Ur_ffi_userAddSmartStream_(uw_context ctx, uw_Basis_string x1, uw_Basis_string x2, uw_Basis_string x3, uw_Basis_string x4)
+{
+    long size;
+    char* cr = uw_HsFFI_userAddSmartStream(ctx, &size, x1, x2, x3, x4);
+    long sz = size >= 0 ? size : -size;
+    uw_Basis_string r = uw_malloc(ctx, sz + 1);
+    memcpy(r, cr, sz);
+    r[sz] = '\0';
+    if (size >= 0) return r; else uw_error(ctx, FATAL, r);
+
+}
+
+extern HsPtr uw_HsFFI_userEditSmartStream(HsPtr ctx, HsPtr pLen, HsPtr a1, HsPtr a2, HsPtr a3, HsPtr a4);
+uw_Basis_string uw_Ur_ffi_userEditSmartStream_(uw_context ctx, uw_Basis_string x1, uw_Basis_string x2, uw_Basis_string x3, uw_Basis_string x4)
+{
+    long size;
+    char* cr = uw_HsFFI_userEditSmartStream(ctx, &size, x1, x2, x3, x4);
+    long sz = size >= 0 ? size : -size;
+    uw_Basis_string r = uw_malloc(ctx, sz + 1);
+    memcpy(r, cr, sz);
+    r[sz] = '\0';
+    if (size >= 0) return r; else uw_error(ctx, FATAL, r);
+
+}
+
 extern HsPtr uw_HsFFI_userOPML(HsPtr ctx, HsPtr pLen, HsPtr a1, HsPtr a2);
 uw_Basis_string uw_Ur_ffi_userOPML_(uw_context ctx, uw_Basis_string x1, uw_Basis_string x2)
 {
@@ -603,6 +681,19 @@ uw_Basis_string uw_Ur_ffi_userSubscriptionsAndSettings_(uw_context ctx, uw_Basis
 {
     long size;
     char* cr = uw_HsFFI_userSubscriptionsAndSettings(ctx, &size, x1, x2);
+    long sz = size >= 0 ? size : -size;
+    uw_Basis_string r = uw_malloc(ctx, sz + 1);
+    memcpy(r, cr, sz);
+    r[sz] = '\0';
+    if (size >= 0) return r; else uw_error(ctx, FATAL, r);
+
+}
+
+extern HsPtr uw_HsFFI_userGetFiltersAndSmartStreams(HsPtr ctx, HsPtr pLen, HsPtr a1);
+uw_Basis_string uw_Ur_ffi_userGetFiltersAndSmartStreams_(uw_context ctx, uw_Basis_string x1)
+{
+    long size;
+    char* cr = uw_HsFFI_userGetFiltersAndSmartStreams(ctx, &size, x1);
     long sz = size >= 0 ? size : -size;
     uw_Basis_string r = uw_malloc(ctx, sz + 1);
     memcpy(r, cr, sz);
@@ -741,11 +832,11 @@ uw_Basis_string uw_Ur_ffi_performBgActions_(uw_context ctx, uw_Basis_string x1, 
 
 }
 
-extern HsPtr uw_HsFFI_searchMsgForest(HsPtr ctx, HsPtr pLen, HsPtr a1, HsPtr a2, HsPtr a3, HsPtr a4);
-uw_Basis_string uw_Ur_ffi_searchMsgForest_(uw_context ctx, uw_Basis_string x1, uw_Basis_string x2, uw_Basis_string x3, uw_Basis_string x4)
+extern HsPtr uw_HsFFI_filterMsgForest(HsPtr ctx, HsPtr pLen, HsPtr a1, HsPtr a2, HsPtr a3, HsPtr a4, HsPtr a5);
+uw_Basis_string uw_Ur_ffi_filterMsgForest_(uw_context ctx, uw_Basis_string x1, uw_Basis_string x2, uw_Basis_string x3, uw_Basis_string x4, uw_Basis_string x5)
 {
     long size;
-    char* cr = uw_HsFFI_searchMsgForest(ctx, &size, x1, x2, x3, x4);
+    char* cr = uw_HsFFI_filterMsgForest(ctx, &size, x1, x2, x3, x4, x5);
     long sz = size >= 0 ? size : -size;
     uw_Basis_string r = uw_malloc(ctx, sz + 1);
     memcpy(r, cr, sz);
@@ -754,11 +845,24 @@ uw_Basis_string uw_Ur_ffi_searchMsgForest_(uw_context ctx, uw_Basis_string x1, u
 
 }
 
-extern HsPtr uw_HsFFI_searchTagsMsgForest(HsPtr ctx, HsPtr pLen, HsPtr a1, HsPtr a2, HsPtr a3, HsPtr a4);
-uw_Basis_string uw_Ur_ffi_searchTagsMsgForest_(uw_context ctx, uw_Basis_string x1, uw_Basis_string x2, uw_Basis_string x3, uw_Basis_string x4)
+extern HsPtr uw_HsFFI_filterTagsMsgForest(HsPtr ctx, HsPtr pLen, HsPtr a1, HsPtr a2, HsPtr a3, HsPtr a4);
+uw_Basis_string uw_Ur_ffi_filterTagsMsgForest_(uw_context ctx, uw_Basis_string x1, uw_Basis_string x2, uw_Basis_string x3, uw_Basis_string x4)
 {
     long size;
-    char* cr = uw_HsFFI_searchTagsMsgForest(ctx, &size, x1, x2, x3, x4);
+    char* cr = uw_HsFFI_filterTagsMsgForest(ctx, &size, x1, x2, x3, x4);
+    long sz = size >= 0 ? size : -size;
+    uw_Basis_string r = uw_malloc(ctx, sz + 1);
+    memcpy(r, cr, sz);
+    r[sz] = '\0';
+    if (size >= 0) return r; else uw_error(ctx, FATAL, r);
+
+}
+
+extern HsPtr uw_HsFFI_smartStreamMsgForest(HsPtr ctx, HsPtr pLen, HsPtr a1, HsPtr a2, HsPtr a3, HsPtr a4, HsPtr a5);
+uw_Basis_string uw_Ur_ffi_smartStreamMsgForest_(uw_context ctx, uw_Basis_string x1, uw_Basis_string x2, uw_Basis_string x3, uw_Basis_string x4, uw_Basis_string x5)
+{
+    long size;
+    char* cr = uw_HsFFI_smartStreamMsgForest(ctx, &size, x1, x2, x3, x4, x5);
     long sz = size >= 0 ? size : -size;
     uw_Basis_string r = uw_malloc(ctx, sz + 1);
     memcpy(r, cr, sz);
@@ -954,6 +1058,19 @@ uw_Basis_string uw_Ur_ffi_newSession_(uw_context ctx, uw_Basis_string x1, uw_Bas
 {
     long size;
     char* cr = uw_HsFFI_newSession(ctx, &size, x1, x2);
+    long sz = size >= 0 ? size : -size;
+    uw_Basis_string r = uw_malloc(ctx, sz + 1);
+    memcpy(r, cr, sz);
+    r[sz] = '\0';
+    if (size >= 0) return r; else uw_error(ctx, FATAL, r);
+
+}
+
+extern HsPtr uw_HsFFI_getUserByMobileLogin(HsPtr ctx, HsPtr pLen, HsPtr a1, HsPtr a2);
+uw_Basis_string uw_Ur_ffi_getUserByMobileLogin_(uw_context ctx, uw_Basis_string x1, uw_Basis_string x2)
+{
+    long size;
+    char* cr = uw_HsFFI_getUserByMobileLogin(ctx, &size, x1, x2);
     long sz = size >= 0 ? size : -size;
     uw_Basis_string r = uw_malloc(ctx, sz + 1);
     memcpy(r, cr, sz);

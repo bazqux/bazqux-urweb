@@ -77,13 +77,16 @@ datatype markReadMode
 datatype publicFeedType
   = PFTAll
   | PFTFolder of
-    { Folder  : string
+    { Folder     : string
     }
   | PFTTag of
-    { TagName : string
+    { TagName    : string
     }
   | PFTStarred
   | PFTAllTags
+  | PFTSmartStream of
+    { StreamName : string
+    }
 
 con apiKeys
   = { Pocket        : option (string * string)
@@ -214,6 +217,14 @@ datatype itemTag
     { TagName : string
     }
 
+con filterQuery
+  = { Query     : string
+    , Negate    : bool
+    , Feeds     : assoc_list string bool
+    , Reserved1 : int
+    , Reserved2 : int
+    }
+
 datatype apiMode
   = AMNormal
   | AMGRIdsOnly of
@@ -253,22 +264,41 @@ con commentsReq
 
 datatype treeReq
   = TRPosts of
-    { Reqs        : list postsReq
-    }
-  | TRComments of
-    { OnExpand    : bool
-    , Req         : commentsReq
-    }
-  | TRSearch of
-    { Query       : string
-    , Feeds       : list (string * int * int)
-    , PostTime    : time
-    , BlogFeedUrl : string
-    , PostGuid    : string
+    { Reqs         : list postsReq
     }
   | TRTags of
-    { LastMsg     : option msgKey
-    , Tags        : option (list itemTag)
+    { LastMsg      : option msgKey
+    , Tags         : option (list itemTag)
+    }
+  | TRComments of
+    { OnExpand     : bool
+    , Req          : commentsReq
+    }
+  | TRCommentsS of
+    { OnExpand     : bool
+    , StreamName   : string
+    , Req          : commentsReq
+    }
+  | TRSmartStream of
+    { StreamName   : string
+    , Reqs         : list postsReq
+    }
+  | TRSearchPosts of
+    { Query        : string
+    , FeedMasksKey : string
+    , Reqs         : list postsReq
+    }
+  | TRSearchSmartStream of
+    { StreamName   : string
+    , Query        : string
+    , FeedMasksKey : string
+    , Reqs         : list postsReq
+    }
+  | TRSearchTags of
+    { Query        : string
+    , IdsKey       : string
+    , Tags         : option (list itemTag)
+    , LastMsg      : option msgKey
     }
 
 datatype msgView
@@ -340,6 +370,10 @@ datatype subItemType
   | SITTag of
     { TagName      : string
     }
+  | SITSmartStream of
+    { StreamName   : string
+    , StreamFeeds  : list string
+    }
   | SITStarred
   | SITAllTags
 
@@ -410,6 +444,22 @@ datatype bgAction
     , TotalComments : int
     , OlderThan     : int
     }
+  | BGMarkSearchRead of
+    { Query         : string
+    , ReadCounters  : list (string * int * int * int * int)
+    , OlderThan     : int
+    }
+  | BGMarkSmartStreamSearchRead of
+    { StreamName    : string
+    , Query         : string
+    , ReadCounters  : list (string * int * int * int * int)
+    , OlderThan     : int
+    }
+  | BGMarkSmartStreamRead of
+    { StreamName    : string
+    , ReadCounters  : list (string * int * int * int * int)
+    , OlderThan     : int
+    }
   | BGSetOnlyUpdatedSubscriptions of
     { Value         : bool
     }
@@ -458,11 +508,14 @@ datatype bgAction
     { Country       : string
     }
 
-con searchResults
-  = { Total     : int
-    , Took      : int
-    , TookReal  : int
-    , MsgForest : msgForest
+con filterResults
+  = { TotalPosts     : int
+    , TotalComments  : int
+    , UnreadPosts    : int
+    , UnreadComments : int
+    , Took           : int
+    , TookReal       : int
+    , MsgForest      : msgForest
     }
 
 con fullTextCache
@@ -670,6 +723,13 @@ and get_publicFeedType b : (getBuf * publicFeedType) =
           (b, PFTStarred)
     | 4 => 
           (b, PFTAllTags)
+    | 5 => 
+        let val (b, _StreamName) = get_string b  in
+          (b,
+           PFTSmartStream
+           { StreamName = _StreamName
+           })
+        end
     | n => error <xml>Oh, shi -- can't deserialize ({[n]} is out of range)</xml>
   end
 and get_apiKeys b : (getBuf * apiKeys) = 
@@ -1037,6 +1097,32 @@ and get_itemTag b : (getBuf * itemTag) =
         end
     | n => error <xml>Oh, shi -- can't deserialize ({[n]} is out of range)</xml>
   end
+and get_filterQuery b : (getBuf * filterQuery) = 
+  case 0 of
+      0 => 
+        let val (b, _Query) = get_string b  in
+        let val (b, _Negate) = get_bool b  in
+        let val (b, _Feeds) = get_list ((fn b =>let val (b, _1) = get_string b  in
+        let val (b, _2) = get_bool b  in
+          (b,(_1, _2))
+        end
+        end
+        )) b  in
+        let val (b, _Reserved1) = get_int b  in
+        let val (b, _Reserved2) = get_int b  in
+          (b,
+           { Query = _Query
+           , Negate = _Negate
+           , Feeds = _Feeds
+           , Reserved1 = _Reserved1
+           , Reserved2 = _Reserved2
+           })
+        end
+        end
+        end
+        end
+        end
+    | n => error <xml>Oh, shi -- can't deserialize ({[n]} is out of range)</xml>
 and get_apiMode b : (getBuf * apiMode) = 
   let val (b, c) = get_char b in case ord c of
       0 => 
@@ -1142,6 +1228,16 @@ and get_treeReq b : (getBuf * treeReq) =
            })
         end
     | 1 => 
+        let val (b, _LastMsg) = get_option (get_msgKey) b  in
+        let val (b, _Tags) = get_option (get_list (get_itemTag)) b  in
+          (b,
+           TRTags
+           { LastMsg = _LastMsg
+           , Tags = _Tags
+           })
+        end
+        end
+    | 2 => 
         let val (b, _OnExpand) = get_bool b  in
         let val (b, _Req) = get_commentsReq b  in
           (b,
@@ -1151,40 +1247,72 @@ and get_treeReq b : (getBuf * treeReq) =
            })
         end
         end
-    | 2 => 
-        let val (b, _Query) = get_string b  in
-        let val (b, _Feeds) = get_list ((fn b =>let val (b, _1) = get_string b  in
-        let val (b, _2) = get_int b  in
-        let val (b, _3) = get_int b  in
-          (b,(_1, _2, _3))
-        end
-        end
-        end
-        )) b  in
-        let val (b, _PostTime) = get_time b  in
-        let val (b, _BlogFeedUrl) = get_string b  in
-        let val (b, _PostGuid) = get_string b  in
-          (b,
-           TRSearch
-           { Query = _Query
-           , Feeds = _Feeds
-           , PostTime = _PostTime
-           , BlogFeedUrl = _BlogFeedUrl
-           , PostGuid = _PostGuid
-           })
-        end
-        end
-        end
-        end
-        end
     | 3 => 
-        let val (b, _LastMsg) = get_option (get_msgKey) b  in
-        let val (b, _Tags) = get_option (get_list (get_itemTag)) b  in
+        let val (b, _OnExpand) = get_bool b  in
+        let val (b, _StreamName) = get_string b  in
+        let val (b, _Req) = get_commentsReq b  in
           (b,
-           TRTags
-           { LastMsg = _LastMsg
-           , Tags = _Tags
+           TRCommentsS
+           { OnExpand = _OnExpand
+           , StreamName = _StreamName
+           , Req = _Req
            })
+        end
+        end
+        end
+    | 4 => 
+        let val (b, _StreamName) = get_string b  in
+        let val (b, _Reqs) = get_list (get_postsReq) b  in
+          (b,
+           TRSmartStream
+           { StreamName = _StreamName
+           , Reqs = _Reqs
+           })
+        end
+        end
+    | 5 => 
+        let val (b, _Query) = get_string b  in
+        let val (b, _FeedMasksKey) = get_string b  in
+        let val (b, _Reqs) = get_list (get_postsReq) b  in
+          (b,
+           TRSearchPosts
+           { Query = _Query
+           , FeedMasksKey = _FeedMasksKey
+           , Reqs = _Reqs
+           })
+        end
+        end
+        end
+    | 6 => 
+        let val (b, _StreamName) = get_string b  in
+        let val (b, _Query) = get_string b  in
+        let val (b, _FeedMasksKey) = get_string b  in
+        let val (b, _Reqs) = get_list (get_postsReq) b  in
+          (b,
+           TRSearchSmartStream
+           { StreamName = _StreamName
+           , Query = _Query
+           , FeedMasksKey = _FeedMasksKey
+           , Reqs = _Reqs
+           })
+        end
+        end
+        end
+        end
+    | 7 => 
+        let val (b, _Query) = get_string b  in
+        let val (b, _IdsKey) = get_string b  in
+        let val (b, _Tags) = get_option (get_list (get_itemTag)) b  in
+        let val (b, _LastMsg) = get_option (get_msgKey) b  in
+          (b,
+           TRSearchTags
+           { Query = _Query
+           , IdsKey = _IdsKey
+           , Tags = _Tags
+           , LastMsg = _LastMsg
+           })
+        end
+        end
         end
         end
     | n => error <xml>Oh, shi -- can't deserialize ({[n]} is out of range)</xml>
@@ -1365,8 +1493,18 @@ and get_subItemType b : (getBuf * subItemType) =
            })
         end
     | 5 => 
-          (b, SITStarred)
+        let val (b, _StreamName) = get_string b  in
+        let val (b, _StreamFeeds) = get_list (get_string) b  in
+          (b,
+           SITSmartStream
+           { StreamName = _StreamName
+           , StreamFeeds = _StreamFeeds
+           })
+        end
+        end
     | 6 => 
+          (b, SITStarred)
+    | 7 => 
           (b, SITAllTags)
     | n => error <xml>Oh, shi -- can't deserialize ({[n]} is out of range)</xml>
   end
@@ -1537,13 +1675,88 @@ and get_bgAction b : (getBuf * bgAction) =
         end
         end
     | 7 => 
+        let val (b, _Query) = get_string b  in
+        let val (b, _ReadCounters) = get_list ((fn b =>let val (b, _1) = get_string b  in
+        let val (b, _2) = get_int b  in
+        let val (b, _3) = get_int b  in
+        let val (b, _4) = get_int b  in
+        let val (b, _5) = get_int b  in
+          (b,(_1, _2, _3, _4, _5))
+        end
+        end
+        end
+        end
+        end
+        )) b  in
+        let val (b, _OlderThan) = get_int b  in
+          (b,
+           BGMarkSearchRead
+           { Query = _Query
+           , ReadCounters = _ReadCounters
+           , OlderThan = _OlderThan
+           })
+        end
+        end
+        end
+    | 8 => 
+        let val (b, _StreamName) = get_string b  in
+        let val (b, _Query) = get_string b  in
+        let val (b, _ReadCounters) = get_list ((fn b =>let val (b, _1) = get_string b  in
+        let val (b, _2) = get_int b  in
+        let val (b, _3) = get_int b  in
+        let val (b, _4) = get_int b  in
+        let val (b, _5) = get_int b  in
+          (b,(_1, _2, _3, _4, _5))
+        end
+        end
+        end
+        end
+        end
+        )) b  in
+        let val (b, _OlderThan) = get_int b  in
+          (b,
+           BGMarkSmartStreamSearchRead
+           { StreamName = _StreamName
+           , Query = _Query
+           , ReadCounters = _ReadCounters
+           , OlderThan = _OlderThan
+           })
+        end
+        end
+        end
+        end
+    | 9 => 
+        let val (b, _StreamName) = get_string b  in
+        let val (b, _ReadCounters) = get_list ((fn b =>let val (b, _1) = get_string b  in
+        let val (b, _2) = get_int b  in
+        let val (b, _3) = get_int b  in
+        let val (b, _4) = get_int b  in
+        let val (b, _5) = get_int b  in
+          (b,(_1, _2, _3, _4, _5))
+        end
+        end
+        end
+        end
+        end
+        )) b  in
+        let val (b, _OlderThan) = get_int b  in
+          (b,
+           BGMarkSmartStreamRead
+           { StreamName = _StreamName
+           , ReadCounters = _ReadCounters
+           , OlderThan = _OlderThan
+           })
+        end
+        end
+        end
+    | 10 => 
         let val (b, _Value) = get_bool b  in
           (b,
            BGSetOnlyUpdatedSubscriptions
            { Value = _Value
            })
         end
-    | 8 => 
+    | 11 => 
         let val (b, _Folder) = get_string b  in
         let val (b, _ViewMode) = get_msgTreeViewMode b  in
           (b,
@@ -1553,7 +1766,7 @@ and get_bgAction b : (getBuf * bgAction) =
            })
         end
         end
-    | 9 => 
+    | 12 => 
         let val (b, _Url) = get_string b  in
         let val (b, _ViewMode) = get_msgTreeViewMode b  in
           (b,
@@ -1563,44 +1776,44 @@ and get_bgAction b : (getBuf * bgAction) =
            })
         end
         end
-    | 10 => 
+    | 13 => 
           (b, BGClearAllSubscriptions)
-    | 11 => 
+    | 14 => 
         let val (b, _Query) = get_string b  in
           (b,
            BGSaveFilterQuery
            { Query = _Query
            })
         end
-    | 12 => 
+    | 15 => 
         let val (b, _ScrollMode) = get_scrollMode b  in
           (b,
            BGSetScrollMode
            { ScrollMode = _ScrollMode
            })
         end
-    | 13 => 
+    | 16 => 
         let val (b, _ListViewMode) = get_listViewMode b  in
           (b,
            BGSetListViewMode
            { ListViewMode = _ListViewMode
            })
         end
-    | 14 => 
+    | 17 => 
         let val (b, _MarkReadMode) = get_markReadMode b  in
           (b,
            BGSetMarkReadMode
            { MarkReadMode = _MarkReadMode
            })
         end
-    | 15 => 
+    | 18 => 
         let val (b, _UltraCompact) = get_bool b  in
           (b,
            BGSetUltraCompact
            { UltraCompact = _UltraCompact
            })
         end
-    | 16 => 
+    | 19 => 
         let val (b, _What) = get_subItemType b  in
         let val (b, _InsertAfter) = get_option (get_subItemType) b  in
         let val (b, _SourceFolder) = get_option (get_string) b  in
@@ -1616,32 +1829,32 @@ and get_bgAction b : (getBuf * bgAction) =
         end
         end
         end
-    | 17 => 
+    | 20 => 
         let val (b, _Value) = get_bool b  in
           (b,
            BGSetExactUnreadCounts
            { Value = _Value
            })
         end
-    | 18 => 
+    | 21 => 
           (b, BGSortAllFeedsAndFolders)
-    | 19 => 
+    | 22 => 
         let val (b, _Folder) = get_string b  in
           (b,
            BGSortFolder
            { Folder = _Folder
            })
         end
-    | 20 => 
+    | 23 => 
           (b, BGSortTags)
-    | 21 => 
+    | 24 => 
         let val (b, _ShareAction) = get_shareAction b  in
           (b,
            BGShareAction
            { ShareAction = _ShareAction
            })
         end
-    | 22 => 
+    | 25 => 
         let val (b, _Country) = get_string b  in
           (b,
            BGSetCountry
@@ -1650,19 +1863,28 @@ and get_bgAction b : (getBuf * bgAction) =
         end
     | n => error <xml>Oh, shi -- can't deserialize ({[n]} is out of range)</xml>
   end
-and get_searchResults b : (getBuf * searchResults) = 
+and get_filterResults b : (getBuf * filterResults) = 
   case 0 of
       0 => 
-        let val (b, _Total) = get_int b  in
+        let val (b, _TotalPosts) = get_int b  in
+        let val (b, _TotalComments) = get_int b  in
+        let val (b, _UnreadPosts) = get_int b  in
+        let val (b, _UnreadComments) = get_int b  in
         let val (b, _Took) = get_int b  in
         let val (b, _TookReal) = get_int b  in
         let val (b, _MsgForest) = get_msgForest b  in
           (b,
-           { Total = _Total
+           { TotalPosts = _TotalPosts
+           , TotalComments = _TotalComments
+           , UnreadPosts = _UnreadPosts
+           , UnreadComments = _UnreadComments
            , Took = _Took
            , TookReal = _TookReal
            , MsgForest = _MsgForest
            })
+        end
+        end
+        end
         end
         end
         end
@@ -1904,6 +2126,12 @@ and put_publicFeedType b (x : publicFeedType) =
     | PFTAllTags => 
         let val b = put_char b (chr 4) in
           b
+        end
+    | PFTSmartStream x => 
+        let val b = put_char b (chr 5) in
+        let val b = put_string b x.StreamName in
+          b
+        end
         end
   
 and put_apiKeys b (x : apiKeys) = 
@@ -2187,6 +2415,27 @@ and put_itemTag b (x : itemTag) =
         end
         end
   
+and put_filterQuery b (x : filterQuery) = 
+  case x of
+    |  x => 
+
+        let val b = put_string b x.Query in
+        let val b = put_bool b x.Negate in
+        let val b = put_list ((fn b t =>let val b = put_string b t.1 in
+        let val b = put_bool b t.2 in
+          b
+        end
+        end
+        )) b x.Feeds in
+        let val b = put_int b x.Reserved1 in
+        let val b = put_int b x.Reserved2 in
+          b
+        end
+        end
+        end
+        end
+        end
+  
 and put_apiMode b (x : apiMode) = 
   case x of
       AMNormal => 
@@ -2270,40 +2519,71 @@ and put_treeReq b (x : treeReq) =
           b
         end
         end
-    | TRComments x => 
+    | TRTags x => 
         let val b = put_char b (chr 1) in
+        let val b = put_option (put_msgKey) b x.LastMsg in
+        let val b = put_option (put_list (put_itemTag)) b x.Tags in
+          b
+        end
+        end
+        end
+    | TRComments x => 
+        let val b = put_char b (chr 2) in
         let val b = put_bool b x.OnExpand in
         let val b = put_commentsReq b x.Req in
           b
         end
         end
         end
-    | TRSearch x => 
-        let val b = put_char b (chr 2) in
-        let val b = put_string b x.Query in
-        let val b = put_list ((fn b t =>let val b = put_string b t.1 in
-        let val b = put_int b t.2 in
-        let val b = put_int b t.3 in
-          b
-        end
-        end
-        end
-        )) b x.Feeds in
-        let val b = put_time b x.PostTime in
-        let val b = put_string b x.BlogFeedUrl in
-        let val b = put_string b x.PostGuid in
-          b
-        end
-        end
-        end
-        end
-        end
-        end
-    | TRTags x => 
+    | TRCommentsS x => 
         let val b = put_char b (chr 3) in
-        let val b = put_option (put_msgKey) b x.LastMsg in
-        let val b = put_option (put_list (put_itemTag)) b x.Tags in
+        let val b = put_bool b x.OnExpand in
+        let val b = put_string b x.StreamName in
+        let val b = put_commentsReq b x.Req in
           b
+        end
+        end
+        end
+        end
+    | TRSmartStream x => 
+        let val b = put_char b (chr 4) in
+        let val b = put_string b x.StreamName in
+        let val b = put_list (put_postsReq) b x.Reqs in
+          b
+        end
+        end
+        end
+    | TRSearchPosts x => 
+        let val b = put_char b (chr 5) in
+        let val b = put_string b x.Query in
+        let val b = put_string b x.FeedMasksKey in
+        let val b = put_list (put_postsReq) b x.Reqs in
+          b
+        end
+        end
+        end
+        end
+    | TRSearchSmartStream x => 
+        let val b = put_char b (chr 6) in
+        let val b = put_string b x.StreamName in
+        let val b = put_string b x.Query in
+        let val b = put_string b x.FeedMasksKey in
+        let val b = put_list (put_postsReq) b x.Reqs in
+          b
+        end
+        end
+        end
+        end
+        end
+    | TRSearchTags x => 
+        let val b = put_char b (chr 7) in
+        let val b = put_string b x.Query in
+        let val b = put_string b x.IdsKey in
+        let val b = put_option (put_list (put_itemTag)) b x.Tags in
+        let val b = put_option (put_msgKey) b x.LastMsg in
+          b
+        end
+        end
         end
         end
         end
@@ -2455,12 +2735,20 @@ and put_subItemType b (x : subItemType) =
           b
         end
         end
-    | SITStarred => 
+    | SITSmartStream x => 
         let val b = put_char b (chr 5) in
+        let val b = put_string b x.StreamName in
+        let val b = put_list (put_string) b x.StreamFeeds in
+          b
+        end
+        end
+        end
+    | SITStarred => 
+        let val b = put_char b (chr 6) in
           b
         end
     | SITAllTags => 
-        let val b = put_char b (chr 6) in
+        let val b = put_char b (chr 7) in
           b
         end
   
@@ -2621,14 +2909,79 @@ and put_bgAction b (x : bgAction) =
         end
         end
         end
-    | BGSetOnlyUpdatedSubscriptions x => 
+    | BGMarkSearchRead x => 
         let val b = put_char b (chr 7) in
+        let val b = put_string b x.Query in
+        let val b = put_list ((fn b t =>let val b = put_string b t.1 in
+        let val b = put_int b t.2 in
+        let val b = put_int b t.3 in
+        let val b = put_int b t.4 in
+        let val b = put_int b t.5 in
+          b
+        end
+        end
+        end
+        end
+        end
+        )) b x.ReadCounters in
+        let val b = put_int b x.OlderThan in
+          b
+        end
+        end
+        end
+        end
+    | BGMarkSmartStreamSearchRead x => 
+        let val b = put_char b (chr 8) in
+        let val b = put_string b x.StreamName in
+        let val b = put_string b x.Query in
+        let val b = put_list ((fn b t =>let val b = put_string b t.1 in
+        let val b = put_int b t.2 in
+        let val b = put_int b t.3 in
+        let val b = put_int b t.4 in
+        let val b = put_int b t.5 in
+          b
+        end
+        end
+        end
+        end
+        end
+        )) b x.ReadCounters in
+        let val b = put_int b x.OlderThan in
+          b
+        end
+        end
+        end
+        end
+        end
+    | BGMarkSmartStreamRead x => 
+        let val b = put_char b (chr 9) in
+        let val b = put_string b x.StreamName in
+        let val b = put_list ((fn b t =>let val b = put_string b t.1 in
+        let val b = put_int b t.2 in
+        let val b = put_int b t.3 in
+        let val b = put_int b t.4 in
+        let val b = put_int b t.5 in
+          b
+        end
+        end
+        end
+        end
+        end
+        )) b x.ReadCounters in
+        let val b = put_int b x.OlderThan in
+          b
+        end
+        end
+        end
+        end
+    | BGSetOnlyUpdatedSubscriptions x => 
+        let val b = put_char b (chr 10) in
         let val b = put_bool b x.Value in
           b
         end
         end
     | BGSetFolderViewMode x => 
-        let val b = put_char b (chr 8) in
+        let val b = put_char b (chr 11) in
         let val b = put_string b x.Folder in
         let val b = put_msgTreeViewMode b x.ViewMode in
           b
@@ -2636,7 +2989,7 @@ and put_bgAction b (x : bgAction) =
         end
         end
     | BGSetSubscriptionViewMode x => 
-        let val b = put_char b (chr 9) in
+        let val b = put_char b (chr 12) in
         let val b = put_string b x.Url in
         let val b = put_msgTreeViewMode b x.ViewMode in
           b
@@ -2644,41 +2997,41 @@ and put_bgAction b (x : bgAction) =
         end
         end
     | BGClearAllSubscriptions => 
-        let val b = put_char b (chr 10) in
+        let val b = put_char b (chr 13) in
           b
         end
     | BGSaveFilterQuery x => 
-        let val b = put_char b (chr 11) in
+        let val b = put_char b (chr 14) in
         let val b = put_string b x.Query in
           b
         end
         end
     | BGSetScrollMode x => 
-        let val b = put_char b (chr 12) in
+        let val b = put_char b (chr 15) in
         let val b = put_scrollMode b x.ScrollMode in
           b
         end
         end
     | BGSetListViewMode x => 
-        let val b = put_char b (chr 13) in
+        let val b = put_char b (chr 16) in
         let val b = put_listViewMode b x.ListViewMode in
           b
         end
         end
     | BGSetMarkReadMode x => 
-        let val b = put_char b (chr 14) in
+        let val b = put_char b (chr 17) in
         let val b = put_markReadMode b x.MarkReadMode in
           b
         end
         end
     | BGSetUltraCompact x => 
-        let val b = put_char b (chr 15) in
+        let val b = put_char b (chr 18) in
         let val b = put_bool b x.UltraCompact in
           b
         end
         end
     | BGDragAndDrop x => 
-        let val b = put_char b (chr 16) in
+        let val b = put_char b (chr 19) in
         let val b = put_subItemType b x.What in
         let val b = put_option (put_subItemType) b x.InsertAfter in
         let val b = put_option (put_string) b x.SourceFolder in
@@ -2690,47 +3043,53 @@ and put_bgAction b (x : bgAction) =
         end
         end
     | BGSetExactUnreadCounts x => 
-        let val b = put_char b (chr 17) in
+        let val b = put_char b (chr 20) in
         let val b = put_bool b x.Value in
           b
         end
         end
     | BGSortAllFeedsAndFolders => 
-        let val b = put_char b (chr 18) in
+        let val b = put_char b (chr 21) in
           b
         end
     | BGSortFolder x => 
-        let val b = put_char b (chr 19) in
+        let val b = put_char b (chr 22) in
         let val b = put_string b x.Folder in
           b
         end
         end
     | BGSortTags => 
-        let val b = put_char b (chr 20) in
+        let val b = put_char b (chr 23) in
           b
         end
     | BGShareAction x => 
-        let val b = put_char b (chr 21) in
+        let val b = put_char b (chr 24) in
         let val b = put_shareAction b x.ShareAction in
           b
         end
         end
     | BGSetCountry x => 
-        let val b = put_char b (chr 22) in
+        let val b = put_char b (chr 25) in
         let val b = put_string b x.Country in
           b
         end
         end
   
-and put_searchResults b (x : searchResults) = 
+and put_filterResults b (x : filterResults) = 
   case x of
     |  x => 
 
-        let val b = put_int b x.Total in
+        let val b = put_int b x.TotalPosts in
+        let val b = put_int b x.TotalComments in
+        let val b = put_int b x.UnreadPosts in
+        let val b = put_int b x.UnreadComments in
         let val b = put_int b x.Took in
         let val b = put_int b x.TookReal in
         let val b = put_msgForest b x.MsgForest in
           b
+        end
+        end
+        end
         end
         end
         end
@@ -2793,6 +3152,7 @@ val binary_msg : binary msg = mkBinary put_msg get_msg
 val binary_msgHeader : binary msgHeader = mkBinary put_msgHeader get_msgHeader
 val binary_commentsKey : binary commentsKey = mkBinary put_commentsKey get_commentsKey
 val binary_itemTag : binary itemTag = mkBinary put_itemTag get_itemTag
+val binary_filterQuery : binary filterQuery = mkBinary put_filterQuery get_filterQuery
 val binary_apiMode : binary apiMode = mkBinary put_apiMode get_apiMode
 val binary_msgTreePoint : binary msgTreePoint = mkBinary put_msgTreePoint get_msgTreePoint
 val binary_postsReq : binary postsReq = mkBinary put_postsReq get_postsReq
@@ -2809,7 +3169,7 @@ val binary_subItemRpc : binary subItemRpc = mkBinary put_subItemRpc get_subItemR
 val binary_welcomeState : binary welcomeState = mkBinary put_welcomeState get_welcomeState
 val binary_shareAction : binary shareAction = mkBinary put_shareAction get_shareAction
 val binary_bgAction : binary bgAction = mkBinary put_bgAction get_bgAction
-val binary_searchResults : binary searchResults = mkBinary put_searchResults get_searchResults
+val binary_filterResults : binary filterResults = mkBinary put_filterResults get_filterResults
 val binary_fullTextCache : binary fullTextCache = mkBinary put_fullTextCache get_fullTextCache
 val binary_okErrorRedirect : binary okErrorRedirect = mkBinary put_okErrorRedirect get_okErrorRedirect
 

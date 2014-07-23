@@ -229,6 +229,8 @@ instance Binary PublicFeedType where
                                 put x1
                 PFTStarred -> putWord8 3
                 PFTAllTags -> putWord8 4
+                PFTSmartStream x1 -> do putWord8 5
+                                        put x1
         get
           = do !i <- getWord8
                case i of
@@ -239,6 +241,8 @@ instance Binary PublicFeedType where
                            return (PFTTag x1)
                    3 -> return PFTStarred
                    4 -> return PFTAllTags
+                   5 -> do !x1 <- get
+                           return (PFTSmartStream x1)
                    _ -> error "Corrupted binary data for PublicFeedType"
 
  
@@ -931,6 +935,18 @@ instance Binary ScanList where
                return (ScanList x1 x2)
 
  
+instance Binary FeedMask where
+        put (FeedMask x1 x2 x3)
+          = do put x1
+               put x2
+               put x3
+        get
+          = do !x1 <- get
+               !x2 <- get
+               !x3 <- get
+               return (FeedMask x1 x2 x3)
+
+ 
 instance Binary PostsRead where
         put (PostsRead x1 x2 x3 x4 x5 x6)
           = do put x1
@@ -1102,6 +1118,76 @@ instance Binary DeletedUser where
                return (DeletedUser x1 x2 x3 x4 x5 x6)
 
  
+instance Binary FilterQuery where
+        put (FilterQuery x1 x2 x3 x4 x5)
+          = do put x1
+               put x2
+               put x3
+               put x4
+               put x5
+        get
+          = do !x1 <- get
+               !x2 <- get
+               !x3 <- get
+               !x4 <- get
+               !x5 <- get
+               return (FilterQuery x1 x2 x3 x4 x5)
+
+ 
+instance Binary FilterFeedMasks where
+        put (FilterFeedMasks x1 x2 x3 x4)
+          = do put x1
+               put x2
+               put x3
+               put x4
+        get
+          = do !x1 <- get
+               !x2 <- get
+               !x3 <- get
+               !x4 <- get
+               return (FilterFeedMasks x1 x2 x3 x4)
+
+ 
+instance Binary SmartStream where
+        put (SmartStream x1 x2 x3 x4 x5)
+          = do put x1
+               put x2
+               put x3
+               put x4
+               put x5
+        get
+          = do !x1 <- get
+               !x2 <- get
+               !x3 <- get
+               !x4 <- get
+               !x5 <- get
+               return (SmartStream x1 x2 x3 x4 x5)
+
+ 
+instance Binary Filters where
+        put (Filters x1 x2 x3 x4 x5 x6 x7 x8 x9)
+          = do put x1
+               put x2
+               put x3
+               put x4
+               put x5
+               put x6
+               put x7
+               put x8
+               put x9
+        get
+          = do !x1 <- get
+               !x2 <- get
+               !x3 <- get
+               !x4 <- get
+               !x5 <- get
+               !x6 <- get
+               !x7 <- get
+               !x8 <- get
+               !x9 <- get
+               return (Filters x1 x2 x3 x4 x5 x6 x7 x8 x9)
+
+ 
 instance Binary ApiMode where
         put x
           = case x of
@@ -1182,18 +1268,33 @@ instance Binary TreeReq where
           = case x of
                 TRPosts x1 -> do putWord8 0
                                  put x1
-                TRComments x1 x2 -> do putWord8 1
-                                       put x1
-                                       put x2
-                TRSearch x1 x2 x3 x4 x5 -> do putWord8 2
-                                              put x1
-                                              put x2
-                                              put x3
-                                              put x4
-                                              put x5
-                TRTags x1 x2 -> do putWord8 3
+                TRTags x1 x2 -> do putWord8 1
                                    put x1
                                    put x2
+                TRComments x1 x2 -> do putWord8 2
+                                       put x1
+                                       put x2
+                TRCommentsS x1 x2 x3 -> do putWord8 3
+                                           put x1
+                                           put x2
+                                           put x3
+                TRSmartStream x1 x2 -> do putWord8 4
+                                          put x1
+                                          put x2
+                TRSearchPosts x1 x2 x3 -> do putWord8 5
+                                             put x1
+                                             put x2
+                                             put x3
+                TRSearchSmartStream x1 x2 x3 x4 -> do putWord8 6
+                                                      put x1
+                                                      put x2
+                                                      put x3
+                                                      put x4
+                TRSearchTags x1 x2 x3 x4 -> do putWord8 7
+                                               put x1
+                                               put x2
+                                               put x3
+                                               put x4
         get
           = do !i <- getWord8
                case i of
@@ -1201,16 +1302,31 @@ instance Binary TreeReq where
                            return (TRPosts x1)
                    1 -> do !x1 <- get
                            !x2 <- get
-                           return (TRComments x1 x2)
+                           return (TRTags x1 x2)
                    2 -> do !x1 <- get
+                           !x2 <- get
+                           return (TRComments x1 x2)
+                   3 -> do !x1 <- get
+                           !x2 <- get
+                           !x3 <- get
+                           return (TRCommentsS x1 x2 x3)
+                   4 -> do !x1 <- get
+                           !x2 <- get
+                           return (TRSmartStream x1 x2)
+                   5 -> do !x1 <- get
+                           !x2 <- get
+                           !x3 <- get
+                           return (TRSearchPosts x1 x2 x3)
+                   6 -> do !x1 <- get
                            !x2 <- get
                            !x3 <- get
                            !x4 <- get
-                           !x5 <- get
-                           return (TRSearch x1 x2 x3 x4 x5)
-                   3 -> do !x1 <- get
+                           return (TRSearchSmartStream x1 x2 x3 x4)
+                   7 -> do !x1 <- get
                            !x2 <- get
-                           return (TRTags x1 x2)
+                           !x3 <- get
+                           !x4 <- get
+                           return (TRSearchTags x1 x2 x3 x4)
                    _ -> error "Corrupted binary data for TreeReq"
 
  
@@ -1352,8 +1468,11 @@ instance Binary SubItemType where
                                        put x3
                 SITTag x1 -> do putWord8 4
                                 put x1
-                SITStarred -> putWord8 5
-                SITAllTags -> putWord8 6
+                SITSmartStream x1 x2 -> do putWord8 5
+                                           put x1
+                                           put x2
+                SITStarred -> putWord8 6
+                SITAllTags -> putWord8 7
         get
           = do !i <- getWord8
                case i of
@@ -1368,8 +1487,11 @@ instance Binary SubItemType where
                            return (SITFeed x1 x2 x3)
                    4 -> do !x1 <- get
                            return (SITTag x1)
-                   5 -> return SITStarred
-                   6 -> return SITAllTags
+                   5 -> do !x1 <- get
+                           !x2 <- get
+                           return (SITSmartStream x1 x2)
+                   6 -> return SITStarred
+                   7 -> return SITAllTags
                    _ -> error "Corrupted binary data for SubItemType"
 
  
@@ -1495,6 +1617,7 @@ instance Binary AppType where
                 ATNewsJet -> putWord8 10
                 ATAmber -> putWord8 11
                 ATgzip -> putWord8 12
+                ATUnread -> putWord8 13
         get
           = do !i <- getWord8
                case i of
@@ -1511,6 +1634,7 @@ instance Binary AppType where
                    10 -> return ATNewsJet
                    11 -> return ATAmber
                    12 -> return ATgzip
+                   13 -> return ATUnread
                    _ -> error "Corrupted binary data for AppType"
 
  
@@ -1574,6 +1698,15 @@ instance Binary UsageFlag where
                 UFExportOPML -> putWord8 28
                 UFMarkAllAsReadD x1 -> do putWord8 29
                                           put x1
+                UFMarkSearchAsReadD x1 -> do putWord8 30
+                                             put x1
+                UFFilterApply -> putWord8 31
+                UFFilterHide -> putWord8 32
+                UFNewSmartStream -> putWord8 33
+                UFEditFilter -> putWord8 34
+                UFEditSmartStream -> putWord8 35
+                UFDeleteFilter -> putWord8 36
+                UFDeleteSmartStream -> putWord8 37
         get
           = do !i <- getWord8
                case i of
@@ -1613,6 +1746,15 @@ instance Binary UsageFlag where
                    28 -> return UFExportOPML
                    29 -> do !x1 <- get
                             return (UFMarkAllAsReadD x1)
+                   30 -> do !x1 <- get
+                            return (UFMarkSearchAsReadD x1)
+                   31 -> return UFFilterApply
+                   32 -> return UFFilterHide
+                   33 -> return UFNewSmartStream
+                   34 -> return UFEditFilter
+                   35 -> return UFEditSmartStream
+                   36 -> return UFDeleteFilter
+                   37 -> return UFDeleteSmartStream
                    _ -> error "Corrupted binary data for UsageFlag"
 
  
@@ -1682,39 +1824,52 @@ instance Binary BgAction where
                                                   put x2
                                                   put x3
                                                   put x4
-                BGSetOnlyUpdatedSubscriptions x1 -> do putWord8 7
-                                                       put x1
-                BGSetFolderViewMode x1 x2 -> do putWord8 8
+                BGMarkSearchRead x1 x2 x3 -> do putWord8 7
                                                 put x1
                                                 put x2
-                BGSetSubscriptionViewMode x1 x2 -> do putWord8 9
+                                                put x3
+                BGMarkSmartStreamSearchRead x1 x2 x3 x4 -> do putWord8 8
+                                                              put x1
+                                                              put x2
+                                                              put x3
+                                                              put x4
+                BGMarkSmartStreamRead x1 x2 x3 -> do putWord8 9
+                                                     put x1
+                                                     put x2
+                                                     put x3
+                BGSetOnlyUpdatedSubscriptions x1 -> do putWord8 10
+                                                       put x1
+                BGSetFolderViewMode x1 x2 -> do putWord8 11
+                                                put x1
+                                                put x2
+                BGSetSubscriptionViewMode x1 x2 -> do putWord8 12
                                                       put x1
                                                       put x2
-                BGClearAllSubscriptions -> putWord8 10
-                BGSaveFilterQuery x1 -> do putWord8 11
+                BGClearAllSubscriptions -> putWord8 13
+                BGSaveFilterQuery x1 -> do putWord8 14
                                            put x1
-                BGSetScrollMode x1 -> do putWord8 12
+                BGSetScrollMode x1 -> do putWord8 15
                                          put x1
-                BGSetListViewMode x1 -> do putWord8 13
+                BGSetListViewMode x1 -> do putWord8 16
                                            put x1
-                BGSetMarkReadMode x1 -> do putWord8 14
+                BGSetMarkReadMode x1 -> do putWord8 17
                                            put x1
-                BGSetUltraCompact x1 -> do putWord8 15
+                BGSetUltraCompact x1 -> do putWord8 18
                                            put x1
-                BGDragAndDrop x1 x2 x3 x4 -> do putWord8 16
+                BGDragAndDrop x1 x2 x3 x4 -> do putWord8 19
                                                 put x1
                                                 put x2
                                                 put x3
                                                 put x4
-                BGSetExactUnreadCounts x1 -> do putWord8 17
+                BGSetExactUnreadCounts x1 -> do putWord8 20
                                                 put x1
-                BGSortAllFeedsAndFolders -> putWord8 18
-                BGSortFolder x1 -> do putWord8 19
+                BGSortAllFeedsAndFolders -> putWord8 21
+                BGSortFolder x1 -> do putWord8 22
                                       put x1
-                BGSortTags -> putWord8 20
-                BGShareAction x1 -> do putWord8 21
+                BGSortTags -> putWord8 23
+                BGShareAction x1 -> do putWord8 24
                                        put x1
-                BGSetCountry x1 -> do putWord8 22
+                BGSetCountry x1 -> do putWord8 25
                                       put x1
         get
           = do !i <- getWord8
@@ -1745,54 +1900,73 @@ instance Binary BgAction where
                            !x4 <- get
                            return (BGMarkBlogReadD x1 x2 x3 x4)
                    7 -> do !x1 <- get
-                           return (BGSetOnlyUpdatedSubscriptions x1)
+                           !x2 <- get
+                           !x3 <- get
+                           return (BGMarkSearchRead x1 x2 x3)
                    8 -> do !x1 <- get
                            !x2 <- get
-                           return (BGSetFolderViewMode x1 x2)
+                           !x3 <- get
+                           !x4 <- get
+                           return (BGMarkSmartStreamSearchRead x1 x2 x3 x4)
                    9 -> do !x1 <- get
                            !x2 <- get
-                           return (BGSetSubscriptionViewMode x1 x2)
-                   10 -> return BGClearAllSubscriptions
+                           !x3 <- get
+                           return (BGMarkSmartStreamRead x1 x2 x3)
+                   10 -> do !x1 <- get
+                            return (BGSetOnlyUpdatedSubscriptions x1)
                    11 -> do !x1 <- get
-                            return (BGSaveFilterQuery x1)
+                            !x2 <- get
+                            return (BGSetFolderViewMode x1 x2)
                    12 -> do !x1 <- get
-                            return (BGSetScrollMode x1)
-                   13 -> do !x1 <- get
-                            return (BGSetListViewMode x1)
+                            !x2 <- get
+                            return (BGSetSubscriptionViewMode x1 x2)
+                   13 -> return BGClearAllSubscriptions
                    14 -> do !x1 <- get
-                            return (BGSetMarkReadMode x1)
+                            return (BGSaveFilterQuery x1)
                    15 -> do !x1 <- get
-                            return (BGSetUltraCompact x1)
+                            return (BGSetScrollMode x1)
                    16 -> do !x1 <- get
+                            return (BGSetListViewMode x1)
+                   17 -> do !x1 <- get
+                            return (BGSetMarkReadMode x1)
+                   18 -> do !x1 <- get
+                            return (BGSetUltraCompact x1)
+                   19 -> do !x1 <- get
                             !x2 <- get
                             !x3 <- get
                             !x4 <- get
                             return (BGDragAndDrop x1 x2 x3 x4)
-                   17 -> do !x1 <- get
+                   20 -> do !x1 <- get
                             return (BGSetExactUnreadCounts x1)
-                   18 -> return BGSortAllFeedsAndFolders
-                   19 -> do !x1 <- get
-                            return (BGSortFolder x1)
-                   20 -> return BGSortTags
-                   21 -> do !x1 <- get
-                            return (BGShareAction x1)
+                   21 -> return BGSortAllFeedsAndFolders
                    22 -> do !x1 <- get
+                            return (BGSortFolder x1)
+                   23 -> return BGSortTags
+                   24 -> do !x1 <- get
+                            return (BGShareAction x1)
+                   25 -> do !x1 <- get
                             return (BGSetCountry x1)
                    _ -> error "Corrupted binary data for BgAction"
 
  
-instance Binary SearchResults where
-        put (SearchResults x1 x2 x3 x4)
+instance Binary FilterResults where
+        put (FilterResults x1 x2 x3 x4 x5 x6 x7)
           = do put x1
                put x2
                put x3
                put x4
+               put x5
+               put x6
+               put x7
         get
           = do !x1 <- get
                !x2 <- get
                !x3 <- get
                !x4 <- get
-               return (SearchResults x1 x2 x3 x4)
+               !x5 <- get
+               !x6 <- get
+               !x7 <- get
+               return (FilterResults x1 x2 x3 x4 x5 x6 x7)
 
  
 instance Binary FullTextCache where

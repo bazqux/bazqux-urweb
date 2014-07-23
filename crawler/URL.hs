@@ -15,16 +15,13 @@ module URL
     , urlQueryString, urlQueryStringUtf8Only
     , urlPathAndQuery, decodeURIComponentT
     , ignoredUrlQuery, rmIgnoredUrlQuery, maybeHostNameFromUrl
+    , urlAddParam
     ) where
 
-import Control.Failure
 import Control.Monad
-import Control.Monad.Reader
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import qualified Data.Text.Lazy as TL
 import qualified Data.ByteString.Char8 as B
-import qualified Data.ByteString.Internal as B
 import Network.URI
 import Data.List
 import Data.Maybe
@@ -32,9 +29,9 @@ import Data.Char
 import Data.String
 import qualified Network.HTTP.Types as N
 import qualified Network.HTTP.Conduit as C
+import qualified Control.Exception as E
 -- import qualified Data.Encoding as Enc
 -- import qualified Data.Encoding.BootString as Enc
-import Debug.Trace
 
 -- import qualified Data.Text.Punycode as Punycode
 
@@ -135,7 +132,7 @@ fixURL u = case parseURI u of
 
 decodeURIComponentT = T.pack . unEscapeString . T.unpack
 
-fixNonAscii = escapeURIString (\ c -> ord c <= 0x7f && c `notElem` " []|")
+fixNonAscii = escapeURIString (\ c -> ord c <= 0x7f && c `notElem` " []{}|\"")
 
 normalizeURL url' =
     fixURL $
@@ -259,10 +256,10 @@ renderUrlParam (UJunk j) = T.pack $ escapeQueryValue $ B.unpack j
 
 utf8Only q = [(n, p) | (UUtf8 n, UUtf8 p) <- q]
 
-parseQueryStringUtf8Only :: (Monad m, Failure C.HttpException m) => T.Text -> m [(T.Text, T.Text)]
+parseQueryStringUtf8Only :: Monad m => T.Text -> m [(T.Text, T.Text)]
 parseQueryStringUtf8Only = liftM utf8Only . parseQueryString
 
-parseQueryString :: (Monad m, Failure C.HttpException m) => T.Text -> m [(UrlParam, UrlParam)]
+parseQueryString :: Monad m => T.Text -> m [(UrlParam, UrlParam)]
 parseQueryString qs = do
     q <- return $ N.parseQuery $ T.encodeUtf8 qs
 --    q <- liftM (N.parseQuery . C.queryString) $ C.parseUrl $ "http://example.com/asdf?" ++ T.unpack qs
@@ -286,7 +283,7 @@ urlQueryStringUtf8Only = fmap utf8Only . urlQueryString
 
 urlQueryString :: T.Text -> Either String [(UrlParam, UrlParam)]
 urlQueryString u = case C.parseUrl $ T.unpack u of
-    Left (C.InvalidUrlException _ e) -> Left e
+    Left (E.fromException -> Just (C.InvalidUrlException _ e)) -> Left e
     Left e -> Left $ show e
     Right pu ->
 --        trace (show $ HTTPE.queryString pu) $
@@ -302,3 +299,6 @@ urlPathAndQuery = fmap (\ u -> uriPath u ++ uriQuery u) . parseURI
 --     t <- fmap (map read . lines) $ readFile "resp.txt" :: IO [Double]
 --     let s = sort t
 --     print (sum s / fromIntegral (length s), s !! (length s `div` 3 * 2), last s)
+
+urlAddParam u p =
+    u ++ (if '?' `elem` u then "&" else "?") ++ p

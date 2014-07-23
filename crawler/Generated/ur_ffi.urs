@@ -40,10 +40,17 @@ val userRenameFolder_ : string -> string -> string -> transaction string
 val userEditSubscriptionFolders_ : string -> string -> string -> string -> transaction string
 val userUnsubscribe_ : string -> string -> transaction string
 val userRetrySubscription_ : string -> string -> transaction string
+val userDeleteFilter_ : string -> string -> string -> transaction string
+val userDeleteSmartStream_ : string -> string -> transaction string
+val userAddFilter_ : string -> string -> string -> string -> transaction string
+val userEditFilter_ : string -> string -> string -> string -> string -> string -> transaction string
+val userAddSmartStream_ : string -> string -> string -> string -> transaction string
+val userEditSmartStream_ : string -> string -> string -> string -> transaction string
 val userOPML_ : string -> string -> transaction string
 val opmlSubscriptions_ : string -> string -> transaction string
 val userSubscriptionsAndRenames_ : string -> string -> string -> string -> string -> string -> transaction string
 val userSubscriptionsAndSettings_ : string -> string -> transaction string
+val userGetFiltersAndSmartStreams_ : string -> transaction string
 val orderNotification_ : string -> transaction string
 val checkOrder_ : string -> transaction string
 val getPaidTill_ : string -> transaction string
@@ -54,8 +61,9 @@ val tagsMsgForest_ : string -> string -> string -> string -> transaction string
 val folderMsgForest_ : string -> string -> string -> string -> string -> transaction string
 val userGetTree_ : string -> string -> string -> string -> transaction string
 val performBgActions_ : string -> string -> transaction string
-val searchMsgForest_ : string -> string -> string -> string -> transaction string
-val searchTagsMsgForest_ : string -> string -> string -> string -> transaction string
+val filterMsgForest_ : string -> string -> string -> string -> string -> transaction string
+val filterTagsMsgForest_ : string -> string -> string -> string -> transaction string
+val smartStreamMsgForest_ : string -> string -> string -> string -> string -> transaction string
 val htmlHead_ : string -> transaction string
 val htmlHeadMain_ : string -> transaction string
 val htmlHeadMainNoTranslate_ : string -> transaction string
@@ -71,6 +79,7 @@ val encodeURIComponent_ : string -> transaction string
 val prettyUID_ : string -> transaction string
 val textToXbody_ : string -> transaction string
 val newSession_ : string -> string -> transaction string
+val getUserByMobileLogin_ : string -> string -> transaction string
 val clearSession_ : string -> transaction string
 val userEvent_ : string -> string -> string -> transaction string
 val initMailer_ : string -> transaction string

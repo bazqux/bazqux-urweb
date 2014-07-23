@@ -12,7 +12,7 @@ BP = dist/build/crawler
 
 run: $(BIN) crawler
 
-GHC_OPTS = -rtsopts -threaded -hidir $(BP) -odir $(BP) -fwarn-incomplete-patterns # -prof -fprof-auto
+GHC_OPTS = +RTS -M2G -RTS -rtsopts -threaded -hidir $(BP) -odir $(BP) -fwarn-incomplete-patterns # -prof -fprof-auto
 ifdef LINUX
 GHC_OPTS += -O2
 endif
@@ -20,11 +20,11 @@ endif
 test: Queue
 	time make update 2>&1 | gawk '{ print strftime("%H:%M:%S"), $$0; fflush(); }' >1
 
-parse_server: ParseServer
-	./ParseServer +RTS -M1G -N4 -T -sstderr -I0 -A10m -K32M # -p -h -L80 -i5
+parse_server: # ParseServer
+	./ParseServer +RTS -M1G -N4 -T -sstderr -I0 -A32m -K32M # -p -h -L80 -i5
 
 update: Queue
-	./Queue +RTS -M5G -N4 -T -sstderr -I0 -A10m -K32M # -p -h -L80 -i5
+	./Queue +RTS -M2G -N4 -T -sstderr -I0 -A32m -K32M # -p -h -L80 -i5
 # -xc
 # -xt  -- невероятно затормаживает профилирование
 # видимо из-за того, что много ниток и он офигевает бегать по их стекам
@@ -75,6 +75,11 @@ enclosure_stats: EnclosureStats
 # -O0       266
 # -A10M     244
 # -A10M -O2 128
+SendWelcomeBacks: *.hs Lib/*.hs Generated/hsffi.urp
+	$(GHC) $(GHC_OPTS) -o SendWelcomeBacks UrCalls -main-is UrCalls.sendWelcomeBacks
+TestMail: *.hs Lib/*.hs Generated/hsffi.urp
+	$(GHC) $(GHC_OPTS) -o TestMail UrCalls -main-is UrCalls.testMail
+
 EnclosureStats: *.hs Lib/*.hs Generated/hsffi.urp
 	mkdir -p $(BP)
 	$(GHC) $(GHC_OPTS) -O2 -o EnclosureStats UrCalls -main-is UrCalls.enclosureStats
@@ -149,15 +154,20 @@ cabal-packages:
 	$(CABAL) install $(AUTO_ALL) bytestring containers template-haskell --force-reinstalls
 # для containers-0.5.0.1 требует пересобрать template-haskell
 # и говорит, что пакет ghc-7.6.1 сломается, но вроде все работает
-	$(CABAL) install $(AUTO_ALL) utf8-string mtl syb zlib happy alex --force-reinstalls #certificate-1.2.8 cryptocipher-0.3.5
+	$(CABAL) install $(AUTO_ALL) utf8-string ekg mtl syb zlib happy alex --force-reinstalls #certificate-1.2.8 cryptocipher-0.3.5
 	$(CABAL) install xml-conduit --ghc-option -XRankNTypes
-	$(CABAL) $(CABAL_INTALL_OPTS) install $(AUTO_ALL) zip-archive pretty-show network fast-tagsoup text text-icu regex-tdfa hsdns-cache base16-bytestring warp language-javascript url timerep mime-mail mime-types ekg derive SafeSemaphore http-conduit-downloader authenticate authenticate-oauth wai-extra
+	$(CABAL) $(CABAL_INTALL_OPTS) install $(AUTO_ALL) zip-archive pretty-show network fast-tagsoup text text-icu regex-tdfa concurrent-dns-cache base16-bytestring warp language-javascript url timerep mime-mail mime-types ekg derive SafeSemaphore http-conduit-downloader authenticate authenticate-oauth wai-extra random-shuffle
 	make riak-pkg
+	make raw-zlib
 	ghc-pkg hide monads-tf
 # откуда-то взялся monads-tf, который конфликтует с mtl
 #
 #	make auth-pkgs
 # убрал authenticate-oauth.cabal верхние границы зависимостей
+
+raw-zlib:
+	cd Lib/raw-zlib/ && \
+		$(CABAL_) clean && $(CABAL) $(AUTO_ALL) install --force-reinstalls
 
 riak-pkg:
 # ghc 7.6.1:

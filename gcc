@@ -37,7 +37,7 @@ if [ $c != 1 ]; then args="$args $c_args"; fi
 bp=crawler/dist/build/hslib
 mkdir -p $bp
 
-ghc="ghc -threaded -hidir $bp -odir $bp -stubdir $bp -I$bp -I/usr/local/include/urweb -icrawler -I$bp/Generated -fwarn-incomplete-patterns "
+ghc="ghc +RTS -M2G -RTS -threaded -hidir $bp -odir $bp -stubdir $bp -I$bp -I/usr/local/include/urweb -icrawler -I$bp/Generated -fwarn-incomplete-patterns "
 # -optc-g
 
 if [ `uname` == "Linux" ]

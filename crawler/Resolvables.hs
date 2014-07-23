@@ -6,27 +6,23 @@ module Resolvables where
 import Generated.DataTypes
 import Riak
 import Data.List
-import Data.Ord
 import Data.Maybe
 import Control.Monad
 import Control.Arrow
 import Lib.ReadSet (ReadSet)
 import qualified Lib.ReadSet as ReadSet
 import qualified Data.IntSet as IntSet
-import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
 import qualified Data.Map as Map
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import qualified Data.Set as Set
 import qualified Data.Text as T
-import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Array
 import Lib.UrTime
 import qualified Lib.BArray as BA
 import Lib.Merge
-import Debug.Trace
-import Text.Show.Pretty (ppShow)
+import Lib.StringConversion
 
 instance Resolvable User where
     resolve a b
@@ -388,9 +384,9 @@ instance Resolvable BlogPostsScanned where
                   , max cus1 cus2 )
 
 instance TextKey MsgKey where
-    textKey (MsgKey a b c) = textKeyList [Just a,b,c]
+    textKey (MsgKey a b c) = textKeyList [Just a, fmap sbt b, fmap sbt c]
 instance TextKey CommentsKey where
-    textKey (CommentsKey bf g) = textKeyList [bf,g]
+    textKey (CommentsKey bf g) = textKeyList [bf, sbt g]
 instance TextKey UrTime where
     textKey (UrTime a 0) = T.pack $ show a
     textKey (UrTime a b) = T.pack $ show a ++ "." ++ show b
@@ -721,4 +717,29 @@ defaultApiKeys =
     , akReserved2 = 0
     , akReserved3 = 0
     , akReserved4 = 0
+    }
+
+emptyFilterFeedMasks =
+    FilterFeedMasks
+    { ffmLastUpdated = Nothing
+    , ffmFeedMasks   = HM.empty
+    , ffmReserved1   = 0
+    , ffmReserved2   = 0
+    }
+
+instance Resolvable Filters where
+    resolve = maxBy vt
+        where vt f = (fVersion f, ffmLastUpdated $ fFeedMasks f)
+
+defaultFilters u =
+    Filters
+    { fUser         = u
+    , fVersion      = 0
+    , fFilters      = []
+    , fFeedMasks    = emptyFilterFeedMasks
+    , fSmartStreams = []
+    , fReserved1    = 0
+    , fReserved2    = 0
+    , fReserved3    = 0
+    , fReserved4    = 0
     }

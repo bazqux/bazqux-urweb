@@ -8,9 +8,11 @@ module ParserTypes
     , PushOrder(..), AddUrl(..))
     where
 
+import Data.Int
 import Generated.DataTypes
 import Data.Binary
 import qualified Data.Text as T
+import qualified Data.ByteString.Short as SB
 import URL
 import Lib.UrTime
 import Lib.BinaryInstances ()
@@ -175,7 +177,7 @@ data ProcessUrlResult
       { purNewUrls :: [AddUrl]
       , purLog :: T.Text
       , purException :: Maybe T.Text
-      , purStatsMap :: HashMap T.Text Int
+      , purStatsMap :: HashMap T.Text Int64
       }
 
 data PushOrder
@@ -197,7 +199,7 @@ data FeedItem
     = FeedItem
       { fiMsg :: Msg
       , fiHeader :: MsgHeader
-      , fiParent :: Parent
+      , fiParent :: Maybe SB.ShortByteString
       , fiCommentsPage :: Maybe TURL
       , fiFeed :: Maybe TURL
       , fiNext :: Maybe TURL

@@ -17,6 +17,9 @@ module Riak
     , riakPool, riakPool2, riakPool3
     , blockBucketKey
     , forkRead, forkReadPar2
+--    , lzmaCompress, deflateCompress
+-- liblzma-dev
+-- lzma-conduit
     ) where
 
 import Control.Arrow (first)
@@ -51,38 +54,94 @@ import Control.Concurrent
 import System.IO.Unsafe
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HM
+import qualified Data.HashSet as HS
 import Data.IntMap (IntMap)
 import qualified Data.IntMap.Strict as IntMap
 import Lib.Stats
+import Lib.StringConversion
 --import URL
 import Lib.Merge
 import Lib.UrTime
 import Data.Maybe
-import Blaze.ByteString.Builder
 import qualified Crypto.Hash.SHA1 as SHA1
 import qualified Data.ByteString.Base64 as Base64
 import Data.Char
 import Data.Array
-import Codec.Compression.Zlib.Raw as Deflate
-import Codec.Compression.GZip as GZip
+-- import Codec.Compression.Zlib.Raw as Deflate
+-- import Codec.Compression.GZip as GZip
 import System.Random
-import System.Remote.Monitoring (getGauge)
 import qualified System.Remote.Gauge as Gauge
-import Lib.Log (logS, withLogger, logTime)
+import Lib.Log (logS)
 import Lib.BinaryInstances ()
-import System.Mem
-import GHC.Stats
+import Data.Bits
+import qualified Codec.RawZlib as RawZlib
+
+-- import qualified Data.Conduit.Lzma as LZMA
+-- import Codec.Zlib
+-- import Codec.Zlib.Lowlevel
 
 defragment :: BL.ByteString -> BL.ByteString
-defragment = toLazyByteString . fromLazyByteString
+defragment = BL.fromStrict . BL.toStrict
+-- toLazyByteString . fromLazyByteString
+-- Builder делает блоки по 32k, а иногда в районе 4k
+-- Для больших ключей может быть много блоков
+-- и лишние вызовы при передаче данных (точно ли? -- вроде builder не разбивает
+-- большие строки на 32k)
 
 type Bucket = BL.ByteString
 
-deflateCompress =
-    Deflate.compressWith $
-    Deflate.defaultCompressParams
-    { compressLevel = Deflate.bestCompression -- bestSpeed
-    , compressMemoryLevel = Deflate.maxMemoryLevel }
+-- rawWindowBits = WindowBits (-15)
+--                 -- defaultWindowBits
+-- -- для raw формата window bits делаются отрицательными
+
+-- deflateDecompress :: BL.ByteString -> BL.ByteString
+-- deflateDecompress gziped = unsafePerformIO $ do
+--     inf <- initInflate rawWindowBits
+--     ungziped <- foldM (go' inf) id $ BL.toChunks gziped
+--     final <- finishInflate inf
+--     return $ BL.fromChunks $ ungziped [final]
+--   where
+--     go' inf front bs = feedInflate inf bs >>= go front
+--     go front x = do
+--         y <- x
+--         case y of
+--             Nothing -> return front
+--             Just z -> go (front . (:) z) x
+
+-- deflateCompress :: BL.ByteString -> BL.ByteString
+-- deflateCompress raw = unsafePerformIO $ do
+--     def <- initDeflate 1 rawWindowBits
+--     gziped <- foldM (go' def) id $ BL.toChunks raw
+--     gziped' <- go gziped $ finishDeflate def
+--     return $ BL.fromChunks $ gziped' []
+--   where
+--     go' def front bs = feedDeflate def bs >>= go front
+--     go front x = do
+--         y <- x
+--         case y of
+--             Nothing -> return front
+--             Just z -> go (front . (:) z) x
+
+-- deflateDecompressZlib = Deflate.decompress
+-- deflateCompressZlib =
+--     Deflate.compressWith $
+--     Deflate.defaultCompressParams
+--     { compressLevel = Deflate.bestSpeed
+--       -- с bestCompression drag and drop занимает 650msec
+--       -- c bestSpeed  220msec
+--       -- без сжатия   270msec
+--       -- так что bestCompression слишком долго
+--     , compressMemoryLevel = Deflate.maxMemoryLevel }
+
+-- lzmaCompress str =
+--     fmap BL.fromChunks $ C.runResourceT $ Cl.sourceList [BL.toStrict str] C.$$ LZMA.compress (Just 0) C.=$= Cl.consume
+-- жмет где-то в 1.2-1.4 раза лучше (а может и в 1.75, но медленно),
+-- но где-то в пару раз медленнее. Можно, конечно, еще посты поджать,
+-- но есть ли смысл?
+-- важно BL.toStrict, чтобы был один chunk, а то очень тормозит на большом
+-- кол-ве мелких чанков в encode (из-за того, что на каждую строку там по чанку).
+
+deflateBit = 63
 
 -- | key-value пара, которую можно сохранять/загружать
 class ( Resolvable a, Binary a, Show a
@@ -95,12 +154,17 @@ class ( Resolvable a, Binary a, Show a
     kvVersion :: a -> Int
     kvVersion _ = 0
 
-    kvDecodeVersion :: Int -> BL.ByteString -> a
-    kvDecodeVersion 0 = decode -- . Deflate.decompress . deflateCompress
-    kvDecodeVersion n = error "migration is not yet implemented"
-
     kvCache :: a -> Cache a
     kvPool :: a -> R.Pool
+
+kvDecodeVersion :: KV a => Int -> BL.ByteString -> (Int, a)
+kvDecodeVersion v s
+    | testBit v deflateBit =
+        let d = RawZlib.decompress $ defragment s
+        in
+            (fromEnum $ BL.length d, decode d)
+    | v == 0 = (fromEnum $ BL.length s, decode s)
+    | otherwise = error "migration is not yet implemented"
 
 class TextKey a where
     textKey :: a -> T.Text
@@ -200,7 +264,7 @@ testEscaping = fmap concat $ forM [0..255] $ \ c ->
 
 data QueueItem
     = QueueItem
-      { qiKey   :: !T.Text
+      { qiKey   :: !SB.ShortByteString
       , qiSize  :: {-# UNPACK #-} !Int
 --      , qiTime  :: !Int -- !UrTime
       }
@@ -217,7 +281,7 @@ data CacheItem a
 data Cache_ a
     = Cache_
       { cQueue :: !(IntMap QueueItem) -- !(Queue QueueItem)
-      , cMap   :: !(HM.HashMap T.Text (Maybe (CacheItem a), Bool, Int))
+      , cMap   :: !(HM.HashMap SB.ShortByteString (Maybe (CacheItem a), Bool, Int))
                   -- (item, recached, cQueue index)
       , cSize  :: !Int
       , cCheckTime :: !Int
@@ -270,20 +334,17 @@ removeFromCache x =
                 return $ c { cQueue = IntMap.delete i $ cQueue c
                            , cMap = HM.delete k (cMap c)
                            , cSize = cSize c - qiSize qi
-                           , cRecached = HM.delete (tsb k) (cRecached c)
+                           , cRecached = HM.delete k (cRecached c)
                            }
             _ -> return c
-    where k = textKey $ kvKey x
-
-tsb = SB.toShort . T.encodeUtf8
-{-# INLINE tsb #-}
+    where k = tsb $ textKey $ kvKey x
 
 lookupCache :: forall a . KV a => a -> [Key a] -> IO [Maybe (Maybe a)]
 lookupCache x ks = do
     t <- getUrTime
     kcis0 <- modifyMVar (kvCache x) $ \ c -> do
         let c' = ensureCache t 0 c -- для подчистки старых значений
-        return (c', [(k, HM.lookup (textKey k) (cMap c')) | k <- ks])
+        return (c', [(k, HM.lookup (tsb $ textKey k) (cMap c')) | k <- ks])
 
     let checkKci (k, Just (_, True, _)) = Nothing -- не проверяем recached
         checkKci (k, Just (Just ci, _, _))
@@ -330,20 +391,20 @@ insertCache :: KV a => Cache a -> [(Key a, Maybe (a, R.VClock), Int)] -> IO ()
 insertCache c xs =
     modifyMVar_ c $ \ cOrig -> do
         t <- getUrTime
-        let cnt what x = withEkgServer (return ()) $ \ s -> do
+        let cnt what x = withEkgServer (return ()) $ do
                 g <- getGauge (T.decodeUtf8 $ BL.toStrict $
-                               BL.append (cacheName c) what) s
-                Gauge.set g x
+                               BL.concat ["riak.cache.", cacheName c, what])
+                Gauge.set g (toEnum x)
             ins [] !c = do
-                cnt "_size" (cSize c)
-                cnt "_count" (HM.size $ cMap c)
+                cnt ".size" (cSize c)
+                cnt ".count" (HM.size $ cMap c)
                 return c
             ins ((kvk,x,size):xs) !c = case HM.lookup k (cMap c) of
                 Just (_,rc, i) -> ins xs $
                     c { cMap = HM.insert k (x', rc, i) (cMap c) }
                 Nothing -> do
                     let (plus, rnd, recached) =
-                            case HM.lookup (tsb k) (cRecached c) of
+                            case HM.lookup k (cRecached c) of
                                 Just (Recache expireT a b) | expireT > t ->
                                     -- учитываем ранее перекешированные значения
                                     (a, (b-a)*10^9, True)
@@ -359,9 +420,9 @@ insertCache c xs =
                           , cMap = HM.insert k (x', recached, i) (cMap c)
                           , cRecached =
                               if recached then cRecached c else
-                                  HM.delete (tsb k) (cRecached c)
+                                  HM.delete k (cRecached c)
                           }
-                where k = textKey kvk
+                where k = tsb $ textKey kvk
                       x' = fmap (mkCacheItem c t) x
         ins xs $ ensureCache t (sum [s | (_,_,s) <- xs]) cOrig
 
@@ -392,7 +453,7 @@ updateCache c xs = modifyMVar_ c $ \ c -> do
                 upd xs $ c { cMap = HM.insert k
                                     (fmap (mkCacheItem c t) x, rc, i) (cMap c) }
             Nothing -> upd xs c -- не обновляем значение, если его нет в кеше
-            where k = textKey kvk
+            where k = tsb $ textKey kvk
     return $! upd xs c
 
 cacheName :: KV a => Cache a -> BL.ByteString
@@ -409,7 +470,7 @@ recacheKVs cache keys a b = modifyMVar_ cache $ \ c -> do
 --     logS $ show ("recacheKVs", cacheName cache, map textKey keys)
     t <- getUrTime
     let upd [] !c = return c
-        upd ((textKey -> k):ks) !c = case HM.lookup k (cMap c) of
+        upd ((tsb . textKey -> k):ks) !c = case HM.lookup k (cMap c) of
             Just (mbci, False, i) | Just qi <- IntMap.lookup i (cQueue c) -> do
                 let q = IntMap.delete i $ cQueue c
                 (i', q') <- insertInQueue ((b-a)*10^9) k (qiSize qi)
@@ -419,7 +480,7 @@ recacheKVs cache keys a b = modifyMVar_ cache $ \ c -> do
                                     (fmap moveCheckTime mbci, True, i')
                                     (cMap c)
                            , cRecached =
-                               HM.insert (tsb k)
+                               HM.insert k
                                    (Recache (t `plusUrTime` 36000) a b) $
                                    cRecached c
                            }
@@ -445,6 +506,7 @@ data WrapKV a
         -- может быть и Nothing, т.к. riak может успешно прочесть удаленное
         -- значение, которое будет пустой строкой
       , wSize :: !Int
+      , wCompressedSize :: !Int
       , wData :: BL.ByteString
       }
     deriving Show
@@ -452,17 +514,28 @@ data WrapKV a
 -- instance Functor WrapKV where
 --     fmap f (WrapKV x) = WrapKV $ f x
 
+wrapKV :: KV a => a -> WrapKV a
 wrapKV wKV_ = WrapKV {..}
     where wKV = Just wKV_
-          wData = defragment $ encode (kvVersion wKV_, wKV_)
-          wSize = fromEnum $ BL.length wData
-wrapKV' Nothing = WrapKV Nothing 0 ""
+          wData0 = encode wKV_
+          (defragment -> wData)
+              | BL.length wData0 < 5000 =
+                  BL.append (encode v) wData0
+              | otherwise =
+                  let c = RawZlib.compress (defragment wData0) in
+                  -- deflateCompress выдает блоки по 16kB
+--                  trace ("compressed " ++ show (BL.length c * 100 `div` BL.length wData0) ++ "% (of " ++ show (BL.length wData0) ++ ") " ++ show (kvBucket wKV_, textKey (kvKey wKV_))) $
+                  BL.append (encode $ setBit v deflateBit) c
+          v = kvVersion wKV_
+          wSize = fromEnum $ BL.length wData0
+          wCompressedSize = fromEnum $ BL.length wData
+wrapKV' Nothing = WrapKV Nothing 0 0 ""
 wrapKV' (Just kv) = wrapKV kv
 
 instance KV a => Resolvable (WrapKV a) where
-    resolve a@(WrapKV _ _ _) (WrapKV Nothing _ _) = a
-    resolve (WrapKV Nothing _ _) b@(WrapKV _ _ _) = b
-    resolve (WrapKV (Just a) _ _) (WrapKV (Just b) _ _) =
+    resolve a@(WrapKV {}) (WrapKV Nothing _ _ _) = a
+    resolve (WrapKV Nothing _ _ _) b@(WrapKV {}) = b
+    resolve (WrapKV (Just a) _ _ _) (WrapKV (Just b) _ _ _) =
 --         trace ("RESOLVE " ++ BL.unpack (kvBucket a)) $
         wrapKV (resolve a b)
 instance KV a => R.IsContent (WrapKV a) where
@@ -470,32 +543,36 @@ instance KV a => R.IsContent (WrapKV a) where
     parseContent r = wKV `seq` return (WrapKV {..})
         where wData = -- defragment $
                       R.value r
-              wSize = fromEnum $ BL.length wData
-              wKV | wSize == 0 || R.deleted r == Just True = Nothing
-                  | otherwise = Just $!
+              wCompressedSize = fromEnum $ BL.length wData
+              (wSize, wKV)
+                  | wCompressedSize == 0 || R.deleted r == Just True =
+                      (0, Nothing)
+                  | otherwise =
+                      let (s, !v) = kvDecodeVersion (decode $ BL.take 8 wData) (BL.drop 8 wData) in
+                      (s, Just v)
 --                     trace ("chunks " ++ show (length $ BL.toChunks wData)) $
 -- не больше 5 чанков, в основном один
 --                     trace ("decoding " ++ show (kvBucket wKV)
 --                            ++ " " ++ show wData ++ " " ++ show r) $
-                    kvDecodeVersion (decode $ BL.take 8 wData) (BL.drop 8 wData)
+
 
 instance Resolvable R.Content where
     resolve = error "unresolved R.Content?"
 
-data WrapJSON
-    = WrapJSON
-      { wjV :: JSON.Value
-      , wjContent :: R.Content
-      }
-    deriving Show
+-- data WrapJSON
+--     = WrapJSON
+--       { wjV :: JSON.Value
+--       , wjContent :: R.Content
+--       }
+--     deriving Show
 
-wrapJSON j = WrapJSON j (R.toContent j)
+-- wrapJSON j = WrapJSON j (R.toContent j)
 
-instance Resolvable WrapJSON where
-    resolve a _ = a
-instance R.IsContent WrapJSON where
-    toContent = wjContent
-    parseContent c = fmap (flip WrapJSON c) $ R.parseContent c
+-- instance Resolvable WrapJSON where
+--     resolve a _ = a
+-- instance R.IsContent WrapJSON where
+--     toContent = wjContent
+--     parseContent c = fmap (flip WrapJSON c) $ R.parseContent c
 
 -- Riak-соединение (и, в будущем, очереди/кеши) должно быть в глобальной
 -- переменной, т.к. дергание riak-а будет идти из ur/web (а не в какой-то
@@ -528,21 +605,21 @@ test = withConnection ("" :: String, "" :: String) $ \ c -> do
     put_ c (kvBucket x) (key x) Nothing (wrapKV x2)
     print =<< (vclockGet c (kvBucket x) (key x) (Just vc) R.Default :: IO (Maybe (WrapKV (String, String), R.VClock)))
 
-sKey b k = T.decodeUtf8 $ B.concat $ BL.toChunks b ++ [k]
+sKey b k = T.decodeUtf8 $ B.concat $ ["riak.io."] ++ BL.toChunks b ++ [k]
 
 statRead :: KV a => Bucket -> Maybe (WrapKV a, R.VClock) -> IO ()
 statRead b (Just (w, _)) = do
-    incrStat (sKey b "_rc") 1
-    incrStat (sKey b "_rs") (wSize w)
+    incrStat (sKey b ".rc") 1
+    incrStat (sKey b ".rs") (wCompressedSize w)
 statRead b Nothing =
-    incrStat (sKey b "_rcf") 1
+    incrStat (sKey b ".rcf") 1
 
 statWrite b s = do
-    incrStat (sKey b "_wc") 1
-    incrStat (sKey b "_ws") s
+    incrStat (sKey b ".wc") 1
+    incrStat (sKey b ".ws") s
 
 -- checkEmpty b k w = print (b, k, w)
--- checkEmpty b k (Just (w,vc)) | wSize w == 0 =
+-- checkEmpty b k (Just (w,vc)) | wCompressedSize w == 0 =
 --     print ("Empty value read", b, k, vc)
 checkEmpty _ _ _ = return ()
 
@@ -583,23 +660,23 @@ tryRiak e act = go 0
 
 put_ c b k vc w = do
 --     logS $ show ("put_", b, k)
-    statWrite b (wSize w)
+    statWrite b (wCompressedSize w)
     tryRiak (PutException b k) $ R.put_ c b k vc w R.Default R.Default
 put c b k vc w = do
 --     logS $ show ("put", b, k)
-    statWrite b (wSize w)
+    statWrite b (wCompressedSize w)
     tryRiak (PutException b k) $ R.put c b k vc w R.Default R.Default
 putMany_ c b ws = do
 --     logS $ show ("putMany", b, length ws)
-    mapM_ (\ (_,_,w) -> statWrite b (wSize w)) ws
+    mapM_ (\ (_,_,w) -> statWrite b (wCompressedSize w)) ws
     tryRiak (PutManyException b) $ R.putMany_ c b ws R.Default R.Default
 -- putManyJSON_ c b ws = do
 --     mapM_ (\ (_,_,w) ->
 --                statWrite b (fromEnum $ BL.length $ R.value $ wjContent w)) ws
 --     R.putMany_ c b ws R.Default R.Default
 delete c b k w = do
-    incrStat (sKey b "_dc") 1
-    incrStat (sKey b "_ds") (wSize w)
+    incrStat (sKey b ".dc") 1
+    incrStat (sKey b ".ds") (wCompressedSize w)
     tryRiak (DeleteException b k) $ R.delete c b k R.Default
 
 deleteKV :: KV a => a -> IO ()
@@ -666,7 +743,7 @@ unWrapInsCache x ks = go ks [] []
     where go [] r c = do
             insertCache (kvCache x) c
             return $ reverse r
-          go ((k, Just (w@(WrapKV (Just l) size _), vclock)) : ks) !r !c
+          go ((k, Just (w@(WrapKV (Just l) size _ _), vclock)) : ks) !r !c
             | Just x <- fst $ findKey k l =
                         go ks (Just x : r) ((k, Just (x, vclock),size) : c)
           go ((k, _) : ks) r c =
@@ -678,7 +755,7 @@ readKV' x k = withConnection x $ \ c -> do
     updateCache (kvCache x) [(k,r)]
     return $ fmap fst r
 
-unWrapVClock (k, (Just (WrapKV (Just l) _ _, vclock))) =
+unWrapVClock (k, (Just (WrapKV (Just l) _ _ _, vclock))) =
     fmap (,vclock) $ fst $ findKey k l
 unWrapVClock _ = Nothing
 
@@ -700,22 +777,25 @@ modifyMVars :: MVar (HashMap (BL.ByteString, BL.ByteString) [MVar ()])
 modifyMVars = unsafePerformIO $ newMVar HM.empty
 {-# NOINLINE modifyMVars #-}
 
-blockBucket "Posts" = True
-blockBucket "BlogPostsScanned" = True
-blockBucket "Comments" = True
-blockBucket "ScanList" = True
-blockBucket "PostsRead" = True
-blockBucket "User" = True
-blockBucket "Session" = True
-blockBucket "UserStats" = True
-blockBucket "MailQueue" = True
-blockBucket "UserFilters" = True
-blockBucket "GRIds" = True
-blockBucket "MobileLogin" = True
-blockBucket "PostsTagged" = True
-blockBucket "API" = True
-blockBucket "FeverIds" = True
-blockBucket _ = False
+blockedBuckets = HS.fromList
+    [ "Posts"
+    , "BlogPostsScanned"
+    , "Comments"
+    , "ScanList"
+    , "PostsRead"
+    , "User"
+    , "Session"
+    , "UserStats"
+    , "MailQueue"
+    , "UserFilters"
+    , "Filters"
+    , "GRIds"
+    , "MobileLogin"
+    , "PostsTagged"
+    , "API"
+    , "FeverIds"
+    ]
+blockBucket b = HS.member b blockedBuckets
 
 waitRead key@(blockBucket -> True, _) = do
     join $ modifyMVar modifyMVars $ \ m -> case HM.lookup key m of
@@ -744,8 +824,11 @@ blockBucketKey bucket key act =
 
 modifyKV' :: KV a => a -> Key a -> (Maybe a -> IO (a,b)) -> IO b
 modifyKV' x k f =
-    E.bracket (waitRead (kvBucket x, key k)) releaseRead $ \ _ -> do
-        a0 <- withConnection x $ \ c -> get c (kvBucket x) (key k)
+    E.bracket (waitRead (kvBucket x, key k)) releaseRead $ \ _ -> do -- withLogger $ \ l -> do
+        let logT :: String -> IO a -> IO a
+            logT n act = act -- logTime l (T.pack $ n ++ " " ++ show (kvBucket x, textKey k)) act
+        a0 <- logT "get" $ withConnection x $ \ c -> get c (kvBucket x) (key k)
+        updateCache (kvCache x) [(k, unWrapVClock (k,a0))]
         let kvs = wKV . fst =<< a0
             (ax, other) = case kvs of
                              Nothing -> (Nothing, [])
@@ -753,16 +836,16 @@ modifyKV' x k f =
         (a, r) <- f ax
         when (Just a /= ax) $ do
             --  ^ не уверен, что это хорошо, хотя уменьшает загрузку харда
-            let !wkv = wrapKV (a : other)
+            wkv <- logT "wrapKV" $
+               let !wkv = wrapKV (a : other) in return wkv
 --             liftM (fromMaybe (error $ "null wKV in modifyKV_ "
 --                               ++ show (kvBucket x)
 --                               ++ " " ++ show (encode k)) . wKV . fst)
-            (wkw', vc') <- withConnection x $ \ c ->
---                withLogger $ \ l -> logTime l "put" $
+            (wkw', vc') <- logT "put" $ withConnection x $ \ c ->
                 put c (kvBucket x) (key k) (fmap snd a0) wkv
             updateCache (kvCache x) [(k, fmap (, vc') (fst . findKey k =<< wKV wkw'))]
             -- не круто, что надо повторно вычитывать значение,
-            -- за то так можно vclock получить
+            -- зато так можно vclock получить
         return r
 
 
@@ -942,10 +1025,16 @@ forkReadPar2 f list = do
     return $ liftM2 (++) r1 r2
     where (l1, l2) = splitAt (length list `div` 2) list
 
-testDeflate = do
-    rnd <- fmap (encode . B.pack) $ replicateM 30000 randomIO
-    replicateM_ 100000 $ do
-        rnd' <- fmap BL.pack $ replicateM 1 randomIO
-        (B.length $ decode $ GZip.decompress $ GZip.compress $ BL.concat [rnd, rnd'])
-            `seq` return ()
-    performGC
+-- testZlib = replicateM_ 10000 $ do
+--     len <- randomRIO (0,200000)
+--     raw <- fmap BL.pack $ replicateM len randomIO
+-- --    let raw = BL.replicate len ' '
+--     when (RawZlib.decompress (RawZlib.compress raw) /= raw) $
+--         print "oh shi"
+--     when (RawZlib.decompress (RawZlib.compress $ defragment raw) /= raw) $
+--         print "oh shi2"
+--     when (deflateDecompress (deflateCompress raw) /= raw) $
+--         print "zb oh shi"
+--     when (deflateDecompress (deflateCompress $ defragment raw) /= raw) $
+--         print "zb oh shi2"
+--     print $ BL.length raw

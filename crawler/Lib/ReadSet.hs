@@ -6,22 +6,36 @@
 module Lib.ReadSet
     ( ReadSet, empty, fromRange, size, member, insert, delete
     , readTill, clearTill
-    , toList, fromList, union, maxIndex
+    , toList, fromList, union, intersection, difference, maxIndex
     ) where
 
 import Control.Monad
 import qualified Lib.Set as Set
 import Data.Binary
+import qualified Data.IntSet as IntSet
 
 data ReadSet
     = ReadSet
       { size :: !Int
       , set  :: Set.Set I
       }
-    deriving (Show, Read)
+    deriving (Show)--, Read)
 
 data I = I {-# UNPACK #-} !Int {-# UNPACK #-} !Int
-    deriving (Show, Read)
+--    deriving (Show, Read)
+
+newtype IT = IT I
+
+instance Eq IT where
+    IT (I a1 b1) == IT (I a2 b2) = a1 == a2 && b1 == b2
+
+instance Ord IT where
+    IT (I a1 b1) `compare` IT (I a2 b2) = compare (a1,b1) (a2,b2)
+
+instance Show I where
+    show (I a b)
+        | a == b = show a
+        | otherwise = show a ++ "-" ++ show b
 
 instance Binary I where
     put (I a b) = put a >> put b
@@ -35,13 +49,15 @@ instance (Ord a, Binary a) => Binary (Set.Set a) where
 
 instance Eq ReadSet where
     ReadSet sz1 s1 == ReadSet sz2 s2 =
-        sz1 == sz2 && i2List s1 == i2List s2
+        sz1 == sz2 && itList s1 == itList s2
 instance Ord ReadSet where
     compare (ReadSet sz1 s1) (ReadSet sz2 s2) =
-        compare (i2List s1) (i2List s2) -- не самая правильная штука
+        compare (cmpList s1) (cmpList s2)
+        where cmpList s = [(b,b-a) | I a b <- reverse (Set.toList s)]
+                          -- если длина интервала больше,
+                          -- то и прочитанных больше
 
-i2 (I a b) = (a,b)
-i2List = map i2 . Set.toAscList
+itList = map IT . Set.toAscList
 
 instance Eq I where
     a == b = compare a b == EQ
@@ -125,16 +141,38 @@ fromRange a b
 test = -- readTill 5 $
        delete 6 $ delete 1 $ foldl (flip insert) empty [1,4,1,7,3,6, 1,2,6]
 
-toList = concatMap iToList . Set.toList . set
+toList = concatMap iToList . Set.toAscList . set
     where iToList (I a b) = [a..b]
 
 fromList = go empty
     where go rs [] = rs
           go !rs (x:xs) = go (insert x rs) xs
 
--- неоптимально, но должно работать
-union a b = fromList $ toList a ++ toList b
+union a b
+    | a == b = a
+    | otherwise = fromIntSet $ toIntSet a `IntSet.union` toIntSet b
+intersection a b
+    | size a == 0 || size b == 0 = empty
+    | a == b = a
+    | otherwise = fromIntSet $ toIntSet a `IntSet.intersection` toIntSet b
+
+difference a b
+    | size b == 0 = a
+    | a == b = empty
+    | otherwise = fromIntSet $ toIntSet a `IntSet.difference` toIntSet b
 
 maxIndex rs@(ReadSet t s)
     | Just (I _ m, _) <- Set.maxView s = Just m
     | otherwise = Nothing
+
+toIntSet = IntSet.fromDistinctAscList . toList
+
+fromIntSet s = ReadSet (IntSet.size s) set
+    where !set = Set.fromDistinctAscList $ go $ IntSet.toList s
+          go [] = []
+          go (x:xs)
+              | (x1,xs') <- findIncr x xs = I x x1 : go xs'
+          findIncr x [] = (x,[])
+          findIncr x l@(a:as)
+              | a == x+1 = findIncr a as
+              | otherwise = (x,l)

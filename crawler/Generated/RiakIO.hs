@@ -1528,7 +1528,7 @@ instance KV DeletedUser where
     kvKey = duUser
     kvCache _ = _duCache
     kvPool _ = riakPool
-_duCache = unsafePerformIO $ newCache 0 0 (0*1024*1024)
+_duCache = unsafePerformIO $ newCache 200 200 (200*1024*1024)
 {-# NOINLINE _duCache #-}
 readDeletedUser :: T.Text -> IO (Maybe DeletedUser)
 readDeletedUser = readKV
@@ -1577,6 +1577,62 @@ cachedReadDeletedUser' key = liftM (fromMaybe (defaultDeletedUser key)) (cachedR
 
 cachedNothingReadDeletedUser' :: Key DeletedUser -> IO DeletedUser
 cachedNothingReadDeletedUser' key = liftM (fromMaybe (defaultDeletedUser key)) (cachedNothingReadKV key)
+
+instance KV Filters where
+    type Key Filters = T.Text
+    kvBucket _ = "Filters"
+    kvKey = fUser
+    kvCache _ = _fCache
+    kvPool _ = riakPool
+_fCache = unsafePerformIO $ newCache 600 600 (200*1024*1024)
+{-# NOINLINE _fCache #-}
+readFilters :: T.Text -> IO (Maybe Filters)
+readFilters = readKV
+
+cachedReadFilters :: T.Text -> IO (Maybe Filters)
+cachedReadFilters = cachedReadKV
+
+cachedNothingReadFilters :: T.Text -> IO (Maybe Filters)
+cachedNothingReadFilters = cachedNothingReadKV
+
+mergeWriteFilters :: Filters -> IO (())
+mergeWriteFilters = mergeWriteKV
+
+deleteFilters :: Filters -> IO (())
+deleteFilters = deleteKV
+
+readManyFilterss :: [T.Text] -> IO ([Maybe Filters])
+readManyFilterss = readManyKVs
+
+cachedReadManyFilterss :: [T.Text] -> IO ([Maybe Filters])
+cachedReadManyFilterss = cachedReadManyKVs
+
+cachedNothingReadManyFilterss :: [T.Text] -> IO ([Maybe Filters])
+cachedNothingReadManyFilterss = cachedNothingReadManyKVs
+
+writeManyFilterss :: [Filters] -> IO (())
+writeManyFilterss = writeManyKVs
+
+modifyFilters :: T.Text -> (Maybe Filters -> IO (Filters, b)) -> IO b
+modifyFilters = modifyKV
+
+modifyFilters_ :: T.Text -> (Maybe Filters -> IO Filters) -> IO ()
+modifyFilters_ = modifyKV_
+
+modifyFilters' :: T.Text -> (Filters -> IO (Filters, b)) -> IO b
+modifyFilters' key f = modifyKV key (f . fromMaybe (defaultFilters key))
+
+modifyFilters'_ :: T.Text -> (Filters -> IO Filters) -> IO ()
+modifyFilters'_ key f = modifyKV_ key (f . fromMaybe (defaultFilters key))
+
+readFilters' :: Key Filters -> IO Filters
+readFilters' key = liftM (fromMaybe (defaultFilters key)) (readKV key)
+
+cachedReadFilters' :: Key Filters -> IO Filters
+cachedReadFilters' key = liftM (fromMaybe (defaultFilters key)) (cachedReadKV key)
+
+cachedNothingReadFilters' :: Key Filters -> IO Filters
+cachedNothingReadFilters' key = liftM (fromMaybe (defaultFilters key)) (cachedNothingReadKV key)
 
 instance KV UsageFlags where
     type Key UsageFlags = UrTime

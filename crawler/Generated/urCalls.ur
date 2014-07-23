@@ -125,6 +125,24 @@ fun userUnsubscribe (x1 : string)(x2 : list string) : transaction ({}) =
 fun userRetrySubscription (x1 : string)(x2 : string) : transaction ({}) = 
   r <- userRetrySubscription_ (toHaskell x1) (toHaskell x2) ; return (fromHaskell r)
 
+fun userDeleteFilter (x1 : string)(x2 : string)(x3 : bool) : transaction ({}) = 
+  r <- userDeleteFilter_ (toHaskell x1) (toHaskell x2) (toHaskell x3) ; return (fromHaskell r)
+
+fun userDeleteSmartStream (x1 : string)(x2 : string) : transaction ({}) = 
+  r <- userDeleteSmartStream_ (toHaskell x1) (toHaskell x2) ; return (fromHaskell r)
+
+fun userAddFilter (x1 : string)(x2 : string)(x3 : bool)(x4 : list string) : transaction ({}) = 
+  r <- userAddFilter_ (toHaskell x1) (toHaskell x2) (toHaskell x3) (toHaskell x4) ; return (fromHaskell r)
+
+fun userEditFilter (x1 : string)(x2 : string)(x3 : bool)(x4 : string)(x5 : bool)(x6 : list string) : transaction ({}) = 
+  r <- userEditFilter_ (toHaskell x1) (toHaskell x2) (toHaskell x3) (toHaskell x4) (toHaskell x5) (toHaskell x6) ; return (fromHaskell r)
+
+fun userAddSmartStream (x1 : string)(x2 : string)(x3 : string)(x4 : list string) : transaction ({}) = 
+  r <- userAddSmartStream_ (toHaskell x1) (toHaskell x2) (toHaskell x3) (toHaskell x4) ; return (fromHaskell r)
+
+fun userEditSmartStream (x1 : string)(x2 : string)(x3 : string)(x4 : list string) : transaction ({}) = 
+  r <- userEditSmartStream_ (toHaskell x1) (toHaskell x2) (toHaskell x3) (toHaskell x4) ; return (fromHaskell r)
+
 fun userOPML (x1 : bool)(x2 : string) : transaction (string) = 
   r <- userOPML_ (toHaskell x1) (toHaskell x2) ; return (fromHaskell r)
 
@@ -134,8 +152,11 @@ fun opmlSubscriptions (x1 : blob)(x2 : string) : transaction ({}) =
 fun userSubscriptionsAndRenames (x1 : bool)(x2 : time)(x3 : string)(x4 : string)(x5 : list string)(x6 : string) : transaction ((option (xbody * string * list string) * string * list subItemRpc * bool * list (time * string * string))) = 
   r <- userSubscriptionsAndRenames_ (toHaskell x1) (toHaskell x2) (toHaskell x3) (toHaskell x4) (toHaskell x5) (toHaskell x6) ; return (fromHaskell r)
 
-fun userSubscriptionsAndSettings (x1 : string)(x2 : string) : transaction ((option (xbody * string * list string) * string * list subItemRpc * (bool * bool * list (time * string * string) * list string * userSettings) * option welcomeState)) = 
+fun userSubscriptionsAndSettings (x1 : string)(x2 : string) : transaction ((option (xbody * string * list string) * string * list subItemRpc * (bool * bool * list (time * string * string) * list string * userSettings) * (option welcomeState * list filterQuery * list (string * list filterQuery)))) = 
   r <- userSubscriptionsAndSettings_ (toHaskell x1) (toHaskell x2) ; return (fromHaskell r)
+
+fun userGetFiltersAndSmartStreams (x1 : string) : transaction ((list filterQuery * list (string * list filterQuery))) = 
+  r <- userGetFiltersAndSmartStreams_ (toHaskell x1) ; return (fromHaskell r)
 
 fun orderNotification (x1 : string) : transaction (payment) = 
   r <- orderNotification_ (toHaskell x1) ; return (fromHaskell r)
@@ -167,11 +188,14 @@ fun userGetTree (x1 : apiMode)(x2 : string)(x3 : msgTreeViewMode)(x4 : list tree
 fun performBgActions (x1 : string)(x2 : list bgAction) : transaction (string) = 
   r <- performBgActions_ (toHaskell x1) (toHaskell x2) ; return (fromHaskell r)
 
-fun searchMsgForest (x1 : string)(x2 : string)(x3 : list (string * int * int * int * int))(x4 : msgTreeViewMode) : transaction (searchResults) = 
-  r <- searchMsgForest_ (toHaskell x1) (toHaskell x2) (toHaskell x3) (toHaskell x4) ; return (fromHaskell r)
+fun filterMsgForest (x1 : string)(x2 : option string)(x3 : string)(x4 : list (string * int * int * int * int))(x5 : msgTreeViewMode) : transaction ((list (string * int * int * int * int) * filterResults)) = 
+  r <- filterMsgForest_ (toHaskell x1) (toHaskell x2) (toHaskell x3) (toHaskell x4) (toHaskell x5) ; return (fromHaskell r)
 
-fun searchTagsMsgForest (x1 : string)(x2 : string)(x3 : option (list itemTag))(x4 : msgTreeViewMode) : transaction (searchResults) = 
-  r <- searchTagsMsgForest_ (toHaskell x1) (toHaskell x2) (toHaskell x3) (toHaskell x4) ; return (fromHaskell r)
+fun filterTagsMsgForest (x1 : string)(x2 : string)(x3 : option (list itemTag))(x4 : msgTreeViewMode) : transaction (filterResults) = 
+  r <- filterTagsMsgForest_ (toHaskell x1) (toHaskell x2) (toHaskell x3) (toHaskell x4) ; return (fromHaskell r)
+
+fun smartStreamMsgForest (x1 : apiMode)(x2 : string)(x3 : string)(x4 : list (string * int * int * int * int))(x5 : msgTreeViewMode) : transaction ((list (string * int * int * int * int) * msgForest)) = 
+  r <- smartStreamMsgForest_ (toHaskell x1) (toHaskell x2) (toHaskell x3) (toHaskell x4) (toHaskell x5) ; return (fromHaskell r)
 
 fun htmlHead (x1 : {}) : transaction (xhead) = 
   r <- htmlHead_ (toHaskell x1) ; return (fromHaskell r)
@@ -217,6 +241,9 @@ fun textToXbody (x1 : string) : transaction (xbody) =
 
 fun newSession (x1 : uID)(x2 : list (string * string)) : transaction (session) = 
   r <- newSession_ (toHaskell x1) (toHaskell x2) ; return (fromHaskell r)
+
+fun getUserByMobileLogin (x1 : string)(x2 : string) : transaction (uID) = 
+  r <- getUserByMobileLogin_ (toHaskell x1) (toHaskell x2) ; return (fromHaskell r)
 
 fun clearSession (x1 : string) : transaction ({}) = 
   r <- clearSession_ (toHaskell x1) ; return (fromHaskell r)

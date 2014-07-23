@@ -56,9 +56,9 @@ fun findM [a] (f : a -> transaction bool) (ls : list a)
             findM f ls
 fun notNull [a] (l : list a) = case l of [] => False | _ => True
 fun isNull [a] (l : list a) = case l of [] => True | _ => False
-fun reverse [a] (l : list a) : list a = Js.reverse l
-fun revAppend [a] (a : list a) (b : list a) : list a = Js.revAppend (a, b)
-fun lookupS [a] (k : string) (l : list (string * a)) : option a = Js.lookupS (k, l)
+fun reverse [a] (l : list a) : list a = List.rev l (* Js.reverse *)
+fun revAppend [a] (a : list a) (b : list a) : list a = List.revAppend a b(* Js.revAppend (a, b) *)
+fun lookupS [a] (k : string) (l : list (string * a)) : option a = List.assoc k l(* Js.lookupS (k, l) *)
 
 fun assocInsert [a] [b] (_ : eq a) (a:a) (b:b) (l : list (a*b)) =
     let fun go acc l =
@@ -568,6 +568,9 @@ fun backgroundRpc [a] (preprocess : list a -> list a)
 
 fun withBGRpcList [a] [x] (b : backgroundRpc a) (f : list a -> transaction x) =
     l <- b.GetList; r <- f l; b.EndGetList; return r
+fun tryWithBGRpcList [a] [x] (b : backgroundRpc a) (f : list a -> transaction (option x)) =
+    l <- b.GetList; r <- f l; when (Option.isSome r) b.EndGetList; return r
+    (* чистим список только при успешном tryRpc *)
 
 fun queueRpcB [a] [l] (b : backgroundRpc l) (tr : list l -> transaction a) (f : a -> transaction {}) =
     queueRpc b.RpcQueue (withBGRpcList b tr) f

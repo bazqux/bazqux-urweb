@@ -1,5 +1,6 @@
 val whoami : transaction page
 val main : {} -> transaction page
+val login : {} -> transaction page
 val demo : string -> transaction page
 val opml : {} -> transaction page
 val importOPML_ : {} -> transaction page

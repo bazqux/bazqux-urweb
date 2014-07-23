@@ -41,6 +41,7 @@ style msgContainer
 style msgBody
 style mauthor
 style msubject
+style newlineWrapper
 style mtags
 style mtime
 style mtext style mtextPad
@@ -120,6 +121,8 @@ style postMsg
 style opacity0
 style searchToolBar
 style searchTime
+style searchButtons
+style searchFiltering
 style searchFound
 style buyNow
 style thankYou
@@ -308,3 +311,19 @@ style addingToPocket
 style addedToPocket
 style markAllAsReadMenu
 style markAllAsReadButton
+
+style filtersNone
+style filterLine
+style filterSubLine
+style filterLeft
+style filterRight
+style filterQuery
+style smartStreamName
+style smartStreamsPadding
+style filtersEnd
+
+style editQuery
+style editQueryInput
+style editQueryFeeds
+style dialogHint
+style btnSmartStream

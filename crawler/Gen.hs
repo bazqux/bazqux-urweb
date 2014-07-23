@@ -70,11 +70,8 @@ runGen g = do
                     \-- | Описание структур данных, сохраняемых в Riak \n\
                     \-- и передаваемых между Ur/Web и Haskell\n\
                     \module Generated.DataTypes where\n\n\
-                    \import qualified Data.ByteString.Char8 as B\n\
-                    \import qualified Data.ByteString.Internal as B\n\
                     \import qualified Data.ByteString.Short as SB\n\
                     \import qualified Data.Text as T\n\
-                    \import qualified Data.Text.Encoding as T\n\
                     \import qualified Data.HashSet as HS\n\
                     \import qualified Data.HashMap.Strict as HM\n\
                     \import Lib.UrTime\n\
@@ -83,18 +80,12 @@ runGen g = do
                     \import Lib.ReadSet (ReadSet)\n\
                     \import URL\n\
                     \import Data.Set (Set)\n\
-                    \import qualified Data.Set as Set\n\
                     \import Data.Map (Map)\n\
-                    \import qualified Data.Map as Map\n\
                     \import Data.IntMap (IntMap)\n\
                     \import Data.IntSet (IntSet)\n\
-                    \import Data.Array\n\
                     \import Data.Binary\n\
-                    \import Data.Binary.Get (getByteString)\n\
-                    \import Data.List\n\
-                    \import Data.Ord\n\
                     \import Data.Hashable\n\
-                    \import Lib.BinaryInstances\n\
+                    \import Lib.BinaryInstances()\n\
                     \\n\
                     \instance Hashable ItemTag where\n\
                     \    hashWithSalt s ITStarred = s `hashWithSalt` (0 :: Int)\n\
@@ -109,13 +100,13 @@ runGen g = do
                       \#include \"HsFFI.h\"\n\n\
                       \#include \"Rts.h\"\n\n\
                       \uw_unit uw_Ur_ffi_init(uw_context ctx) { \n\
-                      \static int argc = 6;\n\
+                      \static int argc = 7;\n\
                       \static char* arg0 = \"/tmp/coreader.exe\";\n\
                       \static char* argv[20]; argv[0]=arg0; int i; for(i=1; i<20;i++)argv[i]=NULL; \n\
                       \argv[1] = \"+RTS\";\n\
                       \argv[2] = \"-N6\";\n\
                       \argv[3] = \"-T\";\n\
-                      \argv[4] = \"-A10m\";\n\
+                      \argv[4] = \"-A64m\";\n\
                       \argv[5] = \"-I0\";\n\
                       \argv[6] = \"-M15G\";\n\
                       \static char** argv_ = argv;\n\
@@ -148,6 +139,7 @@ runGen g = do
                      \import URL (TURL)\n\
                      \import Lib.UrTime\n\
                      \import UrCalls\n\
+                     \import Search\n\
                      \import Discovery (searchSubscriptions)\n\
                      \import API\n\
                      \import Auth\n\
@@ -589,7 +581,7 @@ xhead = Builtin "T.Text" "xhead"
 xbody = Builtin "T.Text" "xbody"
 page = Builtin "T.Text" "page"
 unit = Builtin "()" "{}"
-guid = bs
+guid = sbs
 url = Builtin "TURL" "url"
 time = Builtin "UrTime" "time"
 intSet = Builtin "IntSet" "intSet???"
@@ -735,6 +727,8 @@ main = runGen $ do
             [ "TagName" :. bs ]
         , "PFTStarred" :/ []
         , "PFTAllTags" :/ []
+        , "PFTSmartStream" :/
+            [ "StreamName" :. bs ]
         ]
     let publicFeedInfo = List $ Tuple [bs, bool, maybe_ bs]
     apiKeys <- regType $ Type Uw "ApiKeys" "ak"
@@ -914,7 +908,7 @@ main = runGen $ do
             ]
         , "AGrOrigin" :/
             [ "Feed" :. url
-            , "Guid" :. bs
+            , "Guid" :. guid
             , "StreamTitle" :. bs
             , "HtmlUrl" :. bs
             ]
@@ -957,7 +951,7 @@ main = runGen $ do
 
     msgHeader <- regType $ Type Uw "MsgHeader" "mh"
         ["MsgHeader" :/
-            [ "Guid" :. sbs
+            [ "Guid" :. guid
             , "ContentHash" :. sbs -- чтобы не дублировать по контенту
             , "Author"  :. bs
             , "AuthorPic"  :. maybe_ url
@@ -1172,6 +1166,12 @@ main = runGen $ do
 --             ]]
 --     regRiak commentsRead "Key" 300 100
 
+    feedMask <- regType $ Type NoUw "FeedMask" "fm"
+        ["FeedMask" :/
+            [ "Posts" :. readSet
+            , "Comments" :. intMap readSet
+            , "TotalComments" :. int
+            ] ]
     postsRead <- regType $ Type NoUw "PostsRead" "pr"
         ["PostsRead" :/
             [ "Key" :. Tuple [bs, url]
@@ -1201,7 +1201,7 @@ main = runGen $ do
     postsTaggedGuids <- regType $ Type NoUw "PostsTaggedGuids" "ptg"
         ["PostsTaggedGuids" :/
             [ "BlogFeedUrl" :. url
-            , "Guids" :. intMap bs
+            , "Guids" :. intMap guid
             , "Reserved1" :. int
             , "Reserved2" :. int
             , "Reserved3" :. int
@@ -1271,7 +1271,45 @@ main = runGen $ do
             , "Reserved3"    :. bool
             , "Reserved4"    :. bool
             ]]
-    regRiak deletedUser "User" 0 0 0
+    regRiak deletedUser "User" 200 200 200
+
+    filterQuery <- regType $ Type Uw "FilterQuery" "fq"
+        ["FilterQuery" :/
+            [ "Query" :. bs
+            , "Negate" :. bool
+              -- у smart stream negate == false
+            , "Feeds" :. hashMap bs bool  -- [(feed,expanded)]
+            , "Reserved1" :. int
+            , "Reserved2" :. int
+            ]]
+    filterFeedMasks <- regType $ Type NoUw "FilterFeedMasks" "ffm"
+        ["FilterFeedMasks" :/
+            [ "LastUpdated" :. maybe_ time
+            , "FeedMasks" :. hashMap bs feedMask
+            , "Reserved1" :. int
+            , "Reserved2" :. int
+            ]]
+    smartStream <- regType $ Type NoUw "SmartStream" "ss"
+        ["SmartStream" :/
+            [ "Name" :. bs
+            , "Queries" :. List filterQuery
+            , "FeedMasks" :. filterFeedMasks
+            , "Reserved1" :. int
+            , "Reserved2" :. int
+            ]]
+    filters <- regType $ Type NoUw "Filters" "f"
+        ["Filters" :/
+            [ "User" :. bs
+            , "Version" :. int
+            , "Filters" :. List filterQuery
+            , "FeedMasks" :. filterFeedMasks
+            , "SmartStreams" :. List smartStream
+            , "Reserved1" :. int
+            , "Reserved2" :. int
+            , "Reserved3" :. int
+            , "Reserved4" :. int
+            ]]
+    regRiak filters "User" 600 600 200
 
     apiMode <- regType $ Type UwD "ApiMode" "am"
         ["AMNormal" :/ []
@@ -1324,25 +1362,37 @@ main = runGen $ do
           -- при следующем запросе можно будет выбирать следующие
           -- 15 фидов (на стороне клиента)
           -- Для начала можно все передавать, фильтрация -- уже оптимизация
-        , "TRComments" :/
-            [ "OnExpand" :. bool
-            , "Req" :. commentsReq
-            ]
-        , "TRSearch" :/
-            [ "Query" :. bs
-            , "Feeds" :. List (Tuple [bs,int,int])
-              -- также, как и в MsgTreePoint положение _следующего_ сообщения
-              -- если есть
-            , "PostTime" :. time
-            , "BlogFeedUrl" :. bs
-            , "PostGuid" :. bs
-              -- выдает все комменты поста целиком (хотя можно
-              -- и TRSearchComments добавить)
-            ]
         , "TRTags" :/
             [ "LastMsg" :. maybe_ msgKey
             , "Tags" :. maybe_ (List itemTag)
               -- если Nothing, то все теги
+            ]
+        , "TRComments" :/
+            [ "OnExpand" :. bool
+            , "Req" :. commentsReq
+            ]
+        , "TRCommentsS" :/
+            [ "OnExpand" :. bool
+            , "StreamName" :. bs
+            , "Req" :. commentsReq
+            ]
+        , "TRSmartStream" :/
+            [ "StreamName" :. bs
+            , "Reqs" :. List postsReq ]
+        , "TRSearchPosts" :/
+            [ "Query" :. bs
+            , "FeedMasksKey" :. bs
+            , "Reqs" :. List postsReq ]
+        , "TRSearchSmartStream" :/
+            [ "StreamName" :. bs
+            , "Query" :. bs
+            , "FeedMasksKey" :. bs
+            , "Reqs" :. List postsReq ]
+        , "TRSearchTags" :/
+            [ "Query" :. bs
+            , "IdsKey" :. bs
+            , "Tags" :. maybe_ (List itemTag)
+            , "LastMsg" :. maybe_ msgKey
             ]
         ]
 
@@ -1431,6 +1481,12 @@ main = runGen $ do
     io "userEditSubscriptionFolders" [bs,bs,bs,bool] unit
     io "userUnsubscribe" [bs, List bs] unit
     io "userRetrySubscription" [bs, bs] unit
+    io "userDeleteFilter" [bs, bs, bool] unit
+    io "userDeleteSmartStream" [bs, bs] unit
+    io "userAddFilter" [bs, bs, bool, List bs] unit
+    io "userEditFilter" [bs, bs, bool, bs, bool, List bs] unit
+    io "userAddSmartStream" [bs, bs, bs, List bs] unit
+    io "userEditSmartStream" [bs, bs, bs, List bs] unit
     io "userOPML" [bool, bs] bs
     io "opmlSubscriptions" [blob, bs] unit
 
@@ -1469,6 +1525,9 @@ main = runGen $ do
             ]
         , "SITTag" :/
             [ "TagName" :. bs ]
+        , "SITSmartStream" :/
+            [ "StreamName" :. bs
+            , "StreamFeeds" :. List bs ]
         , "SITStarred" :/ []
         , "SITAllTags" :/ []
         ]
@@ -1494,8 +1553,9 @@ main = runGen $ do
             , "TaggedRestored" :. bool
             ]]
     io "userSubscriptionsAndRenames" [bool, time, bs, bs, List bs, bs] (Tuple [maybe_ (Tuple [xbody, bs, List bs]), bs, List subItemRpc, bool, List (Tuple [time, bs, bs])])
-    io "userSubscriptionsAndSettings" [bs, bs] (Tuple [maybe_ (Tuple [xbody, bs, List bs]), bs, List subItemRpc, Tuple [bool, bool, List (Tuple [time, bs, bs]), List bs, userSettings], maybe_ welcomeState])
+    io "userSubscriptionsAndSettings" [bs, bs] (Tuple [maybe_ (Tuple [xbody, bs, List bs]), bs, List subItemRpc, Tuple [bool, bool, List (Tuple [time, bs, bs]), List bs, userSettings], Tuple [maybe_ welcomeState, List filterQuery, List (Tuple [bs, List filterQuery])]])
 --     io "testSubscriptions" [unit] (List subscription)
+    io "userGetFiltersAndSmartStreams" [bs] (Tuple [List filterQuery, List (Tuple [bs, List filterQuery])])
     io "orderNotification" [bs] payment
     io "checkOrder" [bs] payment
     io "getPaidTill" [bs] paidTill
@@ -1523,7 +1583,7 @@ main = runGen $ do
     appType <- regType $ Type NoUw "AppType" "" $ map (:/ [])
         [ "ATUnknown", "ATFeeddler", "ATMrReader", "ATReeder"
         , "ATSlowFeeds", "ATJustReader", "ATNewsPlus", "ATPress"
-        , "ATVienna", "ATReadKit", "ATNewsJet", "ATAmber", "ATgzip" ]
+        , "ATVienna", "ATReadKit", "ATNewsJet", "ATAmber", "ATgzip", "ATUnread" ]
     operatingSystem <- regType $ Type NoUw "OperatingSystem" "" $ map (:/ [])
         [ "OSUnknown", "OSWindows", "OSMac", "OSLinux", "OSAndroid", "OSIOS" ]
 
@@ -1555,6 +1615,13 @@ main = runGen $ do
         , "UFDeleteAccount", "UFExportOPML" ]
         ++
         [ "UFMarkAllAsReadD" :/ [ "OlderThan" :. int ]
+        , "UFMarkSearchAsReadD" :/ [ "OlderThan" :. int ]
+        ]
+        ++
+        map (:/ [])
+        [ "UFFilterApply", "UFFilterHide", "UFNewSmartStream"
+        , "UFEditFilter", "UFEditSmartStream"
+        , "UFDeleteFilter", "UFDeleteSmartStream"
         ]
     userUsageFlags <- regType $ Type NoUw "UserUsageFlags" "uuf"
         ["UserUsageFlags" :/
@@ -1602,6 +1669,22 @@ main = runGen $ do
             [ "BlogFeedUrl" :. bs
             , "TotalPosts" :. int
             , "TotalComments" :. int
+            , "OlderThan" :. int
+            ]
+        ,"BGMarkSearchRead" :/
+            [ "Query" :. bs
+            , "ReadCounters" :. readCounters
+            , "OlderThan" :. int
+            ]
+        ,"BGMarkSmartStreamSearchRead" :/
+            [ "StreamName" :. bs
+            , "Query" :. bs
+            , "ReadCounters" :. readCounters
+            , "OlderThan" :. int
+            ]
+        ,"BGMarkSmartStreamRead" :/
+            [ "StreamName" :. bs
+            , "ReadCounters" :. readCounters
             , "OlderThan" :. int
             ]
         ,"BGSetOnlyUpdatedSubscriptions" :/
@@ -1655,15 +1738,19 @@ main = runGen $ do
 --     io "markBlogRead" [bs, bs, int, int] (maybe_ subInfo)
 --     io "markMsgsRead" [bs, List (Tuple [msgId, bool])] unit
 
-    searchResults <- regType $ Type Uw "SearchResults" "sr"
-        ["SearchResults" :/
-            [ "Total"      :. int
+    filterResults <- regType $ Type Uw "FilterResults" "fr"
+        ["FilterResults" :/
+            [ "TotalPosts" :. int
+            , "TotalComments" :. int
+            , "UnreadPosts" :. int
+            , "UnreadComments" :. int
             , "Took"       :. int
             , "TookReal"   :. int
             , "MsgForest"  :. msgForest
             ]]
-    io "searchMsgForest" [bs, bs, readCounters, msgTreeViewMode] searchResults
-    io "searchTagsMsgForest" [bs, bs, maybe_ (List itemTag), msgTreeViewMode] searchResults
+    io "filterMsgForest" [bs, maybe_ bs, bs, readCounters, msgTreeViewMode] (Tuple [readCounters, filterResults])
+    io "filterTagsMsgForest" [bs, bs, maybe_ (List itemTag), msgTreeViewMode] filterResults
+    io "smartStreamMsgForest" [apiMode, bs, bs, readCounters, msgTreeViewMode] (Tuple [readCounters, msgForest])
     pure "htmlHead" [unit] xhead
     pure "htmlHeadMain" [unit] xhead
     pure "htmlHeadMainNoTranslate" [unit] xhead
@@ -1679,6 +1766,7 @@ main = runGen $ do
     pure "prettyUID" [bs] bs
     pure "textToXbody" [bs] xbody
     io "newSession" [uid, List (Tuple [bs,bs])] session
+    io "getUserByMobileLogin" [bs,bs] uid
     io "clearSession" [bs] unit
     io "userEvent" [bs,bs,bs] unit
     io "initMailer" [unit] unit

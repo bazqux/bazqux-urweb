@@ -16,6 +16,7 @@ import Riak
 import Data.Maybe
 import Data.Ord
 import qualified Data.HashMap.Strict as HM
+import qualified Data.HashSet as HS
 import qualified Data.Set as Set
 
 main = do
@@ -182,25 +183,37 @@ mobileUsers = length . filter mobile . HM.elems
     where mobile u = not $ null [() | UFApp {} <- Set.elems $ uufUsageFlags u]
 browserUsers = length . filter browser . HM.elems
     where browser u = not $ null [() | UFWeb {} <- Set.elems $ uufUsageFlags u]
+shareUsers = length . filter browser . HM.elems
+    where browser u = not $ null [() | UFShareAction {} <- Set.elems $ uufUsageFlags u]
 skipUsers = length . filter (Set.member UFSkip . uufUsageFlags) . HM.elems
 ignoreUsers = length . filter (Set.member UFIgnore . uufUsageFlags) . HM.elems
+fUsers what f = (what, sort $ map fst $ filter (Set.member what . uufUsageFlags . snd) $ HM.toList f)
 skipAndIgnoreUsers = length . filter (m . uufUsageFlags) . HM.elems
     where m f = Set.member UFSkip f && Set.member UFIgnore f
 
 -- trialUsers x = HM.size x - paidUsers x
 
 usage = do
-    uf <- readUF (12*24)
+    uf <- readUF (30*12*24)
     let counts = Map.fromListWith (+)
                  [ (f, 1)
-                 | uuf <- HM.elems (uflFlags uf)
+                 | uuf <- HM.elems f
                  , f <- Set.toList (uufUsageFlags uuf) ]
         top = reverse $ sortBy (comparing snd) $ Map.toList counts
         app (UFApp {},_) = True
         app _ = False
         web (UFWeb {},_) = True
         web _ = False
-        f = uflFlags uf
+        f = HM.filterWithKey (\ u _ -> not (HS.member u ignoredUsers)) $
+            uflFlags uf
+        pf what = print $ fUsers what f
+        ignoredUsers =
+            HS.fromList
+            [ "https://twitter.com/account/redirect_by_id?id=18449331"
+            , "https://www.google.com/accounts/o8/id?id=AItOawkiWhJILhO89mzuUb9za1EN3wTbCEJsTK0"
+            , "demo"
+            , "1"
+            , "perf_test"]
     let (apps, partition web -> (webs, acts)) = partition app top
     t <- getUrTime
     print ("total", HM.size f)
@@ -210,4 +223,9 @@ usage = do
         putStrLn $ show (truncate d) ++ ";" ++ show (trialUsers' t d f)
     print ("trialFinished", trialFinishedUsers f)
     print ("skipAndIgnore", skipAndIgnoreUsers f)
+    print ("browserUsers", browserUsers f)
+    print ("shareUsers", shareUsers f)
     mapM_ (mapM_ print) [apps, webs, acts]
+    pf UFFilterHide
+    pf UFFilterApply
+    pf UFNewSmartStream

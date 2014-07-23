@@ -5,6 +5,7 @@ import Generated.RiakIO
 import URL (TURL)
 import Lib.UrTime
 import UrCalls
+import Search
 import Discovery (searchSubscriptions)
 import API
 import Auth
@@ -458,6 +459,77 @@ uw_HsFFI_userRetrySubscription ctx pLen  x1 x2 = do
         B.length bs `seq` return bs
     ret ctx r pLen
 
+foreign export ccall uw_HsFFI_userDeleteFilter :: Ctx -> Ptr CLong -> Ptr () -> Ptr () -> Ptr () -> IO (Ptr ())
+uw_HsFFI_userDeleteFilter ctx pLen  x1 x2 x3 = do
+    h1 <- peekArg x1 :: IO (T.Text)
+    h2 <- peekArg x2 :: IO (T.Text)
+    h3 <- peekArg x3 :: IO (Bool)
+    r <- E.try $ do
+        r <- userDeleteFilter h1 h2 h3 :: IO (())
+        let bs = enc r
+        B.length bs `seq` return bs
+    ret ctx r pLen
+
+foreign export ccall uw_HsFFI_userDeleteSmartStream :: Ctx -> Ptr CLong -> Ptr () -> Ptr () -> IO (Ptr ())
+uw_HsFFI_userDeleteSmartStream ctx pLen  x1 x2 = do
+    h1 <- peekArg x1 :: IO (T.Text)
+    h2 <- peekArg x2 :: IO (T.Text)
+    r <- E.try $ do
+        r <- userDeleteSmartStream h1 h2 :: IO (())
+        let bs = enc r
+        B.length bs `seq` return bs
+    ret ctx r pLen
+
+foreign export ccall uw_HsFFI_userAddFilter :: Ctx -> Ptr CLong -> Ptr () -> Ptr () -> Ptr () -> Ptr () -> IO (Ptr ())
+uw_HsFFI_userAddFilter ctx pLen  x1 x2 x3 x4 = do
+    h1 <- peekArg x1 :: IO (T.Text)
+    h2 <- peekArg x2 :: IO (T.Text)
+    h3 <- peekArg x3 :: IO (Bool)
+    h4 <- peekArg x4 :: IO ([T.Text])
+    r <- E.try $ do
+        r <- userAddFilter h1 h2 h3 h4 :: IO (())
+        let bs = enc r
+        B.length bs `seq` return bs
+    ret ctx r pLen
+
+foreign export ccall uw_HsFFI_userEditFilter :: Ctx -> Ptr CLong -> Ptr () -> Ptr () -> Ptr () -> Ptr () -> Ptr () -> Ptr () -> IO (Ptr ())
+uw_HsFFI_userEditFilter ctx pLen  x1 x2 x3 x4 x5 x6 = do
+    h1 <- peekArg x1 :: IO (T.Text)
+    h2 <- peekArg x2 :: IO (T.Text)
+    h3 <- peekArg x3 :: IO (Bool)
+    h4 <- peekArg x4 :: IO (T.Text)
+    h5 <- peekArg x5 :: IO (Bool)
+    h6 <- peekArg x6 :: IO ([T.Text])
+    r <- E.try $ do
+        r <- userEditFilter h1 h2 h3 h4 h5 h6 :: IO (())
+        let bs = enc r
+        B.length bs `seq` return bs
+    ret ctx r pLen
+
+foreign export ccall uw_HsFFI_userAddSmartStream :: Ctx -> Ptr CLong -> Ptr () -> Ptr () -> Ptr () -> Ptr () -> IO (Ptr ())
+uw_HsFFI_userAddSmartStream ctx pLen  x1 x2 x3 x4 = do
+    h1 <- peekArg x1 :: IO (T.Text)
+    h2 <- peekArg x2 :: IO (T.Text)
+    h3 <- peekArg x3 :: IO (T.Text)
+    h4 <- peekArg x4 :: IO ([T.Text])
+    r <- E.try $ do
+        r <- userAddSmartStream h1 h2 h3 h4 :: IO (())
+        let bs = enc r
+        B.length bs `seq` return bs
+    ret ctx r pLen
+
+foreign export ccall uw_HsFFI_userEditSmartStream :: Ctx -> Ptr CLong -> Ptr () -> Ptr () -> Ptr () -> Ptr () -> IO (Ptr ())
+uw_HsFFI_userEditSmartStream ctx pLen  x1 x2 x3 x4 = do
+    h1 <- peekArg x1 :: IO (T.Text)
+    h2 <- peekArg x2 :: IO (T.Text)
+    h3 <- peekArg x3 :: IO (T.Text)
+    h4 <- peekArg x4 :: IO ([T.Text])
+    r <- E.try $ do
+        r <- userEditSmartStream h1 h2 h3 h4 :: IO (())
+        let bs = enc r
+        B.length bs `seq` return bs
+    ret ctx r pLen
+
 foreign export ccall uw_HsFFI_userOPML :: Ctx -> Ptr CLong -> Ptr () -> Ptr () -> IO (Ptr ())
 uw_HsFFI_userOPML ctx pLen  x1 x2 = do
     h1 <- peekArg x1 :: IO (Bool)
@@ -497,7 +569,16 @@ uw_HsFFI_userSubscriptionsAndSettings ctx pLen  x1 x2 = do
     h1 <- peekArg x1 :: IO (T.Text)
     h2 <- peekArg x2 :: IO (T.Text)
     r <- E.try $ do
-        r <- userSubscriptionsAndSettings h1 h2 :: IO ((Maybe (T.Text, T.Text, [T.Text]), T.Text, [SubItemRpc], (Bool, Bool, [(UrTime, T.Text, T.Text)], [T.Text], UserSettings), Maybe WelcomeState))
+        r <- userSubscriptionsAndSettings h1 h2 :: IO ((Maybe (T.Text, T.Text, [T.Text]), T.Text, [SubItemRpc], (Bool, Bool, [(UrTime, T.Text, T.Text)], [T.Text], UserSettings), (Maybe WelcomeState, [FilterQuery], [(T.Text, [FilterQuery])])))
+        let bs = enc r
+        B.length bs `seq` return bs
+    ret ctx r pLen
+
+foreign export ccall uw_HsFFI_userGetFiltersAndSmartStreams :: Ctx -> Ptr CLong -> Ptr () -> IO (Ptr ())
+uw_HsFFI_userGetFiltersAndSmartStreams ctx pLen  x1 = do
+    h1 <- peekArg x1 :: IO (T.Text)
+    r <- E.try $ do
+        r <- userGetFiltersAndSmartStreams h1 :: IO (([FilterQuery], [(T.Text, [FilterQuery])]))
         let bs = enc r
         B.length bs `seq` return bs
     ret ctx r pLen
@@ -604,26 +685,40 @@ uw_HsFFI_performBgActions ctx pLen  x1 x2 = do
         B.length bs `seq` return bs
     ret ctx r pLen
 
-foreign export ccall uw_HsFFI_searchMsgForest :: Ctx -> Ptr CLong -> Ptr () -> Ptr () -> Ptr () -> Ptr () -> IO (Ptr ())
-uw_HsFFI_searchMsgForest ctx pLen  x1 x2 x3 x4 = do
+foreign export ccall uw_HsFFI_filterMsgForest :: Ctx -> Ptr CLong -> Ptr () -> Ptr () -> Ptr () -> Ptr () -> Ptr () -> IO (Ptr ())
+uw_HsFFI_filterMsgForest ctx pLen  x1 x2 x3 x4 x5 = do
     h1 <- peekArg x1 :: IO (T.Text)
-    h2 <- peekArg x2 :: IO (T.Text)
-    h3 <- peekArg x3 :: IO ([(T.Text, Int, Int, Int, Int)])
-    h4 <- peekArg x4 :: IO (MsgTreeViewMode)
+    h2 <- peekArg x2 :: IO (Maybe T.Text)
+    h3 <- peekArg x3 :: IO (T.Text)
+    h4 <- peekArg x4 :: IO ([(T.Text, Int, Int, Int, Int)])
+    h5 <- peekArg x5 :: IO (MsgTreeViewMode)
     r <- E.try $ do
-        r <- searchMsgForest h1 h2 h3 h4 :: IO (SearchResults)
+        r <- filterMsgForest h1 h2 h3 h4 h5 :: IO (([(T.Text, Int, Int, Int, Int)], FilterResults))
         let bs = enc r
         B.length bs `seq` return bs
     ret ctx r pLen
 
-foreign export ccall uw_HsFFI_searchTagsMsgForest :: Ctx -> Ptr CLong -> Ptr () -> Ptr () -> Ptr () -> Ptr () -> IO (Ptr ())
-uw_HsFFI_searchTagsMsgForest ctx pLen  x1 x2 x3 x4 = do
+foreign export ccall uw_HsFFI_filterTagsMsgForest :: Ctx -> Ptr CLong -> Ptr () -> Ptr () -> Ptr () -> Ptr () -> IO (Ptr ())
+uw_HsFFI_filterTagsMsgForest ctx pLen  x1 x2 x3 x4 = do
     h1 <- peekArg x1 :: IO (T.Text)
     h2 <- peekArg x2 :: IO (T.Text)
     h3 <- peekArg x3 :: IO (Maybe [ItemTag])
     h4 <- peekArg x4 :: IO (MsgTreeViewMode)
     r <- E.try $ do
-        r <- searchTagsMsgForest h1 h2 h3 h4 :: IO (SearchResults)
+        r <- filterTagsMsgForest h1 h2 h3 h4 :: IO (FilterResults)
+        let bs = enc r
+        B.length bs `seq` return bs
+    ret ctx r pLen
+
+foreign export ccall uw_HsFFI_smartStreamMsgForest :: Ctx -> Ptr CLong -> Ptr () -> Ptr () -> Ptr () -> Ptr () -> Ptr () -> IO (Ptr ())
+uw_HsFFI_smartStreamMsgForest ctx pLen  x1 x2 x3 x4 x5 = do
+    h1 <- peekArg x1 :: IO (ApiMode)
+    h2 <- peekArg x2 :: IO (T.Text)
+    h3 <- peekArg x3 :: IO (T.Text)
+    h4 <- peekArg x4 :: IO ([(T.Text, Int, Int, Int, Int)])
+    h5 <- peekArg x5 :: IO (MsgTreeViewMode)
+    r <- E.try $ do
+        r <- smartStreamMsgForest h1 h2 h3 h4 h5 :: IO (([(T.Text, Int, Int, Int, Int)], MsgForest))
         let bs = enc r
         B.length bs `seq` return bs
     ret ctx r pLen
@@ -761,6 +856,16 @@ uw_HsFFI_newSession ctx pLen  x1 x2 = do
     h2 <- peekArg x2 :: IO ([(T.Text, T.Text)])
     r <- E.try $ do
         r <- newSession h1 h2 :: IO (Session)
+        let bs = enc r
+        B.length bs `seq` return bs
+    ret ctx r pLen
+
+foreign export ccall uw_HsFFI_getUserByMobileLogin :: Ctx -> Ptr CLong -> Ptr () -> Ptr () -> IO (Ptr ())
+uw_HsFFI_getUserByMobileLogin ctx pLen  x1 x2 = do
+    h1 <- peekArg x1 :: IO (T.Text)
+    h2 <- peekArg x2 :: IO (T.Text)
+    r <- E.try $ do
+        r <- getUserByMobileLogin h1 h2 :: IO (UID)
         let bs = enc r
         B.length bs `seq` return bs
     ret ctx r pLen

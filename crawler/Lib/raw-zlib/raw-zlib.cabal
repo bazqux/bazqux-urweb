@@ -1,0 +1,25 @@
+cabal-version:  >= 1.6
+name:           raw-zlib
+version:        0.0
+author:         Vladimir Shabanov <vshabanoff@gmail.com>
+maintainer:     Vladimir Shabanov <vshabanoff@gmail.com>
+homepage:       https://github.com/bazqux/raw-zlib
+license:        BSD3
+category:       Codec
+build-type:     Simple
+synopsis:       Simple RAW format zlib functions
+description:
+    RAW format zlib compression/decompression. Hope less buggy than zlib-bindings (sometimes don't decompress correctly) or zlib (memory leaks)
+
+source-repository head
+    type:     git
+    location: https://github.com/bazqux/raw-zlib
+
+library
+    build-depends:
+        base == 4.*, zlib-bindings, bytestring
+
+    exposed-modules:
+        Codec.RawZlib
+
+    ghc-options: -O2 -Wall
