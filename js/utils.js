@@ -1927,7 +1927,7 @@ function trackFontUsage(id) {
         return;
 //     uw_debug('used ' + id + ' ' + name);
     usedFonts[id] = true;
-    var path = "https://fast.fonts.net/lt/1.css?apiType=css&c=a7612f1f-cee0-4445-94d5-f45461417258&fontids=" + id;
+    var path = "https://fast.fonts.net/lt/1.css?apiType=css&fontids=" + id;
     const s = document.createElement('link');
     s.type = 'text/css';
     s.rel = 'stylesheet';

@@ -52,7 +52,6 @@ import qualified Parser.Disqus
 import qualified Parser.Facebook
 import           Parser.Facebook (parseFacebookError, isFacebookOAuthException)
 import qualified Parser.Habr
-import qualified Parser.Instagram
 import qualified Parser.LiveJournal
 import qualified Parser.LtU
 import qualified Parser.Reddit
@@ -336,7 +335,6 @@ customParsers url
     [ Parser.Disqus.customParsers
     , Parser.Facebook.customParsers
     , Parser.Habr.customParsers
-    , Parser.Instagram.customParsers
     , Parser.LiveJournal.customParsers
     , Parser.LtU.customParsers
     , Parser.Reddit.customParsers

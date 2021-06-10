@@ -1585,9 +1585,3 @@ apiProxy' (hostName, p) = case postProcessAndUrl of
                         o
                     go (JSON.Array a) = JSON.Array $ V.map go a
                     go x = x
---     // у этого API есть rate limit на 250 обращений в 15 минут,
---     // также оно не кешируется, и запрос 10 видео идет 500мсек,
---     // в то время как oembed pipeline-ится и общее время может быть 250мсек
---     // (и каждый oembed кешируется отдельно).
---     // Аватарки показывать не получится (их в oembed нет)
--- 'https://api.vimeo.com/videos?per_page=25&access_token=68bfe99786f4382d226c88651b69120d&fields=uri,name,pictures.sizes,user.name,user.link,user.pictures.sizes&uris='+ids.map(function (i) {return "/videos/"+i}).join(","),
