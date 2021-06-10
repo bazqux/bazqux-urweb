@@ -1,18 +1,22 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving, BangPatterns #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, BangPatterns, ViewPatterns #-}
 -- | Хранение индексов прочитанных сообщений (аналог IntSet,
 -- но со сжатием последовательностей в интервалы).
 --
 -- Не использую Diet (for fat sets), т.к. нет балансировки.
 module Lib.ReadSet
-    ( ReadSet, empty, fromRange, size, member, insert, delete
+    ( ReadSet, empty, null, fromRange, size, member, insert, delete
     , readTill, clearTill
     , toList, fromList, union, intersection, difference, maxIndex
+    , toIntSet, fromIntSet
     ) where
 
+import Prelude hiding (null)
 import Control.Monad
-import qualified Lib.Set as Set
+import Control.DeepSeq
+import qualified Data.Set as Set
 import Data.Binary
 import qualified Data.IntSet as IntSet
+-- import Test.QuickCheck
 
 data ReadSet
     = ReadSet
@@ -43,9 +47,6 @@ instance Binary I where
 instance Binary ReadSet where
     put (ReadSet a b) = put a >> put b
     get = liftM2 ReadSet get get
-instance (Ord a, Binary a) => Binary (Set.Set a) where
-    put s = put (Set.size s) >> mapM_ put (Set.toAscList s)
-    get   = liftM Set.fromDistinctAscList get
 
 instance Eq ReadSet where
     ReadSet sz1 s1 == ReadSet sz2 s2 =
@@ -56,6 +57,11 @@ instance Ord ReadSet where
         where cmpList s = [(b,b-a) | I a b <- reverse (Set.toList s)]
                           -- если длина интервала больше,
                           -- то и прочитанных больше
+
+instance NFData ReadSet where
+    rnf (ReadSet a b) = rnf a `seq` rnf b `seq` ()
+instance NFData I where
+    rnf i = i `seq` ()
 
 itList = map IT . Set.toAscList
 
@@ -69,6 +75,9 @@ instance Ord I where
         | otherwise = EQ
 
 empty = ReadSet 0 Set.empty
+
+null (ReadSet 0 _) = True
+null _ = False
 
 member :: Int -> ReadSet -> Bool
 member i (ReadSet _ s) = Set.member (I i i) s
@@ -123,9 +132,15 @@ clearTill e rs@(ReadSet t s)
             | otherwise -> ReadSet (t - (e-a+1)) (Set.insert (I (e+1) b) s')
               -- пересечение
 
+lookupI :: Int -> Set.Set I -> Maybe I
+lookupI x s =
+    case Set.minView $ snd $ Set.spanAntitone (\ (I a b) -> b < x) s of
+        Just (i@(I a _), _) | a <= x -> Just i
+        _ -> Nothing
+
 delete :: Int -> ReadSet -> ReadSet
-delete i rs@(ReadSet t s) = case Set.splitLookup (I i i) s of
-    (_, Just (I a b), _)
+delete i rs@(ReadSet t s) = case lookupI i s of
+    Just (I a b)
         | a == b -> r id
         | a == i -> r (Set.insert (I (i+1) b))
         | b == i -> r (Set.insert (I a (i-1)))
@@ -138,8 +153,12 @@ fromRange a b
     | b < a = empty
     | otherwise = ReadSet (b-a+1) (Set.singleton $ I a b)
 
+fromDistinctAscList l = ReadSet (Set.foldl' (\ s (I a b) -> s + b-a+1) 0 s) s
+    where s = Set.fromDistinctAscList l
+
 test = -- readTill 5 $
-       delete 6 $ delete 1 $ foldl (flip insert) empty [1,4,1,7,3,6, 1,2,6]
+       delete 10 $ insert 5 $ delete 1 $
+       foldl (flip insert) empty [1,4,1,7,3,6, 1,2,6,0]
 
 toList = concatMap iToList . Set.toAscList . set
     where iToList (I a b) = [a..b]
@@ -150,16 +169,51 @@ fromList = go empty
 
 union a b
     | a == b = a
-    | otherwise = fromIntSet $ toIntSet a `IntSet.union` toIntSet b
+    | otherwise =
+        fromDistinctAscList $ u (Set.toAscList $ set a) (Set.toAscList $ set b)
+    where u [] bs = bs
+          u as [] = as
+          u aas@(a@(I a1 a2) : as) bbs@(b@(I b1 b2) : bs)
+              | a2 + 1 < b1 = a : u as bbs
+              | b2 + 1 < a1 = b : u aas bs
+              | a2 > b2   = u (I (min a1 b1) a2 : as) bs
+              | otherwise = u as (I (min a1 b1) b2 : bs)
+
 intersection a b
     | size a == 0 || size b == 0 = empty
     | a == b = a
-    | otherwise = fromIntSet $ toIntSet a `IntSet.intersection` toIntSet b
+    | otherwise =
+        fromDistinctAscList $ i (Set.toAscList $ set a) (Set.toAscList $ set b)
+    where i [] bs = []
+          i as [] = []
+          i aas@(a@(I a1 a2) : as) bbs@(b@(I b1 b2) : bs)
+              | a2 < b1 = i as bbs
+              | b2 < a1 = i aas bs
+              | a2 > b2   = I (max a1 b1) b2 : i aas bs
+              | otherwise = I (max a1 b1) a2 : i as bbs
 
 difference a b
     | size b == 0 = a
     | a == b = empty
-    | otherwise = fromIntSet $ toIntSet a `IntSet.difference` toIntSet b
+    | otherwise =
+        fromDistinctAscList $ d (Set.toAscList $ set a) (Set.toAscList $ set b)
+    where d [] bs = []
+          d as [] = as
+          d aas@(a@(I a1 a2) : as) bbs@(b@(I b1 b2) : bs)
+              | a2 < b1 = a : d as bbs
+              | b2 < a1 = d aas bs
+              | b1 > a1 = I a1 (b1-1) : rest
+              | otherwise = rest
+              where rest
+                        | b2 < a2 = d (I (b2+1) a2 : as) bs
+                        | otherwise = d as bbs
+
+prop_union (fromList -> a) (fromList -> b) =
+    union a b == fromIntSet (toIntSet a `IntSet.union` toIntSet b)
+prop_intersection (fromList -> a) (fromList -> b) =
+    intersection a b == fromIntSet (toIntSet a `IntSet.intersection` toIntSet b)
+prop_difference (fromList -> a) (fromList -> b) =
+    difference a b == fromIntSet (toIntSet a `IntSet.difference` toIntSet b)
 
 maxIndex rs@(ReadSet t s)
     | Just (I _ m, _) <- Set.maxView s = Just m

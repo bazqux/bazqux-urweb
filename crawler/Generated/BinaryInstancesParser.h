@@ -1,6 +1,5 @@
 
- 
-instance Binary JSComments where
+instance () => Binary JSComments where
         put x
           = case x of
                 JSCSupported x1 -> do putWord8 0
@@ -16,8 +15,7 @@ instance Binary JSComments where
                            return (JSCUnsupported x1)
                    _ -> error "Corrupted binary data for JSComments"
 
- 
-instance Binary SwitchUrl where
+instance () => Binary SwitchUrl where
         put x
           = case x of
                 NoSwitch -> putWord8 0
@@ -33,11 +31,10 @@ instance Binary SwitchUrl where
                            return (Switch x1 x2)
                    _ -> error "Corrupted binary data for SwitchUrl"
 
- 
-instance Binary FeedMsg where
+instance () => Binary FeedMsg where
         put
           (FeedMsg x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17
-             x18 x19)
+             x18)
           = do put x1
                put x2
                put x3
@@ -56,7 +53,6 @@ instance Binary FeedMsg where
                put x16
                put x17
                put x18
-               put x19
         get
           = do !x1 <- get
                !x2 <- get
@@ -76,28 +72,26 @@ instance Binary FeedMsg where
                !x16 <- get
                !x17 <- get
                !x18 <- get
-               !x19 <- get
                return
                  (FeedMsg x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17
-                    x18
-                    x19)
+                    x18)
 
- 
-instance Binary Media where
-        put (Media x1 x2 x3 x4)
+instance () => Binary Media where
+        put (Media x1 x2 x3 x4 x5)
           = do put x1
                put x2
                put x3
                put x4
+               put x5
         get
           = do !x1 <- get
                !x2 <- get
                !x3 <- get
                !x4 <- get
-               return (Media x1 x2 x3 x4)
+               !x5 <- get
+               return (Media x1 x2 x3 x4 x5)
 
- 
-instance Binary LinkKind where
+instance () => Binary LinkKind where
         put x
           = case x of
                 LKFeed -> putWord8 0
@@ -127,8 +121,7 @@ instance Binary LinkKind where
                    10 -> return LKBaseUri
                    _ -> error "Corrupted binary data for LinkKind"
 
- 
-instance Binary ParseResult where
+instance () => Binary ParseResult where
         put x
           = case x of
                 PRError x1 -> do putWord8 0
@@ -148,6 +141,13 @@ instance Binary ParseResult where
                                                put x4
                 PRRedirect x1 -> do putWord8 4
                                     put x1
+                PRAdditionalDownload x1 x2 x3 -> do putWord8 5
+                                                    put x1
+                                                    put x2
+                                                    put x3
+                PRSetEnv x1 x2 -> do putWord8 6
+                                     put x1
+                                     put x2
         get
           = do !i <- getWord8
                case i of
@@ -168,17 +168,24 @@ instance Binary ParseResult where
                            return (PRParsedHtml x1 x2 x3 x4)
                    4 -> do !x1 <- get
                            return (PRRedirect x1)
+                   5 -> do !x1 <- get
+                           !x2 <- get
+                           !x3 <- get
+                           return (PRAdditionalDownload x1 x2 x3)
+                   6 -> do !x1 <- get
+                           !x2 <- get
+                           return (PRSetEnv x1 x2)
                    _ -> error "Corrupted binary data for ParseResult"
 
- 
-instance Binary ParseServerRequest where
-        put (ParseServerRequest x1 x2 x3 x4 x5 x6)
+instance () => Binary ParseServerRequest where
+        put (ParseServerRequest x1 x2 x3 x4 x5 x6 x7)
           = do put x1
                put x2
                put x3
                put x4
                put x5
                put x6
+               put x7
         get
           = do !x1 <- get
                !x2 <- get
@@ -186,42 +193,54 @@ instance Binary ParseServerRequest where
                !x4 <- get
                !x5 <- get
                !x6 <- get
-               return (ParseServerRequest x1 x2 x3 x4 x5 x6)
+               !x7 <- get
+               return (ParseServerRequest x1 x2 x3 x4 x5 x6 x7)
 
- 
-instance Binary ParseServerResult where
+instance () => Binary DownloadAndParseResult where
         put x
           = case x of
-                PSRNotModified -> putWord8 0
-                PSRSameHash -> putWord8 1
-                PSRError x1 -> do putWord8 2
-                                  put x1
-                PSRRedirect x1 -> do putWord8 3
+                DPRNotModified -> putWord8 0
+                DPRSameHash x1 -> do putWord8 1
                                      put x1
-                PSROK x1 x2 x3 -> do putWord8 4
+                DPRError x1 -> do putWord8 2
+                                  put x1
+                DPRRedirect x1 -> do putWord8 3
+                                     put x1
+                DPROK x1 x2 x3 -> do putWord8 4
                                      put x1
                                      put x2
                                      put x3
-                PSRToRemove -> putWord8 5
+                DPRToRemove -> putWord8 5
         get
           = do !i <- getWord8
                case i of
-                   0 -> return PSRNotModified
-                   1 -> return PSRSameHash
+                   0 -> return DPRNotModified
+                   1 -> do !x1 <- get
+                           return (DPRSameHash x1)
                    2 -> do !x1 <- get
-                           return (PSRError x1)
+                           return (DPRError x1)
                    3 -> do !x1 <- get
-                           return (PSRRedirect x1)
+                           return (DPRRedirect x1)
                    4 -> do !x1 <- get
                            !x2 <- get
                            !x3 <- get
-                           return (PSROK x1 x2 x3)
-                   5 -> return PSRToRemove
-                   _ -> error "Corrupted binary data for ParseServerResult"
+                           return (DPROK x1 x2 x3)
+                   5 -> return DPRToRemove
+                   _ -> error "Corrupted binary data for DownloadAndParseResult"
 
- 
-instance Binary FeedItem where
-        put (FeedItem x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13)
+instance () => Binary ParseServerResult where
+        put (ParseServerResult x1 x2 x3)
+          = do put x1
+               put x2
+               put x3
+        get
+          = do !x1 <- get
+               !x2 <- get
+               !x3 <- get
+               return (ParseServerResult x1 x2 x3)
+
+instance () => Binary FeedItem where
+        put (FeedItem x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14)
           = do put x1
                put x2
                put x3
@@ -235,6 +254,7 @@ instance Binary FeedItem where
                put x11
                put x12
                put x13
+               put x14
         get
           = do !x1 <- get
                !x2 <- get
@@ -249,10 +269,10 @@ instance Binary FeedItem where
                !x11 <- get
                !x12 <- get
                !x13 <- get
-               return (FeedItem x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13)
+               !x14 <- get
+               return (FeedItem x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14)
 
- 
-instance Binary AddUrl where
+instance () => Binary AddUrl where
         put (AddUrl x1 x2 x3 x4)
           = do put x1
                put x2
@@ -265,8 +285,7 @@ instance Binary AddUrl where
                !x4 <- get
                return (AddUrl x1 x2 x3 x4)
 
- 
-instance Binary PushOrder where
+instance () => Binary PushOrder where
         put x
           = case x of
                 PushBack -> putWord8 0
@@ -282,9 +301,8 @@ instance Binary PushOrder where
                            return (Delay x1)
                    _ -> error "Corrupted binary data for PushOrder"
 
- 
-instance Binary ProcessUrlRequest where
-        put (ProcessUrlRequest x1 x2 x3 x4 x5 x6 x7)
+instance () => Binary ProcessUrlRequest where
+        put (ProcessUrlRequest x1 x2 x3 x4 x5 x6 x7 x8)
           = do put x1
                put x2
                put x3
@@ -292,6 +310,7 @@ instance Binary ProcessUrlRequest where
                put x5
                put x6
                put x7
+               put x8
         get
           = do !x1 <- get
                !x2 <- get
@@ -300,10 +319,10 @@ instance Binary ProcessUrlRequest where
                !x5 <- get
                !x6 <- get
                !x7 <- get
-               return (ProcessUrlRequest x1 x2 x3 x4 x5 x6 x7)
+               !x8 <- get
+               return (ProcessUrlRequest x1 x2 x3 x4 x5 x6 x7 x8)
 
- 
-instance Binary ProcessUrlResult where
+instance () => Binary ProcessUrlResult where
         put (ProcessUrlResult x1 x2 x3 x4)
           = do put x1
                put x2

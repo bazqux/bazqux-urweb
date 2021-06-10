@@ -1,8 +1,24 @@
 ffi binary_ffi
 include binary.h
 ffi hacks
+ffi htmlTags
+ffi conflictingHtmlTags
 include hacks.h
 effectful Hacks.clear_script_header
+ffi hashMapFfi
+jsFunc HashMapFfi.new=hashMapNew
+jsFunc HashMapFfi.clear=hashMapClear
+jsFunc HashMapFfi.insert=hashMapInsert
+jsFunc HashMapFfi.delete=hashMapDelete
+jsFunc HashMapFfi.lookup=hashMapLookup
+jsFunc HashMapFfi.lookupDefault=hashMapLookupDefault
+jsFunc HashMapFfi.toList=hashMapToList
+jsFunc HashMapFfi.size=hashMapSize
 
 $/list
+$/option
+either
 binary
+hashMap
+hashSet
+htmlUtils

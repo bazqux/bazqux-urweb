@@ -1,0 +1,48 @@
+buckets=(
+    Stats
+    User
+    UserFilters
+    Login
+    UserSettings
+    PublicFeed
+    FeverIds
+    UserStats
+    MailQueue
+    Session
+    EmailVerificationToken
+    EmailVerification
+    UserEmailVerificationTokens
+    SubscriptionUrlInfo
+    Msg
+    BlogPostsScanned
+    Posts
+    PostsClearTime
+    PostsSubscribers
+    ActiveCheckSubscriptions
+    Comments
+    UrlToScan
+    ScanList
+    PostsRead
+    PostsTagged
+    PostsTaggedGuids
+    GRIds
+    UserBackup
+    DeletedUser
+    MailsSent
+    Filters
+    UsageFlags
+    UserSessions
+    FullTextCache
+    PageInfo
+    Favicon
+    HotLinks
+    FeedbackUserInfosList
+    OfdReceipt
+    ParserEnvironment
+)
+for bucket in "${buckets[@]}"
+do
+   curl -v -XPUT -H "Content-Type: application/json" \
+        -d '{"props":{"allow_mult":true,"last_write_wins":false,"dvv_enabled":true}}' \
+        http://127.0.0.1:8098/riak/$bucket
+done

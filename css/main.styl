@@ -1,0 +1,5022 @@
+// -*- mode: css -*-
+$thick-space = unit(5/18, em) /* 5/18 thick space */
+
+$left-panel-width = 270px
+$pseudo-left-panel-width = 10000px
+$narrow-left-panel-width = 235px
+$movable-left-panel-margin-px = 40px
+$movable-left-panel-margin = var(--movable-left-panel-margin)
+$movable-left-panel-width = "calc(100vw - %s)" % $movable-left-panel-margin
+$narrow-left-panel-breakpoint-px = 1150px /*1024*/
+$narrow-left-panel-breakpoint = '(max-width: ' + $narrow-left-panel-breakpoint-px + ')'
+$left-panel-visibility-breakpoint-px = 900px
+$left-panel-visibility-breakpoint = '(max-width: ' + $left-panel-visibility-breakpoint-px + ')'
+/* в .right почему-то default line-height примерно 1.15 -- или нет? */
+/*line-height: 1.4; /* default 1.2, 1.5еще 140% говорят ничего, а для заголовков рекомендуют 1.1  -- в общем очень уж размашисто, хотя читается может и легче, но бегать глазами тяжелее */
+$multiline-list-view-breakpoint-px = 550px
+$multiline-list-view-breakpoint = '(max-width: ' + $multiline-list-view-breakpoint-px + ')'
+$input-padding = 0.15em;
+$mobile-toolbar-height = 48px;
+$feedMark-padding = 3px;
+$shadow-opacity = 0.3;
+$authorPic-size = 2em;
+$dark-mode = 'screen and (prefers-color-scheme: dark)';
+$landingPage-buttons-opacity = var(--landingPage-buttons-opacity, 1.0);
+
+$default-text-width = 37em;
+$text-width = var(--text-width, $default-text-width)
+/*38.4em/*768/20*/
+
+$mosaic-padding-em = 0.75em;
+$mosaic-padding = $emr_075;
+
+$mosaic-thumbnail-width = 13.66em;
+/* (37em + 3em)/3 = 13.33 так magazine хорошо выровнен относительно
+   текста сообщений, но все-таки хочется картинку чуть больше
+   и magazineText чуть шире
+ */
+$magazine-thumbnail-width = 0.75*(13.66em + 2*$mosaic-padding-em) - 2*$mosaic-padding-em;
+
+$thumbnail-width = "(var(--thumbnail-width) - var(--thumbnail-width-padding-mul) * var(--thumbnail-width-padding))" % ();
+/* iOS 9 не поддерживает вложенные calc(), разворачиваем руками */
+$thumbnail-aspect-ratio = 1.5;
+$mobile-thumbnail-width = 240 / 768;
+$mobile-thumbnail-margin = (768 - 3 * 240) / 4 / 768;
+
+$msgFrame-ident = 2.75em
+
+$lhr = var(--lhr, var(--header-line-height))
+$lhr_05  = var(--lhr_05 , calc(0.5  * var(--header-line-height)))
+$lhr_025 = var(--lhr_025, calc(0.25 * var(--header-line-height)))
+$emr_015 = var(--emr_015, 0.15em)
+$emr_025 = var(--emr_025, 0.25em)
+$emr_03  = var(--emr_03 , 0.3em)
+$emr_05  = var(--emr_05 , 0.5em)
+$emr_075 = var(--emr_075, 0.75em)
+$emr_08  = var(--emr_08 , 0.8em)
+$emr_105 = var(--emr_105, 1.05em)
+$emr_15  = var(--emr_15 , 1.5em)
+$emr_34  = var(--emr_34 , 3.4em)
+$emr2_12  = var(--emr2_12 , 1.2em)
+$emr2_138 = var(--emr2_138, 1.38em)
+$emr2_15  = var(--emr2_15 , 1.5em)
+
+$ui-line-height = $emr2_138
+
+/* фоновые картинки кнопок и иконки фидов плохо выравниваются
+   на разных масштабах, из-за того, что top и height кнопки являются
+   дробным числом, в итоге round(top+height/2) для установки картинки
+   по центру округляется в разные стороны по сравнению с
+   (round(top)+round(top+height))/2 и картинка на разных масштабах
+   бывает на пиксель выше или ниже.
+   Два варианта решения для кнопок:
+   - делать height кратный 2, т.е. задавать его для каждого масштаба
+   - выравнивать top по границе пикселей (убирать дробную часть)
+   (а в случае списка фидов в любом случае нужен целый height)
+
+   для этого мы используем округленные величины
+   $emr_NNN -- простое округление
+   $emr2_NNN -- округление до ближайшей величины кратной 2-м.
+*/
+
+$subscriptions-li-height = "(%s + 6px)" % $emr2_12
+$unreadCount-margin = 2px
+$menu-li-height = "(%s + 14px)" % $emr2_12
+$menu-hr-margin = $emr_025;
+
+$c000_03 = var(--c000_03, rgba(0,0,0,0.3));
+$c333 = var(--c333, #333)
+$c444 = var(--c444, #444)
+$c666 = var(--c666, #666)
+$c707070 = var(--c707070, #707070)
+$c777 = var(--c777, #777)
+$c888 = var(--c888, #888)
+$c999 = var(--c999, #999)
+$ca0a0a0 = var(--ca0a0a0, #a0a0a0)
+$caaa = var(--caaa, #aaa)
+$cccc = var(--cccc, #ccc)
+$cddd = var(--cddd, #ddd)
+$ce8e8e8 = var(--ce8e8e8, #e8e8e8)
+$ceaeaea = var(--ceaeaea, #eaeaea)
+$cececec = var(--cececec, #ececec)
+$ceee = var(--ceee, #eee)
+$cf0f0f0 = var(--cf0f0f0, #f0f0f0)
+$cf5f5f5 = var(--cf5f5f5, #f5f5f5)
+$cf8f8f8 = var(--cf8f8f8, #f8f8f8)
+$cfafafa = var(--cfafafa, #fafafa)
+$cfcfcfc = var(--cfcfcfc, #fcfcfc)
+$error-color = var(--error-color, #933);
+
+$text-color = var(--text-color);
+$gray-text-color = $c666; /* текст кнопки на сером фоне */
+$active-gray-text-color = $c333; /* :hover на кнопке/ссылке */
+$disabled-gray-text-color = $caaa;
+$button-background-color = $cf5f5f5;
+$button-border-color = $ceaeaea;
+$button-border-color-in-dialog = $ce8e8e8;
+$button-border-color-active = $cccc;
+$ui-border-color = $cddd;
+$link-color = var(--link-color)
+$mark-color = var(--mark-color)
+
+$safe-area-inset-left   = var(--safe-area-inset-left)
+$safe-area-inset-right  = var(--safe-area-inset-right)
+$safe-area-inset-top    = var(--safe-area-inset-top)
+$safe-area-inset-bottom = var(--safe-area-inset-bottom)
+$safe-area-inset-width  = var(--safe-area-inset-width)
+$safe-area-inset-height = var(--safe-area-inset-height)
+
+$msgCollapseMargin-margin-top = $emr_05;
+$msgsPadder-padding-em = 0.5em;
+$msgsPadder-padding = $emr_05;
+$mobile-margin = var(--mobile-margin);
+$msgBody-margin = var(--msgBody-margin);
+$msgBody-margin-left = "(%s + var(--msgBody-margin-left-add))" % $msgBody-margin;
+$msgBody-margin-right = "(%s + %s + var(--msgBody-margin-right-add))" % ($msgBody-margin $safe-area-inset-right);
+
+$msgToolbar-padding = $emr_03;
+
+$landing-margin = 15px;
+/* на телефоне 20px уже перебор */;
+
+left-panel(prop) {
+    {prop}: calc(var(--left-panel-width) + var(--safe-area-inset-left));
+    @media $narrow-left-panel-breakpoint {
+        {prop}: "calc(%s + var(--safe-area-inset-left))" % $narrow-left-panel-width;
+    }
+}
+
+left-panel-calc(prop, fmt) {
+    {prop}: fmt % (var(--left-panel-width) $safe-area-inset-left);
+    @media $narrow-left-panel-breakpoint {
+        {prop}: fmt % ($narrow-left-panel-width $safe-area-inset-left);
+    }
+    .fullscreen & {
+        {prop}: fmt % (0px $safe-area-inset-left);
+    }
+}
+
+mobile-toolbar-height(prop, fmt = "%s") {
+    {prop}: fmt % var(--mobile-toolbar-height)
+}
+mobile-toolbar-height-total(prop, fmt = "%s") {
+    {prop}: fmt % var(--mobile-toolbar-height-total)
+}
+
+.noFullscreen, .fullscreen {
+    --mobile-toolbar-height-total: "calc(var(--mobile-toolbar-height) + %s)" % $safe-area-inset-top;
+}
+
+.noFullscreen {
+    --mobile-toolbar-height: 42px;
+    .mobile & {
+        --mobile-toolbar-height: $mobile-toolbar-height
+    }
+}
+.fullscreen {
+    --mobile-toolbar-height: 0px;
+}
+
+button-border-color(prop) {
+    {prop}: 1px solid $button-border-color;
+    .dialogContent &, .discoveryHeader & {
+        {prop + '-color'}: $button-border-color-in-dialog;
+    }
+}
+
+img-text-margin-top(prop, add = 0px)
+  {prop}: "calc(%s + var(--baseline-compensation))" % add
+img-text-margin-bottom(prop, add = 0px)
+  {prop}: "calc(%s - var(--baseline-compensation))" % add
+
+button-border-radius()
+  border-radius: 2px/* $emr_015 */
+
+input-border(prop)
+  button-border-color(prop)
+/* {prop}: 1px solid $button-border-color */
+
+margin-padding-overflow-fix() {
+    padding-left: 3px;  /* чтобы буква 'A' слева не обрезалась */
+    margin-left: -3px;
+    padding-right: 3px; /* чтобы засечки у f/r справа не обрезались */
+}
+
+ellipsis()
+  display: block
+  white-space: nowrap
+  overflow: hidden
+  text-overflow: ellipsis
+  margin-padding-overflow-fix()
+
+multiline-ellipsis(n) {
+    max-height: "calc(%s * %s)" % (n $lhr);
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: n;
+    -webkit-box-orient: vertical;
+}
+
+lining-nums()
+    font-variant-numeric: lining-nums;
+    -ms-font-feature-settings: "lnum", "onum" 0, "pnum";
+    @supports not (font-variant-numeric: lining-nums) {
+        font-feature-settings: "lnum", "onum" 0, "pnum";
+        -webkit-font-feature-settings: "lnum", "onum" 0, "pnum";
+    }
+
+tabular-lining-nums()
+    font-feature-settings: "lnum", "onum" 0, "pnum" 0, "tnum", "case";
+    /* font-variant для case нет, используем font-feature-settings */
+/*     font-variant-numeric: lining-nums tabular-nums; */
+/*     -ms-font-feature-settings: "lnum", "onum" 0, "pnum" 0, "tnum", "case"; */
+/*     @supports not ((font-variant-numeric: tabular-nums) || (font-variant-numeric: lining-nums)) { */
+/*         font-feature-settings: "lnum", "onum" 0, "pnum" 0, "tnum", "case"; */
+/*         -webkit-font-feature-settings: "lnum", "onum" 0, "pnum" 0, "tnum", "case"; */
+/*     } */
+
+/* --header-font-family -- шрифт заголовков и пользовательского интерфейса
+   (left,top)
+*/
+
+button-opacity(o, important = /**/) {
+    opacity: "calc((1 - %s) * var(--min-opacity) + %s)" % (o o) important;
+
+    .opacityCalcNotSupported & {
+        opacity: o important;
+    }
+}
+
+opacity-no-calc(o, important = /**/) {
+    opacity: o important;
+
+    .opacityCalcNotSupported & {
+        opacity: o important;
+    }
+}
+.opacityCalcCheck {
+    opacity: calc((1 - 0.5) * var(--min-opacity) + 0.5);
+}
+
+:root, .appearanceBox.smallDialogBox {
+    --header-line-height: 1.5;
+    --paragraph-line-height: var(--header-line-height);
+    --monospace-line-height: var(--paragraph-line-height);
+    --header-font-family: sans-serif;
+    --paragraph-font-family: var(--header-font-family);
+    --monospace-font-family: monospace, monospace;
+    --background-color: white;
+    --text-color: black;
+    --interpolate-color: white;
+    --link-color: #06c;  /* eще варианты #06c, #03f, #00d, #24B */
+    --baseline-compensation: 0px;
+    --reader-font-size: 20px;
+    --article-font-size: 20px;
+    --subject-font-size: 1.05;
+    --multiline-list-view-breakpoint-px: $multiline-list-view-breakpoint-px;
+    --font-size-sup-sub: 0.8em;
+    --mobile-margin: 0.75em;
+    --button-gradient-degrees: 180deg;
+    --min-opacity: 0;
+    --landingPage-buttons-opacity: 1.0;
+    --left-panel-width: $left-panel-width;
+    --msgBody-margin: 3em;
+    --msgBody-margin-left-add: 0px;
+    --msgBody-margin-right-add: 1px;
+}
+:root {
+    --safe-area-inset-left: 0px;
+    --safe-area-inset-right: 0px;
+    --safe-area-inset-top: 0px;
+    --safe-area-inset-bottom: 0px;
+    --safe-area-inset-width: calc(var(--safe-area-inset-left) + var(--safe-area-inset-right));
+    --safe-area-inset-height: calc(var(--safe-area-inset-top) + var(--safe-area-inset-bottom));
+    --landing-margin-left: $landing-margin;
+    --landing-margin-right: $landing-margin;
+    --movable-left-panel-margin: "calc(var(--safe-area-inset-right) + %s)" % $movable-left-panel-margin-px;
+}
+@supports (width: "max(0px, env(safe-area-inset-left))" % ()) {
+    /* env поддерживается чуть раньше, чем max, но эти версии
+       браузеров почти не используются */
+:root {
+    --safe-area-inset-left  : env(safe-area-inset-left);
+    --safe-area-inset-right : env(safe-area-inset-right);
+    --safe-area-inset-top   : env(safe-area-inset-top);
+    --safe-area-inset-bottom: env(safe-area-inset-bottom);
+    --safe-area-inset-left: 50px;
+    --safe-area-inset-right: 130px;
+    --safe-area-inset-top: 20px;
+    --safe-area-inset-bottom: 10px;
+    --landing-margin-left: "max(%s, env(safe-area-inset-left))" % $landing-margin;
+    --landing-margin-right: "max(%s, env(safe-area-inset-right))" % $landing-margin;
+}
+}
+@media $dark-mode {
+:root {
+--background-color: rgb(0,0,0) ;
+--text-color: rgb(176,176,176);
+--interpolate-color: rgb(21,21,21);
+--link-color: rgb(75, 168, 210);
+--error-color: #b33;
+--mark-color: darkgreen;
+--button-gradient-degrees: 0deg;
+/* --min-opacity: 0.1; */
+/* ^ а то слетает opacityCalcCheck, а --min-opacity в landing не нужен */
+--landingPage-buttons-opacity: 0.85;
+--c000_03: rgba(176,176,176,0.3);
+--c333: rgb(145,145,145);
+--c444: rgb(135,135,135);
+--c666: rgb(114,114,114);
+--c707070: rgb(108,108,108);
+--c777: rgb(104,104,104);
+--c888: rgb(93,93,93);
+--c999: rgb(83,83,83);
+--ca0a0a0: rgb(79,79,79);
+--caaa: rgb(73,73,73);
+--cccc: rgb(52,52,52);
+--cddd: rgb(42,42,42);
+--ce8e8e8: rgb(35,35,35);
+--ceaeaea: rgb(34,34,34);
+--cececec: rgb(33,33,33);
+--ceee: rgb(31,31,31);
+--cf0f0f0: rgb(30,30,30);
+--cf5f5f5: rgb(27,27,27);
+--cf8f8f8: rgb(25,25,25);
+--cfafafa: rgb(24,24,24);
+--cfcfcfc: rgb(23,23,23);
+} }
+.landing {
+    --header-font-family: "FF Kievit.latin", sans-serif;
+    --paragraph-font-family: "PT ITC Charter.latin", serif;
+    --monospace-font-family: Fira Mono, monospace;
+}
+.win .landing {
+    --paragraph-font-family: "ITC Charter landing", serif;
+}
+
+html, body {
+    font-size: var(--reader-font-size);
+    overscroll-behavior: none;
+    /* ^ чтобы не было rubberband scrolling */
+}
+body {
+    lining-nums();
+    /* font-variant-ligatures: common-ligatures; */
+    /* ^ добавляет ff fi лигатуры в monospace */
+    margin: 0;
+    padding: 0;
+    border: 0;
+    text-rendering: optimizeLegibility;
+/*     -webkit-font-smoothing: subpixel-antialiased; */
+    text-size-adjust: 100%;
+    -webkit-tap-highlight-color: $c000_03;
+    /* в Android Chrome по-умолчанию голубой */
+    /* -webkit-overflow-scrolling : touch; */
+    /* ^ не нужно, body и так прокручивается как touch, и из-за этого
+       возникает белая полоса поверх .top при rubber band scroll
+    */
+    /*     height: 100%; */
+    background-color: var(--background-color);
+    color: var(--text-color);
+    hyphens: manual;
+/*     transition: background-color 0.5s linear, color 0.5s linear; */
+}
+.noHyphens, .msubject, .mtags, .associatedAccountId, .searchHintQuery {
+    hyphens: none;
+}
+.nowrap {
+    white-space: nowrap;
+}
+
+.landingButtonsAndScreenshot, .logInWithButtons, .loginPanelAtTheBottom, .mainFooter, .homeLink a, form.login, h1, h2, h3, h4, h5, h6, header, .top, .left, .infoMsgContainer, .bqrShareCaption, .bqrVKPostTime, .bqrShareLink, .bqrRetweet, .bqrSharedPostAuthorLink, .bqrSharedPostLink, .bqrFbPlace, .button, .textButton, .bqrHabr_spoiler_title, .bqrHeader, .readabilityLoading, .readabilityError, .filterLine, .filterSubLine, .editQueryDialogContents, .msgsHeader, .msgTreeSpacer, .msgBodyHeader, .postHeader, .mosaicDescription, .magazineDescription, .menu, .ui-menu, .publicFeedDisabled, .pleaseLogIn, .associatedAccountType, .associatedAccountId, .actionHint {
+    line-height: var(--header-line-height);
+    font-family: var(--header-font-family);
+    --current-font-family: var(--header-font-family);
+    --current-line-height: var(--header-line-height);
+}
+input, .mtime {
+    font-family: var(--header-font-family);
+    lining-nums()
+    /* ^ иначе Chrome всё равно оставляет old style numerals в input-ах */
+}
+body, .mtext, .welcomeText, .bigDialogBox .dialogContent, .magazineText, .magazineTextShorter, .mosaicText /* , .smallDialogBox .dialogContent */ {
+    line-height: var(--paragraph-line-height);
+    font-family: var(--paragraph-font-family);
+    --current-font-family: var(--paragraph-font-family);
+    --current-line-height: var(--paragraph-line-height);
+}
+.postHeaderShortText {
+    font-family: var(--paragraph-font-family);
+}
+tt, code, kbd, samp, pre, xmp, plaintext, listing, .errorText, textarea, .searchHintQuery {
+    line-height: var(--monospace-line-height);
+    font-family: var(--monospace-font-family);
+    --current-font-family: var(--monospace-font-family);
+    --current-line-height: var(--monospace-line-height);
+}
+
+html, body {
+    overflow: hidden;
+}
+
+$scrollbar-thumb-color = $cddd;
+$scrollbar-background-color = $cf5f5f5;
+/* windows -- c1c1c1/f1f1f1 */
+
+scrollbar() {
+    .visibleScrollbars .overrideColors & {
+        scrollbar-color: $scrollbar-thumb-color $scrollbar-background-color;
+        scrollbar-width: var(--scrollbar-width);
+
+        &::-webkit-scrollbar {
+            width: var(--scrollbar-width);
+            height: var(--scrollbar-width);
+            /* для WebKit нужно обязательно задать ширину, иначе цвета
+               игнорируются. Но, если задать ширину, то scrollbar становится
+               всегда виден. По-этому, меняем цвета только на системах
+               с видимыми scrollbar-ами (win/linux).
+             */
+        }
+
+        &::-webkit-scrollbar-thumb {
+            background: $scrollbar-thumb-color;
+            border-radius: calc(var(--scrollbar-width) / 2);
+            border: 2px solid $scrollbar-background-color;
+        }
+
+        &::-webkit-scrollbar-track {
+            background: $scrollbar-background-color;
+        }
+    }
+}
+
+#msgDivId, .mtext *, .subscriptions, .dialogContent, .ui-menu {
+    /* Firefox наследует scrollbar-*, а вот Chrome ::-webkit-scrollbar-*
+       уже не наследует, по-этому .mtext *
+     */
+    scrollbar();
+    .visibleScrollbars.noScrollbars & {
+        overflow: hidden !important;
+        /* без отключения scrollbar-ов их вид не обновляется Chrome/Safari */
+    }
+}
+
+body, body * {
+/* https://bugs.webkit.org/show_bug.cgi?id=FontBoosting
+   только так можно отключить масштабирование в android chrome
+ */
+max-height: 16000000px;
+// у Chrome вроде 33554428px максимум (2^31/64)
+// у FF 17895697px (2^31/120)
+}
+.noScroll, .left.noScroll *, .overflowHiddenImportant {
+    overflow: hidden !important;
+/*     touch-action: none; /\* убирает warning-и Chrome-а о preventDefault *\/ */
+}
+.positionRelativeImportant {
+    position: relative !important;
+}
+
+$fontSize0 = 13px;
+$fontSize1 = 14px;
+$fontSize2 = 15px;
+$fontSize3 = 16px;
+$fontSize4 = 18px;
+$fontSize5 = 20px;
+$fontSize6 = 22px;
+$fontSize7 = 24px;
+$fontSize8 = 26px;
+$fontSize9 = 29px;
+/* Под виндой куча проблем с Charter --
+   у PT Charter занижены f/t (нормальные на 17,19,21,23,25, но так уже хуже
+   выглядит Iowan в win и замыливаются верхние горизонтали у русских букв
+   в Charter в Mac)
+
+   ITC Charter лучше (но только под win из-за хорошего hinting, под
+   mac разница минимальная, кернинг английских букв местами чуть
+   лучше, местами сомнительно, а вот кернинг русских букв от
+   смешивания шрифтов немного страдает -- как минимум кавычки, но
+   почему-то и между русскими буквами иногда другие промежутки).
+
+   Source Serif под виндой еще хуже -- горизонтали у н/э на многих размерах
+   шрифта оказываются сильно ниже чем надо.
+
+   на 28 русский и английский Charter имеют разный x-height
+   (по-этому $fontSize9 = 29px)
+   на 18 не совпадает высота перекладины в русской и английской “e”,
+   а также занижена горизонталь в “f” (также занижена и на 22,24,14)
+   (по-этому шрифт по-умолчанию увеличил до 20px)
+
+ */
+$fontSize10 = 32px;
+$fontSize11 = 36px;
+$fontSize12 = 40px;
+$fontSize13 = 44px;
+$fontSize14 = 48px;
+
+.fontSize0 { font-size: $fontSize0 }
+.fontSize1 { font-size: $fontSize1 }
+.fontSize2 { font-size: $fontSize2 }
+.fontSize3 { font-size: $fontSize3 }
+.fontSize4 { font-size: $fontSize4 }
+.fontSize5 { font-size: $fontSize5 }
+.fontSize6 { font-size: $fontSize6 }
+.fontSize7 { font-size: $fontSize7 }
+.fontSize8 { font-size: $fontSize8 }
+.fontSize9 { font-size: $fontSize9 }
+.fontSize10 { font-size: $fontSize10 }
+.fontSize11 { font-size: $fontSize11 }
+.fontSize12 { font-size: $fontSize12 }
+.fontSize13 { font-size: $fontSize13 }
+.fontSize14 { font-size: $fontSize14 }
+
+disabled()
+    .textButton, .button, li, a {
+        pointer-events: none;
+        color: $caaa !important;
+/*         background-image: none !important; */
+    }
+    color: $caaa !important;
+
+.disabled {
+    disabled()
+}
+
+.button {
+    height     : $emr2_138;
+    line-height: $emr2_138;
+}
+button-gradient(a,b) {
+    background-image: linear-gradient(var(--button-gradient-degrees), a, b);
+}
+
+.button, .textButton {
+    text-align: center;
+    display: inline-block;
+    padding-left: 0.3em;
+    padding-right: 0.3em;
+    margin-right: 0.3em;
+    button-border-color(border);
+/*     border: 1px solid $button-border-color; */
+    button-border-radius()
+    color: $gray-text-color;
+    white-space: nowrap;
+/*   transition: background-color 0.15s linear; */
+/* делать transition для color не канает из-за antialiasing-а --
+   он дрожит при переходе яркости
+ */
+    background-color: $button-background-color;
+    button-gradient($cf8f8f8, $button-background-color);
+    cursor: pointer;
+}
+gmail-like()
+    if false then
+        {block}
+
+/* +gmail-like() { */
+/*     .button, .textButton {          /\* как у gmail *\/ */
+/*         button-gradient(rgb(245, 245, 245), rgb(241, 241, 241)); */
+/*         border: 1px solid rgba(0,0,0,0.1); */
+/*         color: $c444; */
+/*         font-weight: bold; */
+/*         font-size: 0.85em; */
+/*     } */
+/* } */
+/* .noTouch нужен для hover, т.к. на iPad, после нажатия на кнопку,
+   она остается :hover
+*/
+.noTouch {
+    .button:hover, .button:active, .textButton:hover, .textButton:active {
+        border-color: $button-border-color-active !important;
+        background-color: $cf0f0f0;
+        color: $active-gray-text-color;
+    }
+    .button:hover, .textButton:hover {
+        button-gradient($cfcfcfc,$cf0f0f0);
+    }
+    .button:active, .textButton:active {
+        button-gradient($cf0f0f0,$cfcfcfc);
+    }
+
+/*     +gmail-like() { */
+/*     .button:hover, .button:active, .textButton:hover, .textButton:active { */
+/*         border-color: #c0c0c0 */
+/*     } */
+/*     .button:hover, .textButton:hover { */
+/*         button-gradient(rgb(248, 248, 248), rgb(241, 241, 241)); */
+/*     } */
+/*     .button:active, .textButton:active { */
+/*         button-gradient(rgb(238, 238, 238), rgb(224, 224, 224)); */
+/*     } */
+/*     } */
+}
+
+.bqrPopup video {
+    background-color:black;
+}
+
+link_color2(s, color, unselected_color) {
+    {"a[href]" + s + ", a.linkButton" + s} {
+        &, &:link, &:visited {
+            color: color;
+            .unselected.read & {
+                color: unselected_color;
+            }
+        }
+    }
+}
+link_color(s, c) {
+    link_color2(s, c, c)
+}
+
+bump_specificity(x)
+    {x + ":not(.bump_specificity)"}
+        {block}
+
+colors() {
+    .readabilityError, .editBoxError {
+        color: $error-color !important;
+    }
+    .mtext {
+        link_color2('', $link-color !important, $gray-text-color !important);
+        +bump_specificity(figcaption) {
+            color: $c444 !important;
+        }
+        +bump_specificity(mark) {
+            background-color: $mark-color !important;
+        }
+        .bqrPollOptionBar {
+            background-color: $link-color !important;
+            .unselected.read & {
+                background-color: $gray-text-color !important;
+            }
+        }
+        .bqrMsgAudioInner {
+            background-color: $c777 !important;
+        }
+        .bqrMsgAudio:hover .iconPlayAudio {
+            background-color: #3399cc !important;
+        }
+        .iconPlayVideo {
+            background-color: rgba(0,0,0,0.6) !important;
+        }
+        span:hover > .iconPlayVideo {
+            background-color: #3399cc !important;
+        }
+        .bqrRedditDomain {
+            color: $c888 !important;
+            link_color('', $c888 !important);
+        }
+        .bqrRepostHeaderFromFrom {
+            color: $c777 !important;
+        }
+        .scalable video, .videoPlaceholder, .iframe_placeholder {
+            background-color:black !important;
+        }
+        link_color('.bqrRetweetLink', $c999 !important);
+        .bqrRetweetIcon { color: $caaa !important }
+        .bqrShareCaption, .bqrFbPlace {
+            color:$c777 !important;
+            link_color('', $c777 !important);
+        }
+        link_color('.bqrVKPostTime', $c777 !important);
+        link_color('.bqrShareCaption', $c777 !important);
+        +bump_specificity(hr) {
+            border-color: $button-border-color !important;
+        }
+        .vimeo {
+            .title {
+                link_color('', rgb(0, 173, 239) !important);
+            }
+            .title a:hover {
+                color: rgb(255, 82, 16) !important;
+            }
+            .title .portrait, .title .header .h1,.title .header .h2, button {
+                background: rgba(23,35,34,.75) !important;
+                * {
+                    background: transparent !important;
+                }
+            }
+            button:hover {
+                background-color: rgb(0, 173, 239) !important;
+            }
+            .title .header .h2 {
+                color: #fff !important;
+            }
+            .controls .play {
+                color: #fff !important;
+            }
+        }
+        .ytp-chrome-top {
+            color: #eee !important;
+        }
+        .ytp-thumbnail, .ytp-gradient-top, .ytp-chrome-top, .vimeo .title, .vimeo .controls {
+            background-color: transparent !important;
+        }
+        link_color('.ytp-title-link', #eee !important);
+        .bqrYoutubeDuration {
+            span:first-child { color: $c666 !important }
+            span:last-child  { color: $text-color !important }
+            .unselected.read & {
+                span:first-child { color: $c444 !important }
+                span:last-child  { color: $c444 !important }
+            }
+        }
+        .bqrHabr_spoiler .bqrHabr_spoiler_title {
+            color:var(--link-color) !important
+        }
+    }
+    .spinner, .mtext .spinner {
+        border-color: $c999 !important;
+        border-right-color: transparent !important;
+    }
+}
+
+colors()
+
+.overrideColors {
+    .mtext :not(iframe):not(img) {
+        color: inherit !important;
+        background-color: inherit !important;
+        border-color: $button-border-color !important;
+        svg[onload] {
+            background-color: white !important;
+            /* только Firefox вызывает onload, Safari/Chrome не вызывают,
+               по-этому делаем белый фон всегда
+             */
+        }
+    }
+    .mtext iframe {
+        background-color: white;
+    }
+    colors();
+}
+
+.proxyEnabled .nonProxied, .proxyDisabled .proxied {
+    display: none !important;
+}
+.videoPlaceholder {
+    cursor: pointer;
+}
+.videoPlaceholder, .bqrMsgAudio, .iframe_placeholder {
+    direction: ltr;
+}
+a[href], a.linkButton {
+    cursor: pointer;
+/*     text-decoration: underline !important; */
+    &, &:link, &:visited {
+        color: $link-color;
+    }
+    .mtext &:hover {
+        /* Лучше всего выглядит добавление фона, но всё равно не очень.
+           Для фона желательно иметь дополнительные поля у ссылок,
+           а стиль ссылок задаем не мы. Плюс тогда надо все ссылки так делать,
+           не только внутри текста и ссылки становятся как-будто элементом
+           интерфейса. Сомнительно. Плюс, на мобильных устройствах это
+           :hover всё равно не работает.
+           работатью
+       */
+/*         background-color: $cf0f0f0 !important; */
+/*         color: lighten(#06c, 15%) !important; */
+/*         text-decoration: underline; */
+    }
+}
+p { margin-top: 0; }
+a[href], a.linkButton {
+    &:focus, &:active {
+        outline-style: none !important;
+    }
+}
+
+.msgFrame {
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    border-width: 1px;
+    border-color: var(--background-color);
+    border-style: none none none solid;
+}
+.noTouch .smoothCursorTransitions .msgFrame {
+  -webkit-transition: border-left-color 0.05s linear;
+     -moz-transition: border-left-color 0.05s linear;
+       -o-transition: border-left-color 0.05s linear;
+  /*           transition: border-left-color 0.05s linear; */
+  /* в IE видны черные границы из-за transition,
+     так что включаем только у остальных браузеров.
+   */
+}
+.compact.read.msgFrame {
+    border-left-color: $ceee;
+}
+.selected.msgFrame {
+    border-left-color: $link-color !important;
+}
+.snapHeight {
+    height: 0.25em;
+    float: left;
+}
+.fontSizeSmaller {
+    font-size: smaller;
+/*     font-size: calc(var(--article-font-size) - 2px); */
+}
+.msgFooter .button {
+    height: auto !important;
+    line-height: normal !important;
+    margin: 0;
+    color: $ca0a0a0;
+}
+.noTouch .msgFooter .button:hover {
+    color: $ca0a0a0;
+}
+.short .msgFooter {
+    display: block;
+}
+.selected .msgFooter .button, .noTouch .selected .msgFooter .button:hover {
+    color: $c777;
+}
+.expanded .msgFooter, .short .msgFooter {
+    margin-left: ($authorPic-size + 1em);
+    margin-bottom: 0.5em;
+}
+.msgButtons {
+    text-align: right;
+    display: inline-block;
+    float:right;
+    --msgButtons-height: "calc(2 * %s + var(--header-line-height) * 1em)" % ($msgCollapseMargin-margin-top);
+    /* подгоняем под высоту первой строки */
+    line-height: var(--msgButtons-height);
+    height: var(--msgButtons-height);
+    margin-bottom: "calc(0px - %s - 0.1em)" % $msgCollapseMargin-margin-top; /* чтобы вторую строку поста/заголовка не сдвигало */
+    /* position: sticky */
+    /* sticky не дружит с overflow:hidden, но вроде это много кому не нравится,
+       возможно исправят */
+    padding-right: $safe-area-inset-right;
+}
+.msgButtons a[href].mtime, .msgButtons .mtime {
+    color: $caaa;
+    /* рядом с кнопками чуть светлее, чтобы не так выделялся, но в остальных
+       местах такой цвет будет уже слишком светлым и будет выделяться уже в них
+   */
+}
+a[href].postHeaderTime, .postHeaderTime, .mobileTime, .mobileTime a[href].mtime {
+    color: $ca0a0a0;
+}
+.mtime, .feedLabelFeed, .buttonText, .unreadCount, .dfBtnOuter, .bqrRetweetText {
+    img-text-margin-top(margin-top);
+    display: inline-block;
+}
+.button, .unreadCount, .buyOption, .paymentDate, .bqrPollOptionPercent, .scannedPercent {
+    tabular-lining-nums();
+}
+.msgButtons {
+    .iconStar, .iconMsgTag, .iconShare, .iconKeepUnread {
+        padding: 0 $lhr_025;
+    }
+}
+.noTouch {
+    a[href].mtime:hover, a[href].postHeaderTime:hover/* , a[href]:hover */ { text-decoration: underline }
+}
+
+.mtime { padding-left: 1.5em; padding-right: 0.5em; white-space: nowrap }
+.postHeaderTime {
+    margin-left: auto;
+/*     padding-left: 1em; */
+    padding-right: 8px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    text-align: right;
+    box-sizing: content-box;
+}
+.postHeaderTimeShort { width: 2.35em }
+.postHeaderTimeLong  { width: 3.9em }
+/* делаем одинаковую ширину для 1s, 20s, 1m, 20m, 1h, 20h, 1d, 6d
+   и для Jul 1, May ’09
+   чтобы у rtl-текста не плавала правая граница
+ */
+.ultra .postHeaderTime { padding-right: $emr_015; }
+
+.postHeader, .postHeaderText { color: $c777;  }
+.postHeaderSubject + .postHeaderShortText::before {
+    content: " - "
+}
+
+.postHeaderFeed, .postHeaderText {
+    box-sizing: border-box;
+}
+
+.inReplyTo {
+    display: inline;
+}
+.inReplyTo .mauthor, .inReplyTo, .unselected.read .inReplyTo .mauthor {
+    color: $c999;
+    font-weight: normal;
+    cursor: pointer;
+}
+
+pre {
+    padding: 0;
+}
+
+blockquote pre {
+    min-width: 0;
+}
+
+img.authorPic {
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 3px;
+    vertical-align: middle;
+}
+img.authorPicLoading {
+    width: 0; height: 0;
+}
+div.authorPic {
+    width: $authorPic-size;
+    height: $authorPic-size;
+    line-height: 2;
+    float: left;
+    margin-top: $lhr_05;
+    margin-bottom: $lhr_05;
+    margin-left: $emr_05;
+    text-align: center;
+}
+.msgContents div.authorPic {
+    margin-top : 0.25em;
+}
+.msgContents {
+    padding-top: 0.75em;
+}
+.emptyAuthorPic {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 1px solid $ui-border-color;
+    border-radius: 3px;
+    box-sizing:        border-box;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 40%;
+    background-color: $button-background-color;
+}
+
+.msgFrame, .viewModeSeparator, .groupByFeedLabel {
+    border-top: 1px solid $ui-border-color;
+    float: none;
+    clear: both;
+}
+.msgFrame {
+    min-height: 3.75em;
+}
+
+.msgCollapseMargin {
+    img-text-margin-top(margin-top, $msgCollapseMargin-margin-top);
+    margin-left: $authorPic-size;
+    margin-right: 0em; margin-bottom: 0em;
+    cursor: default;
+    /* у родительского msgFrame.expandable курсор pointer, так что в пределах
+       margin будет он */
+    /* есть ли смысл в сворачивании по клику справа?
+       из-за scrollbar-а курсор то попадает в эту область, то нет,
+       плюс еще есть 0.5em поле у самого msgFrame, где курсор уже над msgDiv
+       и не pointer. пока убрал
+     */
+}
+.msgCollapseMargin > * {
+    /* У Android Chrome есть странный баг -- если у .msgCollapseMargin поставить
+       cursor: auto, то у .expandable.msgFrame (раскрытые сообщения во всех
+       режимах просмотра кроме expanded) при касании в .msgBody
+       подсвечивается всё сообщение, а ссылки в тексте уже не подсвечиваются.
+       cursor:default сбрасывает "кликабельность" всего .msgFrame и
+       возвращает подсветку ссылкам
+     */
+    cursor: auto
+}
+.msgBody {
+    margin-top: 0em; /* +0.5em .msgCollapseMargin */
+    margin-bottom: 1em; /* +0em .msgCollapseMargin */
+    margin-left: 1em;  /* +2em .msgCollapseMargin */
+    margin-right: 0; /* +0em .msgCollapseMargin */
+}
+.p, .i, .msgBodyHeader, .table {
+    margin-right: "calc(%s)" % $msgBody-margin-right;
+}
+.i img, .i .imgScaler, .i .in, .i .inF, .i .inM, .i .inL {
+    vertical-align: top;
+    /* иначе под .i появляется лишний зазор,
+       т.к. imgScaler/img с display:inline-block создают новую строку,
+       а у нас уже есть заданный margin-bottom: 1em
+     */
+}
+.pre {
+    /* а вот у .pre правая граница будет минимальной, чтобы вместить как можно
+       больше кода */
+    margin-right: 0.5em;
+}
+
+.post .msgBody {
+/*     padding-bottom: 1em; */
+    margin-bottom: 2em;
+}
+/* .short .msgBody { */
+/*     margin-top: 0.5em; */
+/*     margin-left: 3em; */
+/* } */
+.mtext, .msubject, .mauthor, .mtags, .subscriptionTitle, .popup {
+    word-wrap: break-word;
+}
+pre {
+    word-wrap: normal;
+    white-space : pre;
+}
+.short .mtext, .short .mtags {
+    display: inline;
+}
+.short .mtags {
+    display: none
+}
+.msubject, .mauthor, .mtext, .mtags {
+    margin: 0;
+    padding: 0;
+}
+
+.mtext {
+    margin-top: 0.25em;
+}
+.post .mtext {
+    margin-top: 1em;
+}
+.mtags {
+    padding-bottom: 0;
+}
+
+.post .mtags {
+    margin-bottom: 0.25em;
+}
+
+.mauthor {
+    display : inline;
+}
+.mobileTime {
+    display: none;
+}
+.depth1 .msubject, .depth2 .msubject {
+    --subject-font-size: 1;
+}
+.msubject, .normalListViewClickWrapper {
+    font-weight: bold;
+    font-size : calc(var(--subject-font-size) * 1em);
+    margin-top: "calc(0px - %s)" % $emr_05;
+    display: block;
+    line-height: var(--header-line-height); /* чтобы в mosaic всякие emoticon не увеличивали высоту текста, из-за чего первая плитка на новой строке появляется не в начале, а после кривой плитки строкой выше */
+    margin-bottom: calc((1.1em - 1em) / 2 * var(--header-line-height) * 1.1 / var(--subject-font-size));
+}
+$msubjectStrut-width = 1px;
+.msubjectStrut {
+    display: inline-block;
+    font-size: var(--article-font-size);
+    font-weight: normal;
+    margin-top: $emr_05;
+    width: $msubjectStrut-width;
+    visibility: hidden;
+}
+.msubject {
+    text-indent: - $msubjectStrut-width;
+    /* если в subject слово шире экрана, то из-за word-wrap: break-word
+       msubjectStrut начинает занимать две строки и заголовок сообщения
+       уходит вниз.
+       Такое поведение исчезает, если задать msubjectStrut ненулевой width.
+       Компенсируем ненулевую ширину отрицательным отступом.
+     */
+}
+.mosaic .msubject {
+    margin-top: 0;
+    --subject-font-size: 1;
+    hyphens: manual;
+    text-indent: 0px;
+}
+$h1-font-size = 1.05em;
+$h-margin-top = 1.4em;
+$h-margin-bottom = 1.1em;
+h1 { font-size : $h1-font-size; }
+h2 { font-size : 1em; }
+h1, h2/* , h3, h4, h5, h6, .bqrHeader */ {
+    margin-top: $h-margin-top; margin-bottom: $h-margin-bottom;
+}
+.bqrHeader { display: block; margin-top: $h-margin-top }
+h3 {
+    font-size : 0.95em;
+    margin-top: ($h-margin-top/0.95); margin-bottom: ($h-margin-bottom/0.95)
+}
+h4, h5, h6 {
+    font-size : 0.9em;
+    margin-top: ($h-margin-top/0.9); margin-bottom: ($h-margin-bottom/0.9)
+}
+h1, h2, h3, h4 {
+    font-weight: bold;
+    font-style: normal;
+}
+h5, h6 {
+    font-weight: normal;
+    font-style: italic;
+}
+
+a[href], a.linkButton { text-decoration : none }
+/* .mtext a[href] { text-decoration: underline } */
+
+.msubject, .msubject a[href], .mtext a[href], .mauthor a[href],
+.fromFeed a /* у fromFeed нет ссылки, по-этому без [href] */ {
+    color: $link-color;
+    cursor: pointer;
+}
+.unselected.read {
+    .mtext, .msubject, .msubject a[href] /*, .mobileTime a[href].mtime */ { color: $c444 }
+    .magazineText, .magazineTextShorter, .mosaicText { color: $gray-text-color }
+    .fromFeed *, .mauthor a[href], .mauthor { color: $c777 }
+}
+
+.mauthor, .short.read .mauthor  { color: $c666; }
+.mtags { color: $ca0a0a0; }
+.short .mtext, .short.read .mtext { color: $c777; }
+
+sup {
+    font-size: var(--font-size-sup-sub);
+    line-height: 1;
+    /* чтобы не менял высоту строки */
+}
+sub {
+    font-size: var(--font-size-sup-sub);
+    line-height: 1;
+}
+@supports (font-variant-position: super) {
+    .fontSupportsSuper sup.numbersOnly {
+        font-size: 100%;
+        line-height: inherit;
+        vertical-align: baseline;
+        font-variant-position: super;
+    }
+}
+@supports (font-variant-position: sub) {
+    .fontSupportsSub sub.numbersOnly {
+        font-size: 100%;
+        line-height: inherit;
+        vertical-align: baseline;
+        font-variant-position: sub;
+    }
+}
+
+blockquote:not(.instagram-media), twitter-widget/* , .instagram-media */ {
+    /* instagram оставляем как есть -- бывают вложенные страницы/видео,
+       которые должны быть на всю ширину
+     */
+    font-style: normal !important;
+    font-size: 95% !important;
+    blockquote {
+        font-size: 100% !important;
+        /* не уменьшаем до бесконечности вложенные blockquote */
+    }
+    line-height: calc(0.95 * var(--paragraph-line-height)) !important;
+    margin-top: (1em / 0.95) !important;
+    margin-bottom: (1em / 0.95) !important;
+    margin-left: (2.5em / 0.95) !important;
+    margin-right: (1.5em / 0.95) !important;
+    box-sizing: border-box !important;
+    width: calc(100% - 4em/0.95) !important;
+    border: none !important;
+    padding: 0 !important;
+    text-align: start;
+    color: inherit !important;
+    background-color: inherit !important;
+}
+/* iframe.instagram-media { */
+/*     width: calc(100% - 4em/0.95) !important; */
+/*     border: solid 1px $cddd !important; */
+/* } */
+ul, dl, ol {
+    padding-left: 2em;
+}
+cite, q {
+    font-style: italic;
+}
+.mtext {
+    li, dd {
+        margin-bottom: $emr_08;
+        ul, dl, ol {
+            margin-top: $emr_08;
+        }
+    }
+}
+
+.list { margin-left:0em; margin-bottom:1.5em; margin-top:0em; }
+
+.insertedUL {
+    margin: 0; padding: 0;
+}
+
+.subscriptions li, .discoveryContents li, .menu li, .fontsList li, .themesList li, .menu, .button, .unselectable, .authorPic, .textButton, .menuRightArrow, .vmButtons, .postHeader, .msgButtons, .mtag, .mtagName, .mtagRm, .logInWith, .discoveryCleanButton, .buyNow, .dummyButton, .dummyAudio, .magazineImage, .mosaicImage {
+    user-select: none;
+}
+
+.subscriptions li {
+    list-style: none;
+    cursor: pointer;
+    padding-left: $safe-area-inset-left;
+}
+.subscriptions li .cursor {
+    border-width: 0.2em;
+    border-color: var(--background-color);
+    border-style: none none none solid;
+}
+.pointerEventsNone {
+    pointer-events: none;
+    .dragging {
+        pointer-events: auto;
+    }
+}
+.noTouch .subscriptions li:hover, .noTouch .editQueryFeeds .subscriptions li:hover {
+    background-color: $ceee;
+    .cursor {
+        border-left-color: $ceee;
+    }
+}
+.subscriptions li.selected, .noTouch .subscriptions li.selected {
+    .cursor {
+        border-left-color: #dd4b39;
+    }
+    color: #dd4b39; /* цвет используется для автоматической перекраски иконок */
+}
+.noTouch .subscriptions li.dragging {
+    background-color: $cf0f0f0;
+    border-left-color: $cf0f0f0;
+    cursor: pointer;
+}
+.dragMark {
+    margin: 0 1px; margin-top: -2px;
+    height: 2px;
+    top: 10px;
+    position: relative; z-index: 1;
+    display:none;
+}
+.dragMark.folderRectangle {
+    border: 2px solid $c444;
+    button-border-radius();
+    margin-left: 0; margin-right: 0;
+}
+.dragMarkFill {
+    background-color: $c444; height: 2px;
+}
+.subscriptionsPadder {
+    padding-bottom: $safe-area-inset-bottom;
+}
+.touch .subscriptionsPadder {
+    padding-bottom: $mobile-toolbar-height;
+    padding-bottom: "max(%s, %s)" % ($mobile-toolbar-height $safe-area-inset-bottom);
+    /* дополнительный отступ, чтобы не показывался toolbar браузера
+       при выборе подписки в самом низу */
+}
+.dragMark.inFolder { margin-left: 0.5em; }
+.inFolder .dragMarkFill { margin-left: 19px; /* 3px + 16px + 0.5em ? */ }
+.folderRectangle .dragMarkFill { display: none; }
+.subscriptions .folder li .cursor {
+    margin-right: $thick-space;
+}
+.subscriptions .folder .favicon, .subscriptions .folder .iconTag, .subscriptions .folder .iconCheckBox0, .subscriptions .folder .iconCheckBox1 {
+    margin-left: 16px;
+}
+
+.subscriptions li .buttonText, .fromFeedFolder, .menu li .buttonText, .fontsList .buttonText, .themesList .buttonText, .ui-menu-item-wrapper a, .feedLabelFeed, .postHeaderFeed, .postHeaderText, .dfTitle .buttonText, .dfTags, .dfWebsite, .dfSubscribers, .discoveryHeaderHint, .ffeedName {
+    ellipsis()
+}
+.postHeaderFeed, .postHeaderText {
+    pointer-events: none; /* чтобы safari tooltip от ellipsis не показывал */
+}
+.subscriptions li, .dfTitle {
+/*     height: 1.63em; */
+/*     line-height: 1.63; */
+    display: flex;
+    overflow: hidden;
+}
+.subscriptions li .buttonText {
+    margin-right: auto;
+    padding-right: $thick-space;
+}
+.iconLatest, .iconStarred, .iconTag, .iconFolder, .iconSmartStream, .favicon {
+    padding: 0 $thick-space;
+    /* ^ не margin, чтобы область наведения мышки была больше */
+}
+.editQueryFeeds .subscriptions li {
+    border-width: 0.6em;
+}
+.editQueryFeeds .subscriptions .folder .favicon {
+    margin-left: 0px;
+}
+.iconCheckBox0, .iconCheckBox1, .iconCheckBoxU {
+    float: left;
+}
+.subItemScanning { color: $c777 }
+.allItemsRead, .subItemError { color: $active-gray-text-color }
+.hasUnreadPosts, .hasUnreadComments, .tagLI {
+    color: var(--text-color); }
+.onlyUnreadSubscriptions .noNewItems { display: none }
+#cls0, .tagLI,
+/* Latest, starred/tags видны всегда */
+.onlyUnreadSubscriptions .noNewItems.selected, .onlyUnreadSubscriptions .childSelected {
+    display: flex
+}
+.hasUnreadPosts {
+    font-weight : bold;
+}
+.dfBtnOuter {
+    margin-left: 2 * $thick-space;
+}
+
+.unreadCount {
+/*     border: solid 1px $button-background-color; */
+    font-weight: normal;
+    white-space: nowrap;
+    visibility: hidden;
+    /* ^ чтобы занимал место и не менялся отступ у названия фида */
+    color: $c888;
+    padding-left: 0.4em;
+    padding-right: 0.4em;
+    border-radius: 0.7em;
+    background-color: $button-background-color;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    margin-right: 1px;
+}
+.noTouch .subscriptions li:hover .unreadCount {
+    background-color: $cf0f0f0;/* #f5f5c6 */
+}
+.hasUnreadPosts .unreadCount, .hasUnreadComments .unreadCount {
+    visibility: visible;
+}
+.unreadCommentsOnlyInChildren .unreadCount/* , .tagLI .unreadCount */ {
+    visibility: hidden;
+    /* а когда папка будет свернута, будем показывать */
+}
+.onlyUnreadSubscriptions .noNewItems.tagLI {
+    display: flex;
+}
+li.tagLI { font-weight: normal; }
+
+.feedMark {
+    left-panel left
+}
+.msgToolbar, .topToolbar {
+    background: var(--background-color);
+    display: flex;
+}
+
+/* div#msgDivId { */
+/*     position: relative; */
+/*     /\* ^ для правильного позиционирования tag/shareMenu и feedLabel *\/ */
+/* } */
+
+.logo {
+    padding-left: 0.4em;
+    margin: 1px 0 /* как у buy now */
+}
+.buttonAddSubscription {
+    margin-left: 0.4em;
+    max-width: calc(100% - 2*(0.4em + 1px + 0.3em));
+    display:flex;
+    .buttonText {
+        ellipsis();
+    }
+}
+.top .buttonNext {
+    margin-right: 0.4em;
+}
+
+flex-full-height()
+    flex: 1;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+
+.flexFullHeight {
+    flex-full-height()
+}
+
+.leftPanelShadow {
+    left: 0; top: 0; width: 100vw;
+    height: 101vh;
+    /* ^ почему-то в chrome при noSroll (.body { overflow: hidden })
+       .top и .leftPanelShadow смещаются на полпиксела вверх, из-за чего
+       снизу видна тонкая белая полоска, добавил чуть-чуть высоты
+     */
+    background-color: black;
+    opacity: 0;
+    display: none;
+}
+.left {
+    left-panel width;
+    display: flex;
+    flex-flow: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: auto !important; height: 100%;
+    /* если оставить bottom: 0, то при прокрутке вверх и сокрытии адресной
+       строки android chrome перемещает панель только после окончания
+       прокрутки. С top:0 + height:100% прокручивает сразу, но
+       снизу появляется белая область (resize также идет в конце),
+       но это поведение менее противное и оно аналогично поведению на ipad
+   */
+    box-sizing: border-box;
+}
+.top, .left {
+    background: var(--background-color);
+    backface-visibility: hidden;
+    /* ^ иначе в android chrome .top и .left поднимаются на полпиксела
+       при установке noScroll для body.
+       А вот "transform : translateZ(0)" использовать нельзя -- из-за него
+       в Firefox не видно .top
+   */
+    overflow: hidden;
+    padding-top: $safe-area-inset-top;
+}
+.top {
+    position: fixed;
+    top: 0; right: 0;
+    left-panel left;
+    padding-right: $safe-area-inset-right;
+}
+.left {
+    .topToolbar, .msgToolbar {
+        padding-left: $safe-area-inset-left;
+    }
+}
+$articles-margin-top = "(2 * %s + 3 * %s + 5px + var(--safe-area-inset-top))" % ($ui-line-height $msgToolbar-padding);
+.articles {
+    left-panel margin-left
+    margin-top: "calc(%s)" % $articles-margin-top;
+    height: "calc(100vh - %s)" % $articles-margin-top;
+    position: relative;
+    /* чтобы feedMarkMoving { position: absolute } нормально работал */
+/*     position: absolute; */
+/*     top: 0; left: 0; bottom: 0; right: 0; */
+    overflow-y: auto;
+}
+.msgsPadder {
+    padding: 0 $msgsPadder-padding;
+}
+
+.feedMark {
+    z-index: 1
+    /* иначе msgButtons с opacity и scalable с position:relative
+       оказываются выше .top,
+       из-за этого приходится диалогам/infoMsgContainer тоже z-index ставить
+     */
+}
+.top, .actionHint {
+    z-index: 2;
+}
+.leftPanelShadow {
+    z-index: 4;
+}
+.left {
+    z-index: 5;
+}
+.menu, .ui-menu, .smallDialogBox, .bigDialogBox, .infoMsgContainer {
+    z-index: 6; /* выше .left */
+}
+.menu, .smallDialogBox, .bigDialogBox, .infoMsgContainer, .leftPanelShadow {
+    position: fixed;
+}
+.feedMark, .subMenu .menu {
+    position: absolute;
+}
+
+.editQueryDialogContents {
+    height: 100%;
+    display: flex;
+    flex-flow: column;
+    .editQueryFeed {
+        flex-shrink: 0;
+    }
+}
+.editQueryFeeds {
+    flex-full-height();
+    flex-basis: auto;
+    background-color: var(--background-color);
+}
+.editQueryFeeds {
+    .iconCheckBox0 {
+        button-opacity(0.2);
+    }
+    .iconCheckBox1, .iconCheckBoxU {
+        button-opacity(0.7)
+        .disabled & {
+            button-opacity(0.4)
+        }
+    }
+    .noTouch & li:hover {
+        .iconCheckBox1, .iconCheckBoxU {
+            button-opacity(0.9)
+        }
+        .iconCheckBox0 {
+            button-opacity(0.4)
+        }
+    }
+}
+.eqfChecked {
+    font-weight: bold;
+}
+.dialogHint p { margin-top: 1em; margin-bottom: 0; }
+.dialogHint { display: block; padding-top: 1em; }
+.menu, .ui-autocomplete {
+/*     opacity: 0.994; */
+    /* ^ убирает subpixel-antialiasing в chrome */
+    box-shadow: 0px 5px 7px rgba(0, 0, 0, 0.25);
+    background-color: var(--background-color);
+    border-color: $button-border-color;
+    border-width: 1px;
+    border-style: solid;
+}
+.menu hr {
+    border: none;
+    border-top: 1px solid $button-border-color;
+    margin-top: $menu-hr-margin; margin-bottom: $menu-hr-margin;
+}
+.subMenuLabel { display: none }
+.subMenuMenuItem { display: block }
+.menu a[href] { color: var(--text-color); }
+
+.menu .dialogHeader {
+    display: none;
+    padding-left: 0.5em;
+    background-color: $button-background-color;
+    color: $gray-text-color;
+    border-bottom: 1px solid $button-border-color;
+}
+.subMenu .dialogHeader { display: none !important }
+
+.smallDialogBox, .bigDialogBox {
+    --header-line-height: $emr2_15;
+    /* emr2 чтобы иконки в фильтрах правильно выравнивались */
+    --paragraph-line-height: $emr2_15;
+    box-shadow: 0px 0px 1.5em rgba(0, 0, 0, 0.25);
+    background-color: $cfafafa;
+}
+
+$dialog-header-height = $emr_34
+
+.dialogHeader {
+    height: $dialog-header-height;
+    line-height: $dialog-header-height;
+    display: flex;
+    flex-shrink: 0;
+    h1 {
+        padding: 0; margin: 0;
+        ellipsis();
+        cursor: default;
+        pointer-events: none;
+        line-height: inherit;
+    }
+    .iconClose {
+        height: 100%;
+        width: $dialog-header-height;
+        margin-left: auto;
+    }
+}
+.bigDialogBox, .smallDialogBox, .errorMsg .infoMsgText {
+    .dialogContent {
+        flex-full-height();
+        flex-basis: auto; /* иначе в iOS 9 высота становится равной нулю */
+        padding: 1em;
+        color: var(--text-color);
+        h1 { font-size: $emr_105; margin-top: $emr_015; margin-bottom: 1em }
+    }
+    .dialogHeader { padding-left: 1em }
+}
+.smallDialogBox {
+    .dialogContent { padding-top: 0 !important }
+}
+.bigDialogBox, .smallDialogBox {
+    display: flex;
+    flex-flow: column;
+}
+.bigDialogBox .dialogContent {
+    hyphens: auto;
+    b {
+        hyphens: none;
+    }
+    border-top: 1px solid $button-border-color-in-dialog;
+}
+.dialogContent, .leftPanelShadow, .flexFullHeight, .ui-menu {
+    overscroll-behavior: contain;
+    /* поддерживается в Chrome и Firefox */
+    -ms-scroll-chaining: none;  /* IE11, Edge */
+}
+
+.gray { color: $gray-text-color }
+
+.accountExpirationNote {
+    color: $c888;
+    margin-bottom: 0;
+    /* font-size: 90% */
+}
+
+.smallDialogBox, .bigDialogBox {
+    p, ul, .question, .answer, .searchHintQuery, .searchHintExplanation {
+        max-width: $text-width;
+        box-sizing: border-box;
+    }
+    .dialogContent h3:first-child {
+        margin-top: (($h-margin-top - 1em)/0.95);
+    }
+}
+
+.feedOptionsMenu, .markAllAsReadMenu {
+    margin-left: 0;
+}
+.smallDialogBox a[href] {
+    word-wrap: break-word;
+}
+.publicFeedDisabled { color: $c777 }
+.smallDialogBox {
+    top: 6em;
+    left: 50%;
+    width: 30em;
+    margin-left: -15em;
+    overflow: hidden;
+    max-height: "calc(100vh - 7.5em - %s)" % $safe-area-inset-height;
+}
+$appearanceButton-border-radius = 10px;
+.appearanceBox.smallDialogBox {
+    left: auto !important;
+    top: "calc(5em + %s)" % $safe-area-inset-top;
+    --button-height: 1.75em;
+    --base-width: calc(var(--scrollbar-width, 0px) + (var(--button-height) - 1.75em)*3 + 14.375em);
+    width: var(--base-width) !important;
+    right: "calc(0.5em + %s)" % $safe-area-inset-right;
+    font-size: 16px;
+    color: $text-color;
+    line-height: $ui-line-height !important;
+    -webkit-tap-highlight-color: rgba(0,0,0,0.3);
+    font-family: 'FF Kievit.latin';
+    --header-font-family: "FF Kievit.latin";
+    --paragraph-font-family: "FF Kievit.latin";
+    & * {
+        --baseline-compensation: 0px;
+    }
+    .textButton, .button {
+        .boldPlaceholder {
+            font-weight: bold;
+            display: block;
+            height: 0px;
+            visibility: hidden;
+            padding-right: 2px;
+        }
+        .buttonIcon {
+            margin-right: 0;
+            button-opacity(0.6);
+        }
+        .noTouch &:hover .buttonIcon {
+            opacity-no-calc(1);
+        }
+        border-radius: $appearanceButton-border-radius;
+        height: var(--button-height);
+        line-height: var(--button-height);
+        min-width: calc(var(--button-height) - 0.5em);
+        text-align: center;
+        padding: 0 0.5em;
+        margin-right: 0;
+    }
+    .selected .textButton {
+/*         background: #eee; */
+/*         color: black; */
+        font-weight: bold;
+    }
+    .disabled .button .buttonIcon {
+        opacity-no-calc(0.3, !important);
+    }
+    .dialogHeader { padding-left: 1em }
+    .dialogContent {
+        padding: 1em;
+        scrollbar-color: auto;
+        scrollbar-width: auto;
+    }
+
+    .mobile & {
+        --button-height: 2em;
+        .fontsList li, .themesList li {
+            font-size: 17px;
+            height: 36px !important;
+            line-height: 36px !important;
+        }
+    }
+}
+.appearanceLine {
+    margin-bottom: calc(var(--button-height) - 1em);
+    display: flex;
+}
+.appearanceTitle {
+    line-height: calc(var(--button-height) + 2px);
+/*     margin-right: 0.5em; */
+    flex: 1;
+    white-space: nowrap;
+    .visibleScrollbars {
+        margin-right: auto;
+    }
+}
+.darkTheme { display: none !important }
+@media $dark-mode {
+    .lightTheme { display: none !important }
+    .darkTheme { display: block !important }
+}
+.noTouch .fontsList li:hover {
+    background-color: #eee;
+}
+.appearanceBox.smallDialogBoxShadow {
+    display: none !important;
+}
+.bigDialogBoxShadow, .smallDialogBoxShadow {
+    z-index: 6;
+    position: fixed;
+    left: 0; top: 0; width: 100vw;
+    height: 101vh;
+    background-color: black;
+    opacity: $shadow-opacity;
+}
+.smallDialogBoxShadow { display: none }
+.bigDialogBox {
+    left: 50%;
+    width: (w = $left-panel-visibility-breakpoint-px - 100px);
+    margin-left: (- w / 2);
+    top: $emr_15;
+    bottom: $emr_15;
+}
+@media (max-height: 500px) {
+    .smallDialogBox {
+        top: 1em;
+        max-height: "calc(100vh - 2em - %s)" % $safe-area-inset-height;
+    }
+    .bigDialogBox {
+        top: 1em;
+        bottom: 1em;
+    }
+}
+.blackout {
+    .smallDialogBoxShadow, .bigDialogBoxShadow { display: none }
+    & > .smallDialogBoxShadow { display: block; z-index: 999 }
+    & > .smallDialogBox .iconClose { display: none }
+    .bigDialogBox, .smallDialogBox {
+        z-index: 1000;
+    }
+}
+.settingsMenu {
+    top: "calc(1.6em + %s)" % $safe-area-inset-top;
+    right: "calc(4px + %s)" % $safe-area-inset-right;
+}
+.menu {
+    display: flex;
+    flex-flow: column;
+    .dialogContent {
+        flex-full-height();
+        flex-basis: auto; /* иначе в iOS 9 высота становится равной нулю */
+    }
+    max-width: 500px;
+    max-height: "calc(100% - %s - %s - 20px)" % ($articles-margin-top $safe-area-inset-height) !important;
+    box-sizing: border-box;
+}
+.settingsMenu .dialogContent {
+    overflow-x: auto;
+}
+.subMenu .menu {
+    display: none;
+}
+.subMenu:hover .menu {
+    display: block;
+    right: calc(100% - 0.1em);
+    max-height: none !important;
+}
+.settingsMenu {
+    overflow: visible; /* чтобы было видно подменю */
+}
+.newFolder {
+    background-color: $cfafafa;
+    padding: 0.5em;
+    min-width: 175px;
+    border-top: 1px solid $button-border-color;
+    margin-top: $menu-hr-margin;
+}
+.newFolder:first-child {
+    margin-top: 0; border-top: none;
+}
+.newFolderLabel {
+    padding-bottom: $emr_03;
+    color: $c777;
+}
+.menuLabel {
+    padding: 0em 0.5em;
+    color: $c777;
+    cursor: default;
+    pointer-events: none;
+}
+/* .menu hr:first-child { display: none } */
+.menu .textButton, .fontsList .textButton, .themesList .textButton { margin-right: 0 }
+.menu li, .fontsList li, .themesList li {
+    display: flex;
+    list-style: none;
+/*     line-height: 1.63; */
+/*     height: 1.63em; */
+    padding-left: 0.5em;
+    padding-right: "calc(16px + %s)" % ($thick-space + 0.5em);
+    overflow: hidden;
+    /* ^ без этого может появиться лишняя прокрутка меню/элементов
+      на 1 пиксел (из-за img-text-margin-top?)
+     */
+    cursor: pointer;
+}
+.settingsMenu .dialogContent > li {
+    padding-right: 1em;
+}
+.menu .indentedLine {
+    padding-left: 0.5em;
+    padding-right: 1em;
+    display: flex;
+    .vmButtons { margin: 0 }
+}
+.noTouch .menu li:hover {
+    background-color: $ceee;
+/*     background-color: $cfafafa; */
+/*     color: $active-gray-text-color; */
+}
+
+.fontsList, .themesList {
+    border-radius: $appearanceButton-border-radius !important;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    margin-top: 0.5em;
+    margin-bottom: 1em;
+    overflow: hidden;
+    li {
+        list-style: none;
+        border-bottom: 1px solid $button-border-color/* -in-dialog */;
+        height: 2em !important;
+        line-height: 2em !important;
+        &:first-child {
+            border-top: none;
+        }
+        &:last-child {
+            border-bottom: none;
+        }
+    }
+    .iconCheck {
+        opacity-no-calc(1)
+    }
+}
+.associatedAccountsList, .paymentsList {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-row-gap: $emr_03;
+    margin-bottom: 1em;
+}
+@media (max-width: 480px) {
+.associatedAccountsList, .paymentsList {
+    grid-template-columns: auto;
+    grid-row-gap: 1em;
+    div:nth-child(odd) {
+        margin-bottom: -1em;
+    }
+}
+}
+.associatedAccountType, .paymentDate {
+    color: $c666;
+    margin-right: 2 * $thick-space;
+}
+.associatedAccountId {
+    margin-right: $thick-space; /* отодвигаем кнопку Change */
+    word-break: break-all; /* word-wrap: anywhere не работает в iOS */
+}
+
+.top, .left .msgToolbar {
+    border-bottom: 1px solid $button-border-color;
+}
+
+.feedMark {
+    margin-top: 1px; /* чтобы c border-bottom сравнять */
+}
+.discoveryContents {
+    border-top: 1px solid $button-border-color-in-dialog;
+}
+
+.subscriptionTitle {
+    font-weight: bold;
+    img-text-margin-top(padding-top, $emr_015)
+    img-text-margin-bottom(padding-bottom, $emr_015)
+    line-height: $lhr;
+}
+.subscriptionTitle a[href] { color: var(--text-color); }
+.subInfoError h1 {
+    font-size: 1em;
+}
+.subInfoErrorButtons {
+/*     border-top: 1px solid $ui-border-color; */
+    margin-top: 0.75em;
+    padding-top: 0.25em;
+}
+
+.msgComboBox a[href] {
+/*     margin-left:0; padding-left:0.1em; */
+}
+input[type=text], input[type=password], .mlLogin, .mlPassword, .selectSubscriptionInput, .editQueryInput, .mailText, .feedbackNotes, .openIdUrl {
+    hyphens: none;
+/*     float: right; */
+    margin: 0;
+    padding: 0 $input-padding;
+    width: 12em;
+/*     margin-left: 0.66em; */
+    border: none;
+    outline: none;
+    font-size: inherit;
+/*     line-height: "calc(%s - 2px)" % $ui-line-height; */
+    line-height: $ui-line-height;
+    /* ^ иначе в Safari эмодзи смещают текст в строках ввода вниз */
+/*     line-height: inherit; */
+/*     /\* ^ не наследует от body, надо ставить, */
+/*        чтобы всегда была одна высота с кнопками *\/ */
+    height:  $ui-line-height; /* на iPhone становится на пиксел выше */
+    /* ^ без этого увеличивается высота при выборе некоторых шрифтов */
+}
+.textButton {
+    line-height: $ui-line-height;
+    height:  $ui-line-height; /* на iPhone становится на пиксел выше */
+    /* чтобы высота кнопок всегда совпадала с высотой input-ов */
+}
+.discoveryHeader, .left, .top, .editQueryLine {
+    line-height: $ui-line-height;
+}
+input::-ms-clear {
+     display: none; /* IE добавляет свой собственный значок */
+     /* в поле поиска смотрится плохо -- получается две кнопки с крестиком,
+        наша справа и IE-шная внутри input */
+}
+input[type=text], input[type=password], .selectSubscriptionInput, .mlLogin, .mlPassword, .editQueryInput, .editQueryFeeds, .mailText, .feedbackNotes, .openIdUrl, .fontsList, .themesList {
+    input-border border;
+    button-border-radius();
+    color: var(--text-color);
+}
+.editQueryLine {
+    margin-bottom: 0.5em;
+    display: flex;
+    flex-shrink: 0;
+    input, .searchFiltering {
+        flex: 1;
+        flex-basis: auto; /* иначе слишком широко в android firefox */
+        width: 0;
+    }
+    .textButton { margin-right: 0; }
+    input + .textButton, .textButton + .textButton {  margin-left: 0.3em }
+}
+.editQueryTitle { width: 3.3em; margin-top: 1px }
+input[type=text].selectSubscriptionInput {
+    width: 100%; box-sizing: border-box;
+}
+.bigDialogBox {
+    input[type=text], input[type=password] { width: 7em; }
+}
+
+.oneLineInputAndButton {
+    display: flex;
+    height: "calc(%s + 2px)" % $ui-line-height;
+}
+
+.oneLineInputAndButtonBorder, .oneLineInputAndButtonButton {
+    input-border border;
+    button-border-radius();
+}
+
+.oneLineInputAndButtonBorder {
+    background-color: var(--background-color);
+    border-top-right-radius:0; border-bottom-right-radius:0;
+    /* padding-right: 0; */
+    /* ^ так лучше выглядит ltr-текст, но rtl-текст начинает уплывать
+         под кнопку  */
+    border-right: none;
+    flex: 1;
+    flex-basis: auto; /* иначе слишком широко в android firefox */
+    width: 0; /* сам растянется */
+    overflow: hidden;
+}
+
+input.oneLineInputAndButtonInput {
+    border: none;
+    background-color: transparent;
+    width: 100%;
+    box-sizing: border-box;
+    img-text-margin-top(margin-top);
+    height: $ui-line-height;
+    vertical-align: top;
+}
+.oneLineInputAndButtonButton {
+    margin-right: 0;
+    padding: 0 0.5em;
+    border-top-left-radius:0; border-bottom-left-radius:0;
+}
+.searchTime, .searchButtons {
+    color: $c777;
+    font-size: 80%;
+    padding-bottom: 0.5em;
+    display: inline-block;
+    white-space: nowrap;
+    .textButton {
+        height: 1.38em;
+        line-height: 1.38em;
+    }
+}
+.searchFiltering {
+    border: 1px solid transparent; /* чтобы высота была как у textButton */
+    display: inline-block;
+}
+.scannedPercent, .subInfoScanning {
+    color: $active-gray-text-color;
+    padding-bottom: 0.35em;
+    height: $emr2_138;
+    line-height: $emr2_138;
+    text-align: left;
+    white-space: nowrap;
+}
+.subInfoError, .subInfoErrorButtons {
+    color: var(--text-color);
+    text-align: left;
+}
+.subInfoError {
+    margin-right: 0.5em;
+}
+.subInfoErrorText {
+    white-space: pre-wrap;
+}
+
+.buyNow {
+    ellipsis();
+    cursor: pointer;
+    color: #3399cc /* #4CAF50 #0a8044 #00af00 */;
+}
+/* .noTouch .buyNow:hover { */
+/*     color: #2266aa; */
+/* } */
+.top .buyNow {
+    border-right: 1px solid $ui-border-color;
+    padding: 0 1em;
+    margin: 1px 0;
+}
+.left .buyNow, .whatsNew {
+    border-top: 1px solid $button-border-color;
+}
+.whatsNew {
+    padding-left: 1em;
+    background-color: $cfafafa;
+    p { margin-bottom: 0; padding-bottom: 1.25em }
+    h1 { font-size: 1em; font-weight: normal }
+    a[href] { font-weight: bold }
+}
+.left .buyNow {
+    display: none;
+    mobile-toolbar-height height;
+    mobile-toolbar-height line-height;
+    text-align: center;
+}
+.cost { float : right; padding-left: 1em; }
+.thankYou {
+    padding: 0em 0.5em;
+    line-height: 2;
+}
+.thankYou .logo {
+    margin: 0;
+}
+
+.topToolbar {
+    padding: $msgToolbar-padding 0;
+    height: "calc(%s + 2px + 2*%s)" % ($ui-line-height $msgToolbar-padding);
+    box-sizing: border-box;
+    .oneLineInputAndButtonBorder {
+        /* flex: 0 !important; */
+        /* ^ не работает на старых iOS */
+        width: auto;
+        min-width: 5em;
+        max-width: 13em;
+        color: $c999;
+    }
+    .noTouch & input[type=text]:hover { color: $active-gray-text-color }
+    input[type=text] { color: $gray-text-color; }
+    input[type=text]:focus { color: $text-color; }
+}
+.buttonSettings {
+    background: none !important;
+    border: none;
+    margin: 1px 0; padding: 0;
+    width: 2em;
+}
+
+.left .buttonSettings, .buttonOpenSearchBar, .topToolbar .buttonSearch, .topToolbar .buttonCloseSearchBar, .toolbarButtonsInMenu, .buttonCloseAddSubscription {
+    display: none;
+}
+.toolbarButtonsInMenu {
+    .buttonSkip, .buttonIgnore, .buttonSelectSubscription { display: none; }
+}
+.msgToolbar {
+    height: "calc(%s + 2px + %s)" % ($ui-line-height $msgToolbar-padding);
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+
+    .buttonReadability {
+        margin-right: 0.6em;
+        margin-left: 0.3em;
+        padding: 0;
+        width: 3.2em;
+    }
+    .buttonFeedOptions {
+        max-width: 6em;
+    }
+    .buttonMarkAllAsRead {
+        display: flex;
+    }
+    .buttonMarkAllAsRead, .buttonMarkAllAsReadSmall {
+        margin-right: 0.6em;
+        margin-left: 0.3em;
+    }
+}
+.buttonMarkAllAsReadSmall, .buttonFeedOptionsSmall {
+    display: none
+}
+.flexSpacer {
+    margin: auto;
+}
+.logoBaz { color: #00af00; }
+.logoQux { color: #ff9600; }
+.logoReader { color: #3399cc; }
+
+.subInfoScanning, .subInfoError, .subscriptionTitle {
+    max-width: "calc(%s + %s)" % ($msgBody-margin-right $text-width);
+    margin-right: "calc(%s)" % $msgBody-margin-right;
+}
+
+:root {
+    --thumbnail-width-padding: 0px;
+    --thumbnail-width-padding-mul: 1;
+}
+
+.mosaic {
+    --thumbnail-width: $mosaic-thumbnail-width;
+}
+.magazine {
+    --thumbnail-width: $magazine-thumbnail-width;
+}
+
+.magazineDescription {
+    max-width: "calc(3 * %s - %s + 3 * %s + %s - %s)" % ($mosaic-thumbnail-width $thumbnail-width $mosaic-padding $text-width $default-text-width);
+    margin-right: "calc(%s)" % $msgBody-margin-right;
+    margin-right: "max(calc(%s), %s)" % ($msgBody-margin-right $safe-area-inset-right);
+}
+.msgFrame.depth1 { margin-left: $msgFrame-ident }
+.msgFrame.depth2 { margin-left: $msgFrame-ident*2 }
+
+.infoMsgContainer {
+    top: $safe-area-inset-top; left: 0; right: 0; height: 0;
+    text-align: center;
+    line-height: $ui-line-height;
+    color: rgba(0,0,0,0.8);
+}
+.infoMsgContainer.errorMsg {
+    h1, p { padding: 0; margin: 0; font-size: 100%; }
+    p { white-space: pre-wrap }
+}
+
+.actionHint {
+    position: fixed;
+    top: "calc(%s + 0.25em)" % $articles-margin-top;
+    left: 50%;
+/*     left-panel-calc(left, "calc(%s + 3.5em + var(--text-width) / 2)"); */
+/*     left-panel-calc(left, "calc(50% + (%s) / 2)"); */
+    @media $left-panel-visibility-breakpoint {
+        left: 50%;
+        top: 0.25em;
+/*         mobile-toolbar-height(top); */
+    }
+/*     top: 0.25em; */
+    transform: translate(-50%, 0%);
+    line-height: $ui-line-height;
+    color: $gray-text-color;
+    white-space: nowrap;
+    background-color: $button-background-color;
+    border-radius: 0.5em;
+    padding: 0.25em 0.5em;
+    animation: opacity-1-to-0 1s ease;
+    opacity: 0;
+    box-shadow: 0px 0px 0.5em rgba(0, 0, 0, 0.25);
+}
+
+@keyframes opacity-1-to-0 {
+    0%,  60%    { opacity: 1; }
+    90%, 100%  { opacity: 0; }
+}
+
+.displayNone {
+    display : none;
+}
+
+.visibilityHidden {
+    visibility: hidden;
+}
+
+.displayBlock {
+    display : block;
+}
+
+.clearBoth {
+    clear : both;
+}
+
+.infoMsgText {
+    display: inline-flex;
+    flex-direction: column;
+    background-color : #fff1a8;
+    border-color: #ffe090;
+    text-align : left;
+    max-width: 50%;
+    word-wrap: break-word;
+    margin-top : 0;
+    padding: 0.2em 0.5em;
+    border-radius: 0 0 0.35em 0.35em;
+    box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.25);
+    border-width: 1px;
+    border-style: none solid solid solid;
+    .nonZeroSafeAreaInsetTop & {
+        border-style: solid;
+        border-radius: 0.35em;
+    }
+}
+.errorMsg .infoMsgText {
+    background-color : #ff9080;
+    border-color: #ff8070;
+    min-width: 8em;
+    max-height: calc(-1em + 100vh);
+    box-sizing: border-box;
+    max-width: 66%;
+    .dialogHeader, .dialogContent {
+        padding: 0;
+    }
+}
+
+.collapsed {
+    display: none;
+    /* ^ более правильно, нежели ставить высоту в 0, т.к.
+       при наличи видеороликов их не надо показывать (а то будет
+       "ничего не видно, а звук откуда-то идет").
+       Кстати, из-за тех же видеороликов плавное прокручивание при expand
+       постов тоже вряд-ли удастся
+     */
+}
+.folder.folderCollapsed { display: none; }
+.folder.folderExpanded {
+/*     padding-bottom: 0.5em; */
+}
+.commentsGrow {
+    overflow: hidden;
+/*     box-shadow: inset 0 5px 10px rgba(0,0,0,.5); */
+/*     pointer-events: none; */
+}
+.commentsGrow.commentsLoading {
+    display: block;
+    /* чтобы правильно определялась высота appendRequest (не 0px из-за того,
+       что он невидимый), хотя это не столь важно, все равно одновременно
+       может быть активен только один toggleCollapsed.
+     */
+    height: 0px;
+}
+
+.kbShortcut {
+    display: flex;
+    align-items: baseline;
+}
+.kbShortcutKey {
+    font-weight: bold;
+    width: 7.5em;
+    flex-shrink: 0
+    padding-right: 1em;
+    text-align: right;
+}
+body.landing {
+    background-color: $button-background-color;
+}
+
+.startToday {
+    font-size: 1.15em;
+    margin-bottom: 8px;
+}
+
+$screenshot-width = 610px;
+$screenshot-padding = 10px;
+$loginButtons-height = 40px;
+/* .logInWithButtons .logInWith { --height: 38px } */
+$loginButtons-mobile-height = 48px;
+$logInWith-width = 290px;
+$logInWith-min-width = 260px;
+/* ($screenshot-width - $landing-margin) / 2 */
+$logInWith-spacing = 11px;
+$landingPage-width = $screenshot-width + $logInWith-width + 3 * $landing-margin + $screenshot-padding;
+$landingPage-min-width2 = 2 * $logInWith-min-width + 3 * $landing-margin;
+
+landing-margin(prop) {
+    {prop}-left: var(--landing-margin-left);
+    {prop}-right: var(--landing-margin-right);
+}
+landing-margin-x2-calc(prop, fmt, add = 0px) {
+    {prop}: fmt % (var(--landing-margin-left) var(--landing-margin-right) add);
+}
+.errorPage {
+    max-width: $landingPage-width !important;
+    /* не делаем более узкую страницу, чтобы текст без переносов в <pre>
+       было удобнее читать
+     */
+}
+.logInWith, .landingPage input[type=submit], .dialogContent input[type=submit], .greenButton, .redButton, .grayButton {
+    /*     all: unset; */
+    -webkit-appearance: none
+    border-radius: 4px;
+    border: none;
+    display: inline-block;
+    box-sizing: border-box;
+    color: white !important;
+    background-color: #bbb;
+    text-align: center;
+    cursor: pointer;
+    --height: $loginButtons-height;
+    white-space: normal;
+    hyphens: none;
+/*     height: var(--height) !important; */
+    line-height: var(--height) !important;
+    margin: 0;
+    padding: 0 1em;
+    font-size: 22px;
+    .noTouch &:hover {
+        box-shadow: 1px 1px 4px rgba(0, 0, 0, 0.25) !important;
+    }
+    .noTouch &:active {
+        box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2) !important;
+    }
+    opacity: $landingPage-buttons-opacity;
+}
+.dialogContent {
+    input[type=submit], .logInWith {
+        --height: 2em !important;
+        font-size: 1em;
+    }
+}
+.redButton {
+    background-color: firebrick !important/* $error-color */;
+}
+.greenButton {
+    background-color: #2d8a5c !important;
+}
+
+.landingPage {
+    margin: 0 auto;
+    margin-bottom: 60px; /* чтобы на мобилах не показывалась навигация */
+    max-width: $landingPage-width;
+    .errorMessage, .invalidLogin {
+        color: $error-color;
+    }
+    .invalidLogin {
+        font-size: 1.1em
+    }
+    h2 {
+        margin-top: 0em;
+    }
+    h1, h2, h3, p, ul, hr, .loginPanel, .buttonForms, form, .loginPanelAtTheBottom, .question, .answer, .pleaseLogIn, .feedbackUserInfo, .searchHintQuery, .searchHintExplanation {
+        landing-margin(margin);
+    }
+    .loginPanel *, .loginPanelAtTheBottom *, .buttonForms * {
+        margin-left: 0;
+        margin-right: 0;
+    }
+    .buttonForms form {
+        display: inline-block;
+        margin-right: $logInWith-spacing;
+        margin-bottom: $logInWith-spacing;
+    }
+    .buttonForms {
+        margin-bottom: - $logInWith-spacing;
+    }
+    .loginForm {
+        .mlLogin, .mlPassword, .openIdUrl {
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+            margin-bottom: $logInWith-spacing;
+        }
+        .forgotPassword {
+            font-size: 18px;
+            margin-top: (5px - $logInWith-spacing);
+            margin-bottom: 6px;
+            a[href] { color: #999 }
+/*             .noTouch & a[href]:hover { color: #666;} */
+        }
+        margin-bottom: 0;
+    }
+    input.buttonLogIn {
+        background-color: #b3b3b3/* #ED8620 */ /* b3b3b3 F8931E */;
+    }
+
+    .orLogInWith {
+        color: #666;
+        margin-bottom: 7px;
+        margin-top: 18px;
+/*         text-align:center; */
+    }
+    .loginPanel {
+        width: $logInWith-width;
+    }
+    .loginPanelAtTheBottom {
+        display: none;
+        overflow: hidden;
+    }
+    .screenshot {
+        box-shadow: 0px 1px 4px rgba(0, 0, 0, 0.25);
+        margin-left: $screenshot-padding;
+/*         width: $screenshot-width !important; */
+/*         height: $screenshot-height !important; */
+    }
+}
+.logInWithButtons, .loginButtons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-gap: $logInWith-spacing;
+}
+.dialogContent .logInWithButtons {
+    max-width: unit($logInWith-width / 20px, em);
+}
+@media (max-width: 480px) {
+    .dialogContent .logInWithButtons {
+        grid-template-columns: 1fr;
+        max-width: none;
+    }
+}
+.infoPage {
+    landing-margin-x2-calc(max-width, "calc(37em + %s + %s)");
+    .loginForm {
+        max-width: 25em;
+    }
+}
+.feedbackPage {
+    tabular-lining-nums();
+    landing-margin-x2-calc(max-width, "calc(37em + 4em + %s + %s)");
+    --header-font-family: "FF Kievit", sans-serif;
+}
+
+.landingTextTwoColumns, .landingButtonsAndScreenshot {
+    display: flex;
+}
+.landingTextOneColumn {
+    display: none;
+}
+.column1, .column2 {
+    width: 50%
+}
+
+.landingButtonsAndScreenshot {
+    margin-bottom: 1.5em;
+}
+
+input[type="text"].openIdUrl {
+    width: 100%;
+    box-sizing: border-box;
+}
+.landing, .msgContents {
+    overflow-y: auto;
+}
+.landingPage h1 {
+    margin-bottom:0.75em;
+    color: $c777;
+    color: #3399cc;
+}
+
+.errorText {
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    overflow: auto;
+    padding: $landing-margin;
+    landing-margin(padding);
+    background: $ceee;
+    margin-bottom: 1.5em;
+    border-radius: 3px;
+}
+.tooMany {
+/*     font-weight: bold; */
+    color: brown;
+}
+.loginForm {
+    input { margin: 0 };
+    margin-bottom: 2em;
+}
+.homeLink {
+    margin: 1.5em 0;
+}
+.mainFooter {
+    margin: 2em $landing-margin 1.75em;
+    landing-margin(margin);
+    color: $gray-text-color;
+    text-align: center;
+    font-size: 0.95em;
+}
+.mainFooter, .landingText, .grayLink {
+    & a[href] { color: $gray-text-color;}
+    .noTouch & a[href]:hover { color: $active-gray-text-color;}
+}
+
+
+.question {
+    margin-top: 0.5em;
+    font-style: italic;
+}
+.answer {
+    p { margin-left: 0; margin-right: 0 }
+    margin-top: 0.5em;
+    margin-bottom: 1.5em;
+}
+.searchHintQuery {
+    font-weight: bold;
+    font-size: 0.95em;
+    white-space: pre-wrap;
+}
+.searchHintExplanation {
+    padding-left: 1.5em;
+    @media (max-width: 480px) {
+        padding-left: 1em;
+    }
+    margin-bottom: 0.75em;
+}
+
+.logInWith {
+    font-size: 21px;
+    background-color: $button-background-color;
+/*     text-shadow: rgba(0,0,0,0.2) 1px 1px 1px; */
+    background-size: 32px 32px;
+    background-position: calc((var(--height) - 32px) / 2) center;
+    background-repeat: no-repeat;
+    padding-left: calc((var(--height) - 32px) / 2 + 32px - 5px + 0.4285em);
+    /* реальная ширина иконок 22px */
+    padding-right: 0;
+    text-align: left;
+}
+.logInWith.google {
+    background-color: #4285f4;
+}
+.logInWith.facebook {
+    background-color: #4267b2;
+}
+.logInWith.twitter {
+    background-color: #1DA1F2;
+}
+.logInWith.openId, .openIdSubmit {
+    background-color: #bbb /* #ED8620 */ /* b3b3b3 F8931E */;
+}
+
+.logoBaz, .logoQux, .logoReader {
+    font-weight: normal;
+    opacity: $landingPage-buttons-opacity;
+}
+.landingPage .price {
+    white-space: nowrap
+}
+h2.motto {
+    font-size: 1.5em;
+    margin-bottom:0.75em;
+    padding-top:0;
+}
+.landingText {
+    h3 {
+/*         height: calc((var(--header-line-height)*2em - 1em)/1.1); */
+        /* ^ чтобы заголовок был в 2 строки */
+        margin-bottom: 0.5em;
+        margin-top: 0em;
+/*         margin-top: 1.1em; */
+        font-size: 1em;
+    }
+/*     h3:first-of-type { */
+/*         margin-top: 0.1em; */
+/*     } */
+}
+.pleaseLogIn {
+    margin-bottom: 1.2em;
+    color: $error-color;
+    font-size: 1.2em;
+/*     font-weight: bold; */
+}
+
+@media (max-width: $landingPage-width) {
+    .startToday {
+        font-size: 21px;
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+        margin-bottom: 10px;
+    }
+    .landingPage {
+        /* $landingPage-width2 = $screenshot-width + 2 * $landing-margin; */
+        landing-margin-x2-calc(max-width, "calc(%s + %s + %s)", $screenshot-width);
+        ul { padding-left: 1.5em }
+        .orLogInWith {
+            margin-top: 20px;
+        }
+        .loginPanelAtTheBottom {
+            display: block;
+            margin-top: 1.75em;
+            margin-bottom: 3em;
+        }
+    }
+    h2.motto {
+        font-size: 1.3em;
+    }
+    .pleaseLogIn {
+        font-size: 1.1em;
+    }
+    .invalidLogin {
+        font-size: 1em;
+    }
+    .landingText h3 {
+        margin-top: 1.4em;
+        margin-bottom: 0.65em;
+    }
+    .logInWith, .landingPage input[type=submit] {
+        --height: $loginButtons-mobile-height !important;
+    }
+/*     .landingPage .logInWithButtons { */
+/*         grid-template-columns: 1fr 1fr 1fr 1fr; */
+/*     } */
+
+    .landingButtonsAndScreenshot {
+        display: block;
+        .screenshot {
+            display: block;
+            landing-margin(margin);
+        }
+        .loginPanel {
+            width: auto;
+            margin-bottom: $landing-margin + $screenshot-padding;
+        }
+        .logInWith.twitter {
+            margin-bottom: 0;
+        }
+        .screenshot {
+            landing-margin-x2-calc(width, "calc(100% - %s - %s) !important");
+            landing-margin(margin);
+            height: auto !important;
+        }
+    }
+    .landingTextTwoColumns {
+        display: none;
+    }
+    .landingTextOneColumn {
+        display: block;
+    }
+}
+@media (max-width: $landingPage-width) {
+    .landingPage {
+        .errorText {
+            border-radius: 0;
+        }
+    }
+}
+@media (max-width: $landingPage-min-width2) {
+    .landingButtonsAndScreenshot {
+        .screenshot {
+            width: 100% !important;
+            margin-left: 0;
+            margin-right: 0;
+        }
+    }
+    .landingPage {
+/*         .loginPanel { */
+/*             margin-bottom: 1.5em; */
+/*             /\* как у .landingButtonsAndScreenshot *\/ */
+/*         } */
+    }
+}
+
+.msgTreeSpacer {
+    color: $c999; /* loading */
+    text-align: center;
+    height: 100vh;
+}
+
+msgTreeSpacerReserve(cls, reserve)
+    {cls}.msgTreeSpacer {
+        height: "calc(100vh - %s - %s)" % ($articles-margin-top reserve);
+        @media $left-panel-visibility-breakpoint {
+            mobile-toolbar-height-total(height, "calc(100vh - %s - " + reserve + ")");
+        }
+        .fullscreen & {
+            height: "calc(100vh - %s)" % reserve;
+        }
+    }
+
+.msgBody .iframeScaler[style*="--aspect-ratio"] {
+    max-width: "calc((100vh - %s - var(--iframeScaler-reserve)) / var(--aspect-ratio))" % $articles-margin-top;
+    @media $left-panel-visibility-breakpoint {
+        mobile-toolbar-height-total(max-width, "calc((100vh - %s - var(--iframeScaler-reserve)) / var(--aspect-ratio))");
+    }
+    .fullscreen & {
+        max-width: calc((100vh - var(--iframeScaler-reserve)) / var(--aspect-ratio));
+    }
+}
+
+:root {
+    @media (max-height: 768px) {
+        --iframeScaler-reserve: calc(var(--paragraph-line-height) * 1em);
+    }
+    --iframeScaler-reserve: calc(var(--paragraph-line-height) * 2em);
+}
+
+msgTreeSpacerReserve('', 0px);
+/* высота msgTreeSpacer-а зависит от высоты list view item и наличия
+   group by feed метки, по-этому остальные варианты задаются в ph().
+   Вариантов получается много (+40kb .css (+25%), но всего +3kb .css.gz),
+   но я не вижу простого способа правильно уменьшать высоту
+   (отрицательный margin-top также требует большого числа вариантов,
+   а составной padding за счет псевдо .top/.groupByFeedLabel-элементов
+   может только добавить высоту, а не уменьшить ее).
+
+ */
+
+.emptyMsgForest.msgTreeSpacer {
+/*     height: auto; */
+    height: 150vh !important;
+/*         position: relative; */
+/*         /\* с position: absolute текст не виден на iPhone *\/ */
+/*         padding-bottom: 300%; /\* чтобы документ оставался выше экрана и адресная строка вверх не прокручивалась *\/ */
+}
+
+.emptySetFeedResult {
+    text-align: center;
+    margin-left: 1px;
+    color: var(--text-color);
+    border-top: 1px solid $ui-border-color;
+}
+.msgTreeSpacer .loading {
+    padding-top: 1em;
+}
+.loadingExpanded {
+    margin-left: $msgBody-margin-left;
+    color: $c999;
+}
+
+.welcomeText {
+    text-align: left;
+    color: var(--text-color);
+    max-width: $text-width;
+    .buttonIcon {
+        height: calc(var(--paragraph-line-height) * 1em);
+        width: 16px;
+        margin-right: 0;
+        img-text-margin-bottom margin-top;
+    }
+    margin: 0.75em 0.5em;
+    h2 {
+        margin-top: 0
+    }
+}
+
+.mtext hr, .bigDialogBox hr, .landingPage hr{
+    border: none;
+    border-top: 1px solid $button-border-color;
+    padding: 0;
+    margin-top:1em; margin-bottom:1em;
+}
+.bigDialogBox hr, .landingPage hr { border-color: $ui-border-color }
+.buyText {
+    .dollarSign { color: $c333; }
+}
+.paymentDate {
+    color: $c666;
+/*     display: inline-block; */
+/*     width: 4.5em; */
+/*     padding-right: 0.5em; */
+/*     text-align: right; */
+}
+.msgBody embed {
+    border: none;
+}
+img, video, embed, object {
+    object-fit: contain;
+    /* чтобы не менялись пропорции у img с неправильными размерами */
+}
+
+.msgBody {
+    img, figure, div, p, embed, object, video, blockquote, iframe, .imgScaler, .iframeScaler {
+        max-width: 100%;
+        ^[0] table ^[1..1] {
+            max-width: $text-width;
+        }
+    }
+}
+
+
+.post .msgBody { .p, .i, .msgBodyHeader, .table table { max-width: $text-width } }
+.depth1 .msgBody { .p, .i, .msgBodyHeader, .table table { max-width: "calc(%s - %s)" % ($text-width $msgFrame-ident) } }
+.depth2 .msgBody { .p, .i, .msgBodyHeader, .table table { max-width: "calc(%s - 2*%s)" % ($text-width $msgFrame-ident) } }
+
+.imagesWidthWide {
+    .post .msgBody .i { max-width: "calc(4/3*%s)" % $text-width }
+    .depth1 .msgBody .i { max-width: "calc(4/3*%s - %s)" % ($text-width $msgFrame-ident) }
+    .depth2 .msgBody .i { max-width: "calc(4/3*%s - 2*%s)" % ($text-width $msgFrame-ident) }
+}
+.imagesWidthFull {
+    .post .msgBody .i { max-width: 100% }
+    .depth1 .msgBody .i { max-width: 100% }
+    .depth2 .msgBody .i { max-width: 100% }
+}
+
+
+/* .msgBody table { */
+/*     .bqrShareLink, .bqrShareCaption, .bqrShareDescription { */
+/*         max-width: 550px; /\* чтобы table не разносило во всю ширину *\/ */
+/*     } */
+/* } */
+
+.table_wrapper table { max-width: 100% }
+/* при заданном max-width у table, Safari (macOS/iOS) рисует
+   правую границу поверх таблицы (т.е. на размер границ max-width
+   распространяется даже если table оказался шире).
+   Если же убрать max-width, то многие таблицы разносит на всю ширину экрана,
+   что еще хуже. Задавать width:100% тоже плохо, т.к. тогда разнесет узкие
+   таблицы.
+   Можно задвать max-width для td/th, чтобы хоть чуть-чуть ограничить
+   ширину таблиц (но, если у td/th стоит width=XX%, то max-width не очень-то
+   и работает, а если заменять width на ширину в пикселях,
+   то может непропорционально измениться ширина других колонок).
+   Но это полумера, которая далеко не всегда помогает.
+   В общем, терпим дополнительную полоску у широких таблиц, т.к. это лучше
+   слишком широких таблиц.
+ */
+
+.pre, .table {
+    max-width: 100% !important;
+    box-sizing: border-box;
+}
+pre, .pre, .table, .table_wrapper {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+}
+.pre .table_wrapper {
+    overflow: visible
+}
+
+/* Стили для сообщений из Google+ и Facebook */
+
+.bqrShareLink, a[href].bqrShareLink {
+    font-weight: bold;
+    text-decoration:none;
+    display: inline-block; /* чтобы dir=auto нормально работал */
+}
+a[href].bqrGplusEventLink {
+    font-weight: bold;
+    text-decoration:none;
+    padding-bottom: 0.75em;
+    display: inline-block;
+}
+.bqrShareFavicon {
+    height:16px !important;
+    vertical-align: baseline !important;
+    margin-right: $thick-space;
+}
+a[href].bqrRetweetLink {
+    height: "calc(%s)" % $subscriptions-li-height;
+    line-height: "calc(%s)" % $subscriptions-li-height;
+    display: inline-block;
+    text-decoration: none;
+}
+.bqrRetweet { margin-bottom: 0.5em; }
+.bqrShareDescription {
+    padding-top:0.5em;
+}
+.bqrShareImage, .imgScaler.bqrShareImage, img.bqrShareImage {
+    padding-right:1em !important;
+    max-width:150px !important;
+    max-height:150px;
+}
+img.bqrGplusThumbnail, .imgScaler.bqrGplusThumbnail {
+    padding-right: 1px;
+}
+.bqrCaption {
+    margin-bottom: 1.5em;
+}
+.scalable {
+    width: 100%; height: 0; position:relative; overflow:hidden;
+}
+.scalable, .scalable .inner {
+    display: block;
+}
+.scalable .inner, .scalable video, .bqrPopup video {
+    border: none;
+    top: 0; left: 0; width: 100%; height: 100%; position: absolute
+}
+.imgScaler { display: inline-block }
+.iframeScaler { display: block; width: 100% !important }
+
+iframe {
+    border: none; overflow: hidden;
+}
+
+img.bqrSharedPostAvatar {
+    width: $lhr; height: $lhr;
+    margin-right:0.5em;
+    border-radius: 2px;
+}
+img.bqrVKSharedPostAvatar {
+    width:2em;height:2em;
+    margin-right:0.5em;
+    margin-top: "calc(%s - 1em)" % $lhr;
+    border-radius: 3px;
+}
+a[href].bqrSharedPostAuthorLink {
+    font-weight: bold;
+}
+.bqrMap {
+/*     width:30em;height:15em */
+    width:$text-width;height:350px;
+}
+.bqrVKMap {
+/*     width:30em;height:15em */
+    width:350px;height:175px;
+}
+.bqrRedditDomain a[href]:hover, .unselected.read .bqrRedditDomain a[href]:hover {
+    text-decoration: underline;
+}
+.bqrRedditThumb {
+    padding-right: 0.5em;
+}
+.bqrRepostHeader { margin-bottom: 1em }
+.bqrRepostHeaderSubject { font-weight: bold; margin-bottom: 0.0825em }
+.bqrRepostHeaderFromFrom { color: $c777 }
+
+.buyOption {
+    padding: 0; padding-bottom: 1em;
+}
+.buyOption input[type="radio"] {
+    margin: 0;
+    margin-right: 0.2em;
+}
+.buyOptionName, .buyOption input[type="radio"] {
+    font-size: 1.15em;
+    vertical-align: middle;
+}
+.buyOptionDesc {
+    color: $active-gray-text-color;
+    padding-left: 1.75em;
+}
+a img {
+    border:none;
+}
+
+/* view mode */
+.iconFullViewWithComments, .iconFullView, .iconListView, .iconMagazineView, .iconMosaicView, .iconMixedView,
+.iconEmpty,
+/* top buttons */
+.iconAddSubscription, .iconSettings, .iconSearch, .iconCloseSearchBar, .iconReadabilityBW, .iconNext, .iconPrev, .iconSkip, .iconIgnore, .iconHamburger, .iconOpenLink,
+/* dialog icons */
+.iconClose,
+/* menu icons */
+.iconDown, .iconMenuRightArrow, .iconEMail, .iconCheck,
+.bqrRetweetIcon, .bqrShareFavicon,
+/* share menu icons */
+.iconStar, .iconMsgTag, .iconShare, .iconKeepUnread,
+/* feed list icons */
+.iconLatest, .iconStarred, .iconTag, .iconFolder, .iconSmartStream, .iconCheckBox0, .iconCheckBox1, .iconCheckBoxU, .favicon,
+/* share and list view favicons */
+.menuFavicon, .fromFeedIcon {
+    background-size: 16px 16px;
+    width: 16px; height: 100%;
+    display: inline-block;
+    vertical-align: top;
+    background-repeat: no-repeat;
+    background-position: center;
+    flex-shrink: 0;
+}
+.buttonIcon {
+    flex-shrink: 0;
+    button-opacity(0.3);
+/*     image-rendering: -moz-crisp-edges; */
+    /* ^ хорошо только у view-mode и только на zoom 100% */
+}
+.iconStar {
+    opacity-no-calc(1, !important);
+}
+.menu {
+    .iconCheck {
+        button-opacity(0.7)
+    }
+    .iconSearch, .iconSkip, .iconIgnore, .iconPrev, .iconNext,
+    .iconTag, .iconKeepUnread, .iconMsgTag, .iconShare, .iconOpenLink, li .iconClose, .noTouch .popup & li .iconClose:hover {
+        button-opacity(0.45)
+    }
+    .disabled {
+        .iconPrev, .iconNext {
+            button-opacity(0.24)
+        }
+    }
+}
+.buttonIcon, .fromFeedIcon, .bqrRetweetIcon, .menuFavicon, .iconEMail {
+    margin-right: $thick-space;
+}
+.iconDown, .iconReadabilityBW, .iconHamburger, .iconSettings, .vmButton .buttonIcon, .msgFrame .buttonIcon, .buttonFeedOptionsSmall .buttonIcon {
+    margin-right: 0;
+}
+.buttonMarkAllAsRead {
+    .buttonLeft .iconCheck, .buttonRight .buttonText { display: none }
+    .buttonRight { padding: 0 0.2em; margin-right: 0 }
+}
+
+.iconClose {
+    cursor: pointer;
+    button-border-radius();
+    padding: 0 !important;
+}
+.whatsNew .iconClose, .popup .iconClose {
+    color: var(--text-color);
+}
+.popup .iconClose, .whatsNew .iconClose {
+    button-opacity(0.4);
+}
+
+dialog-header-height(h)
+    .dialogHeader {
+        height: h;
+        line-height: h;
+        .iconClose { width: h; }
+    }
+
+.errorMsg {
+    dialog-header-height($emr2_12)
+}
+
+.smallDialogBox .dialogHeader, .menu .dialogHeader {
+    h1 { font-size: 100%; font-weight: normal }
+}
+.noTouch .popup .iconClose:hover, .noTouch .whatsNew .iconClose:hover {
+    color: var(--text-color);
+    button-opacity(0.7);
+}
+.errorMsg .iconClose {
+    color: black;
+}
+.noTouch .errorMsg .iconClose:hover {
+    color: #ff9080;
+    background-color: black;
+}
+
+spinner() {
+    display: inline-block;
+    width:  "calc(2 * %s)" % $emr_03;
+    height: "calc(2 * %s)" % $emr_03;
+    border: 2px solid $c999;
+    border-radius: "calc(%s + 2px)" % $emr_03;
+    border-right-color: transparent;
+    animation: rotateSpinner 0.8s infinite linear;
+}
+.spinner {
+    spinner()
+}
+.addingToPocket .iconShare {
+    background: none;
+    button-opacity(0.8, !important);
+    &::before {
+        content: "";
+        position: absolute;
+        margin-left: "calc(-8px - %s - 2px)" % $emr_03;
+        margin-top: "calc(var(--msgButtons-height) / 2 - %s - 2px)" % $emr_03;
+        spinner();
+    }
+}
+@keyframes rotateSpinner {
+  0%    { transform: rotate(0deg); }
+  100%  { transform: rotate(360deg); }
+}
+.iconPlayVideo, .iconPlayAudio {
+    display: block;
+    background: url("data:image/svg+xml,%3Csvg version='1.1' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpolygon fill='white' points='1,0 20,10 1,20'%3E%3C/polygon%3E%3C/svg%3E") no-repeat center;
+    fill: white;
+}
+.iconPlayVideo {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    w = 90px;
+    h = 54px;
+    width: w;
+    height: h;
+    margin: (- h/2) (- w/2);
+    background-size: 24px;
+    border-radius: 8px;
+}
+
+.bqrMsgAudio {
+    display: block;
+}
+.bqrMsgAudioInner {
+    display: flex !important;
+    cursor: pointer; border-radius: 8px;
+}
+bqrMsgAudioHeight(h)
+    .bqrMsgAudio { min-height: h; }
+    .bqrMsgAudioInner { height: h }
+    .iconPlayAudio {
+        width: (h*1.25);
+        background-size: (h / 2);
+    }
+bqrMsgAudioHeight(31px)
+
+.iconPlayAudio {
+    border-radius: 7px;
+    margin: 1px;
+}
+.bqrMsgAudio audio {
+    vertical-align: middle;
+}
+
+.vmButtons {
+    display: flex;
+    margin-right: $thick-space;
+    margin-left: $thick-space;
+}
+.vmButton {
+    background: none;
+    display: block;
+    border: none;
+    border-radius: 0;
+    padding: 1px $emr_025;
+    margin-right: 0;
+}
+.rightSeparator {
+    border-right: 1px solid $ui-border-color !important /* чтобы button:hover цвет не менял */;
+}
+.noTouch .vmButton:hover {
+    background:none;
+    background-color: $cf0f0f0;
+}
+.vmButtonActive .buttonIcon {
+    button-opacity(0.7, !important);
+}
+.vmButtonActive .vmShort {
+    button-opacity(0.9)
+}
+.msgButtons {
+    .iconKeepUnread, .iconShare, .iconMsgTag {
+        &.buttonIcon {
+            button-opacity(0.24);
+        }
+        /* .iconStar имеет прозрачность 0.2,
+           которую мы масштабируем в js при перекрашивании до 0.24
+           У .iconStar:hover прозрачность 0.4, но есть еще внутренняя тень
+         */
+        .noTouch &.buttonIcon:hover {
+            button-opacity(0.42)
+        }
+    }
+}
+.selected.subItemError .favicon, .selected.subItemScanning .favicon, .selected .iconFolder, .selected .iconStarred, .selected .iconLatest, .selected .iconSmartStream, .selected .iconTag {
+    button-opacity(0.9);
+}
+.noTouch .button:hover .buttonIcon, .noTouch .msgButtons .buttonIcon:hover {
+    button-opacity(0.4);
+}
+.iconFolder, .iconStarred, .iconLatest, .subItemScanning .favicon, .subItemError .favicon, .top .iconSettings, .iconSmartStream, .iconTag {
+    button-opacity(0.5)
+}
+.noTouch .top .button:hover .iconSettings {
+    button-opacity(0.6)
+}
+
+.left .iconSettings {
+    button-opacity(0.4)
+}
+.noTouch .left .button:hover .iconSettings {
+    button-opacity(0.5)
+}
+
+.noTouch .iconFolder:hover {
+    button-opacity(0.65)
+}
+.noTouch .filterLine .iconFolder:hover {
+    button-opacity(0.5)
+}
+.noTouch .selected .iconFolder:hover {
+    opacity-no-calc(1)
+}
+
+.buttonLeft, .buttonMiddle, .buttonRight { position: relative }
+.buttonLeft:hover, .buttonMiddle:hover, .buttonRight:hover { z-index: 1 }
+.buttonLeft, .buttonMiddle { margin-right: 0; }
+.buttonMiddle { border-radius: 0 !important; }
+.buttonLeft  { border-top-right-radius:0 !important; border-bottom-right-radius:0 !important; }
+.buttonRight { border-top-left-radius:0 !important; border-bottom-left-radius:0 !important; }
+.buttonRight { margin-left: -1px; }
+.buttonMiddle { margin-left: -1px; }
+
+.iconMenuRightArrow {
+    width: 6px;
+    margin-right: 0;
+    margin-left: auto;
+    opacity-no-calc(1);
+}
+.subMenuMenuItem li {
+    padding-right: 0.5em;
+}
+
+figure {
+    margin: 1em 0;
+    /* Readabiliy выдает <figure>, вокруг которой лишние margin */
+}
+figure img, figure .imgScaler, figure .iframeScaler {
+/*     margin: 0 auto; */
+}
+$figcaption-font-size = 0.8125;
+figcaption {
+    margin: 0.333em 0;
+    font-size: $figcaption-font-size * 1em;
+    /* центрованный текст менее удобно читать, нормально выглядит только
+       если картинка тоже отцентрована и уже ширины экрана.
+       К сожалению отцентровать картинку и при этом приклеить текст к ее левой
+       границе у меня сделать не получилось (невозможно в CSS не зная размера
+       изображения?)
+     */
+/*     text-align: center; */
+}
+.i figcaption {
+    max-width: "calc(%s / %s)" % ($text-width $figcaption-font-size);
+}
+/* http://www.cssreset.com/scripts/normalize-css/ */
+.readabilityLoading, .readabilityError {
+    margin-bottom: 1em;
+    color: $c999;
+}
+.readabilityError {
+    white-space: pre-wrap;
+}
+
+.sp0  { background: linear-gradient(to right, $button-background-color 0%,$button-background-color 0%,$cfcfcfc 0%);  }
+.sp5  { background: linear-gradient(to right, $button-background-color 0%,$button-background-color 5%,$cfcfcfc 5%);  }
+.sp10 { background: linear-gradient(to right, $button-background-color 0%,$button-background-color 10%,$cfcfcfc 10%);}
+.sp15 { background: linear-gradient(to right, $button-background-color 0%,$button-background-color 15%,$cfcfcfc 15%);}
+.sp20 { background: linear-gradient(to right, $button-background-color 0%,$button-background-color 20%,$cfcfcfc 20%);}
+.sp25 { background: linear-gradient(to right, $button-background-color 0%,$button-background-color 25%,$cfcfcfc 25%);}
+.sp30 { background: linear-gradient(to right, $button-background-color 0%,$button-background-color 30%,$cfcfcfc 30%);}
+.sp35 { background: linear-gradient(to right, $button-background-color 0%,$button-background-color 35%,$cfcfcfc 35%);}
+.sp40 { background: linear-gradient(to right, $button-background-color 0%,$button-background-color 40%,$cfcfcfc 40%);}
+.sp45 { background: linear-gradient(to right, $button-background-color 0%,$button-background-color 45%,$cfcfcfc 45%);}
+.sp50 { background: linear-gradient(to right, $button-background-color 0%,$button-background-color 50%,$cfcfcfc 50%);}
+.sp55 { background: linear-gradient(to right, $button-background-color 0%,$button-background-color 55%,$cfcfcfc 55%);}
+.sp60 { background: linear-gradient(to right, $button-background-color 0%,$button-background-color 60%,$cfcfcfc 60%);}
+.sp65 { background: linear-gradient(to right, $button-background-color 0%,$button-background-color 65%,$cfcfcfc 65%);}
+.sp70 { background: linear-gradient(to right, $button-background-color 0%,$button-background-color 70%,$cfcfcfc 70%);}
+.sp75 { background: linear-gradient(to right, $button-background-color 0%,$button-background-color 75%,$cfcfcfc 75%);}
+.sp80 { background: linear-gradient(to right, $button-background-color 0%,$button-background-color 80%,$cfcfcfc 80%);}
+.sp85 { background: linear-gradient(to right, $button-background-color 0%,$button-background-color 85%,$cfcfcfc 85%);}
+.sp90 { background: linear-gradient(to right, $button-background-color 0%,$button-background-color 90%,$cfcfcfc 90%);}
+.sp95 { background: linear-gradient(to right, $button-background-color 0%,$button-background-color 95%,$cfcfcfc 95%);}
+.sp100 {}
+
+.magazineImage, .mosaicImage {
+    width: "calc(%s)" % $thumbnail-width;
+    height: "calc(%s / %s)" % ($thumbnail-width $thumbnail-aspect-ratio);
+    overflow: hidden;
+    background-position: center;
+    background-size: contain;
+/*     background-size: cover; */
+    background-repeat: no-repeat;
+    background-color: $button-background-color;
+    border-radius: 2px
+}
+.magazineImage { float: left; }
+.magazine.msgFrame, .mosaic.msgFrame, .hasSeparator.post.msgFrame {
+    border-top: none;
+}
+.magazineText, .magazineTextShorter, .mosaicText {
+    line-height: $lhr;
+    margin-padding-overflow-fix();
+}
+.magazineTextShorter { display: none }
+
+.magazine .authorPic, .mosaic .authorPic, .compact.post .authorPic, .mosaic .msgButtons {
+    display: none;
+}
+.magazineDescription .msgFooter {
+    padding-top: 1em;
+    /* не margin, чтобы контекстное меню над кнопкой показывалось */
+}
+
+.magazineDescription {
+    img-text-margin-top(margin-top, $msgCollapseMargin-margin-top);
+    margin-bottom: 1em;
+}
+.magazineImage {
+    margin-top: $lhr_05;
+    margin-bottom: $lhr_05;
+}
+
+.mosaic.msgFrame {
+    float: left;
+    clear: none;
+/*     display: inline-block; */
+    /* с inline-block получаются пробелы между элементами mosaic,
+       проще убрать их через float:left, чем через форматирование кода
+       -- можно еще margin-right: unit(-2/9, em), но в Safari после
+       раскрытия и закрытия сообщения не происходит reflow и оно остается на
+       новой строке, а не возвращается назад
+     */
+    vertical-align: top;
+    width: "calc(%s)" % $thumbnail-width;
+    padding-left: $mosaic-padding;
+    padding-right: $mosaic-padding;
+    padding-top: $lhr_05;
+    padding-bottom: 1em;
+    margin-right: 0/* unit(-2/9, em) */;
+}
+.mosaic.msgFrame.mosaic3 {
+    clear: left;
+}
+.magazineImage {
+    margin-left: $mosaic-padding;
+    maring-right: $mosaic-padding;
+}
+.magazineDescription {
+    margin-left: "calc(%s + 2 * %s)" % ($thumbnail-width $mosaic-padding);
+}
+.mosaicDescription { margin-top: $emr_025; }
+
+.mosaicText {
+    multiline-ellipsis(2)
+}
+
+.insertPoint, .viewModeSeparator { clear: both; display: block; }
+
+.normalListViewClickWrapper .msubject {
+    display: inline;
+}
+.postHeaderSubject {
+    color: var(--text-color); font-size: 100%; font-weight: bold;
+}
+.read .postHeaderSubject { color: $c707070; }
+.postHeaderFeed {
+    width: 11.5em;
+    padding-right: 1em; color: $c777;
+/*     vertical-align: text-bottom; */
+/* из-за overflow:hidden
+http://stackoverflow.com/questions/20566710/overflowhidden-displayinline-block-moves-text-upwards
+*/
+}
+.feedLabelFeed, .groupByFeedLabel a[href], .feedMark a[href] {
+    color: var(--text-color);
+}
+.groupByFeedLabel .fromFeedImported, .feedMark .fromFeedImported {
+    font-weight: normal;
+}
+.feedLabelFeed {
+    width: auto;
+    max-width: $text-width;
+    font-weight: bold;
+    display: block;
+}
+.groupByFeedLabel, .feedMark {
+    padding-top: $feedMark-padding;
+    padding-bottom: $feedMark-padding;
+    padding-right: 0.5em;
+    padding-left: 1px; /* учитываем border-left msgFrame-а */
+    .postHeader {
+        border: none !important;
+        user-select: auto;
+    }
+}
+.feedMark {
+    top:3.7em;
+    position: absolute;
+/*     pointer-events:none; /\* прокрутка мышки прокручивает сообщения под fixed *\/ лажа, может раскрывать сообщения под заголовком, т.е. пропускает вообще все, а не только прокрутку */
+    right: 0;
+    bottom: auto;
+    background: var(--background-color);
+/*    z-index: 1; /* в FF многоточия от list view показываются поверх метки,
+то же происходит во всех браузерах с кнопками tag/share/keep unread
+из-за opacity (если поставить opacity:1 то норм, похоже, рисуются в другом слое) */
+    margin: 0 0.5em;
+    margin-right: 0;
+}
+.feedMarkTop {
+    padding-right: "calc(2 * %s)" % $msgsPadder-padding;
+}
+.feedMarkTop, .feedMarkMoving {
+    border-bottom: solid 1px $button-border-color;
+}
+.feedMark.feedMarkMoving {
+    left: 0;
+}
+.dummyButton {
+    position: absolute; left: -1000px; top: 0; width: 0; height: 0;
+    /* в IE11 после focus кнопка все равно становится видна,
+       выносим её за пределы экрана */
+    z-index: -1;
+}
+.dummyAudio {
+    position: absolute; left: -1000px; top: -1000px;
+    z-index: -1;
+}
+.emDiv, .baselineTestDiv, .baselineTestDivArticleMinus1px, .baselineTestDivArticle, .safeAreaInsetWidthDiv {
+    position: absolute; left: 0; top: 0; width: auto; height: auto;
+    z-index: -1; visibility: hidden
+}
+.safeAreaInsetWidthDiv {
+    width: $safe-area-inset-width;
+}
+.baselineTestDiv_aligner, .baselineTestDivArticleMinus1px_aligner, .baselineTestDivArticle_aligner {
+    display: inline-block;
+    width: 1px; height: 0px;
+}
+.baselineTestDiv {
+    line-height: calc(2*var(--reader-font-size));
+    font-size: var(--reader-font-size);
+}
+.baselineTestDivArticle {
+    line-height: calc(2*var(--article-font-size));
+    font-size: var(--article-font-size);
+}
+.baselineTestDivArticleMinus1px {
+    line-height: calc(2*var(--article-font-size) - 2px);
+    font-size: calc(var(--article-font-size) - 1px);
+}
+.baselineTestDiv_aligner {
+    vertical-align: calc(2*var(--reader-font-size));;
+}
+.baselineTestDivArticle_aligner {
+    vertical-align: calc(2*var(--article-font-size));
+}
+.baselineTestDivArticleMinus1px_aligner {
+    vertical-align: calc(2*var(--article-font-size) - 2px);
+}
+.emDiv {
+    font-size: 10px;
+    line-height: 1;
+    /* FF не масштабирует height как Safari, ориентируемся на line-height */
+}
+.browserScale {
+    position: absolute; left: 0; top: 0; width: 1px; height: 1px;
+    z-index: -1; visibility: hidden; overflow: auto;
+}
+.browserScaleInner {
+    width: 1px; height: 10px;
+}
+
+.read .postHeader { background-color: $ceee; }
+.postHeader {
+    padding: 0;
+    padding-right: $safe-area-inset-right;
+    border-bottom: 1px solid $cececec;
+    overflow: hidden;
+    display: flex;
+}
+.postHeaderRight {
+    overflow: hidden;
+    display: flex;
+    flex: 1;
+    margin-padding-overflow-fix()
+}
+
+$postHeader-add = 14px
+$postHeader-height = "(%s + %s)" % ($emr2_12 $postHeader-add) /* как $menu-li-height */
+$ultraPostHeader-height = $emr2_12
+
+msgTreeSpacerReserve('.noMoreArticlesText', "(0.5 * %s)" % $postHeader-height)
+msgTreeSpacerReserve('.noMoreArticlesText.ultra', "(0.5 * %s)" % $ultraPostHeader-height)
+msgTreeSpacerReserve('.groupByFeed', "(%s + 2 * %s + 1px)" % ($postHeader-height $feedMark-padding))
+msgTreeSpacerReserve('.groupByFeed.ultra', "(%s + 2 * %s + 1px)" % ($ultraPostHeader-height $feedMark-padding))
+msgTreeSpacerReserve('.groupByFeed.noMoreArticlesText', "(1.5 * %s + 2 * %s + 1px)" % ($postHeader-height $feedMark-padding))
+msgTreeSpacerReserve('.groupByFeed.noMoreArticlesText.ultra', "(1.5 * %s + 2 * %s + 1px)" % ($ultraPostHeader-height $feedMark-padding))
+
+.postHeader, .postHeaderLeft {
+    line-height: "calc(%s)" % $postHeader-height;
+    height: "calc(%s)" % $postHeader-height
+}
+.ultra.postHeader, .ultra.postHeader .postHeaderLeft {
+    line-height: $ultraPostHeader-height;
+    height: $ultraPostHeader-height;
+}
+.postHeaderTags {
+    white-space: nowrap;
+    overflow: hidden;
+    margin-right: 0.3em;
+    margin-bottom: -4px;
+    line-height: $ultraPostHeader-height;
+}
+.postHeaderTag {
+    --postHeaderTag-padding-add: 2px;
+    overflow: hidden;
+    margin-right: 0.1em;
+    margin-top: "calc(%s - var(--postHeaderTag-padding-add))" % ($postHeader-add / 2);
+/*     margin-bottom: ($postHeader-add / 2); */
+    padding-top: calc(2*var(--baseline-compensation) + var(--postHeaderTag-padding-add));
+    padding-bottom: calc(var(--postHeaderTag-padding-add));
+    vertical-align: top;
+    /* Уменьшаем line-height, т.к. если оставить line-height 16px,
+       то вместе padding-ом высота тега станет 17px и низ тега будет
+       не вровень с иконкой (а без padding-top тег будет выше, а задать
+       фиксированный height мы не можем,
+       т.к. на узких экранах тег может занимать несколько строк ;)
+   */
+    line-height: "calc(%s - 2*var(--baseline-compensation))" % $ultraPostHeader-height;
+}
+.ultra .postHeaderTag {
+    --postHeaderTag-padding-add: 0px;
+    margin-top: 0px;
+}
+.postHeaderText {
+    flex: 1;
+    /* делаем .postHeaderText на всю ширину, т.к. при использовании шрифта
+       Kievit иногда добавляется многоточие в конце короткого текста
+   */
+}
+.postHeaderFeed, .postHeaderText, .postHeaderTime {
+    line-height: $ultraPostHeader-height;
+    img-text-margin-top(padding-top, unit($postHeader-add/2,px));
+    /* чтобы в многострочном list view совпадал отступ сверху
+       и межстрочный интервал не был запредельным
+    */
+}
+.postHeaderSubject, .postHeaderShortText {
+    img-text-margin-bottom(margin-bottom, unit($postHeader-add/2,px));
+}
+.ultra.postHeader {
+    .postHeaderTags {
+        margin-top: 0
+    }
+    .postHeaderFeed, .postHeaderText, .postHeaderTime {
+        img-text-margin-top(margin-top, -3px); /* margin, чтобы мог вверх смещать */
+        padding-top: 3px;
+        img-text-margin-bottom(height, "(100% + 3px)" % "");
+    }
+    .postHeaderSubject, .postHeaderShortText {
+        img-text-margin-bottom(margin-bottom);
+    }
+}
+
+.postHeaderShortTextNarrow { display: none }
+
+shorter-postHeaderShortText() {
+    .postHeaderShortTextWide { display: none }
+    .postHeaderShortTextNarrow { display: inline }
+}
+/* не факт, что сейчас это на что-либо влияет, но раньше было так, что чем
+   длиннее текст, тем больше тормозит прокрутка list view */
+@media (max-width: 1920px) {
+    .msgsPadder:not(.fontSize0):not(.fontSize1):not(.fontSize2):not(.fontSize3):not(.fontSize4):not(.fontSize5) {
+        /* >= 22px */
+        shorter-postHeaderShortText()
+    }
+}
+
+@media (max-width: 1500px) {
+    .msgsPadder:not(.fontSize0):not(.fontSize1):not(.fontSize2):not(.fontSize3) {
+        /* >= 18px */
+        shorter-postHeaderShortText()
+    }
+}
+
+@media (max-width: 1280px) {
+    .msgsPadder:not(.fontSize0):not(.fontSize1) {
+        /* >= 15px */
+        shorter-postHeaderShortText()
+    }
+}
+
+@media (max-width: 1024px) {
+    shorter-postHeaderShortText()
+}
+
+@media $multiline-list-view-breakpoint {
+    .postHeaderSubject + .postHeaderShortText {
+        margin-top: unit(3 - $postHeader-add/2,px);
+    }
+    .ultra.postHeader {
+        .postHeaderSubject + .postHeaderShortText {
+            margin-top: 0
+        }
+    }
+}
+
+.subscriptions li, .dfTitle {
+    height: "calc(%s)" % $subscriptions-li-height;
+    line-height: "calc(%s)" % $subscriptions-li-height;
+}
+.unreadCount {
+    height: "calc(%s - 2 * %s)" % ($subscriptions-li-height $unreadCount-margin);
+    line-height: "calc(%s - 2 * %s)" % ($subscriptions-li-height $unreadCount-margin);
+    margin-top: $unreadCount-margin;
+    img-text-margin-top(padding-top);
+    /* отрицательных baseline-compensation у нежирных шрифтов не бывает,
+       так что оставляем padding
+       (временная мера, потом вообще уберем кружок) */
+}
+.menu, .fontsList, .themesList {
+    li {
+        height: "calc(%s)" % $menu-li-height;
+        line-height: "calc(%s)" % $menu-li-height;
+    }
+}
+.ui-menu .ui-menu-item-wrapper {
+    line-height: "calc(%s)" % $subscriptions-li-height;
+    padding-top: "calc((%s - %s) / 2)" % ($menu-li-height $subscriptions-li-height);
+    padding-bottom: "calc((%s - %s) / 2)" % ($menu-li-height $subscriptions-li-height);
+}
+
+.postHeader .iconStar, .groupByFeedLabel .fromFeedIcon, .feedMark .fromFeedIcon {
+    padding: 0 8px;
+    margin-right: 0;
+}
+.ultra.postHeader .iconStar, .groupByFeedLabel .ultra .fromFeedIcon, .feedMark .ultra .fromFeedIcon {
+    background-position-x: 2px;
+    padding-left: 2px;
+}
+.compact .postHeader { border-bottom: none }
+.postHeaderLeft, .feedLabelLeft {
+    display: flex; flex-shrink: 0;
+}
+.compact.msgFrame { min-height: 0 }
+.expandable { cursor: pointer; }
+.magazine, .mosaic, .short, .msgButtons, .authorPic { cursor: auto }
+/* .overrideColors .fromFeedIcon { */
+/*     height: 20px; */
+/*     width: 20px; */
+/*     border-radius: 2px; */
+/*     margin-top: 9px; */
+/*     background-color: white; */
+/*     opacity: 0.8; */
+/* } */
+/*
+ добавлять фон иконкам штука сомнительная -- становятся хорошо видны иконки
+ с прозрачностью и черными деталями, но появляется много визуального шума:
+ - плохо выглядят обычные непрозрачные квадратные иконки -- лишняя рамка
+ - плохо выглядит рядом с почти незаметной звездочкой (нужно ее перекрасить),
+ - не очень сочетается с аватарками без фона и thumbnails с очень темным фоном.
+ В общем, где-то лучше, где-то хуже
+
+ Если оставить без фона, но добавить opacity тоже сильно лучше не становится:
+ чуть уменьшается контраст с текстом, но увеличивается контраст со звездочкой,
+ thumbnails и обычными изображениями
+
+ Если добавить
+ filter: contrast(0.5) brightness(1.25)
+ то черные иконки становятся видными, но вид остальных иконок уж очень сильно
+ портится
+ нужно уметь именно темные цвета ярче делать (возможно, только черный и серые),
+ а не все
+ Похоже, правильный вариант -- менять темно серые цвета на более светлые,
+ но это подтребует отдельной обработки на сервере и отдельного набора иконок,
+ что пока делать не хочется
+ */
+
+full-width-right() {
+    --msgBody-margin-left-add: $safe-area-inset-left;
+    --msgBody-margin-right-add: 0px;
+    .feedMark { left: 0 !important }
+    .articles { margin-left: 0 !important }
+    .top {
+        left: 0 !important;
+    }
+    .topToolbar { display: none }
+    .top, .msgsHeader, .postHeader {
+        padding-left: $safe-area-inset-left;
+    }
+}
+
+.fullscreen {
+    .msgsHeader {
+        padding-top: $safe-area-inset-top;
+    }
+    .disabledInFullscreen {
+        disabled()
+    }
+    full-width-right()
+
+    .left, .leftPanelShadow, #topId {
+        display: none;
+    }
+    .articles {
+        margin-top: 0;
+        height: 100vh;
+    }
+    .compactListViewItem, .post.expanded.msgFrame, .post.short.msgFrame {
+        border-left-style: none;
+    }
+    .compactListViewItem {
+        border-top: none
+    }
+    .postHeader {
+        border-top: 1px solid $ui-border-color;
+        border-left: 1px solid transparent;
+    }
+    .selected .postHeader {
+        border-left: 1px solid $link-color;
+    }
+    .msgButtons { margin-right: $msgsPadder-padding }
+}
+
+.mobile {
+    html&, body {
+        overflow: visible;
+    }
+    .articles {
+        position: static;
+        height: auto !important;
+        overflow: hidden;
+    }
+    .feedMark.feedMarkMoving {
+        left-panel left;
+    }
+    .feedMarkTop {
+        position: fixed;
+        /* fixed на desktop перекрывает scroll bar в articles */
+    }
+    .expandable {
+        cursor: auto;
+        /* отключаем подсветку при клике по заголовку поста в Android Chrome */
+    }
+
+    .postHeaderFeed, .postHeaderText {
+        pointer-events: auto;
+    }
+    a[href].mtime:hover, a[href].postHeaderTime:hover { text-decoration: none }
+    .msgButtons .buttonIcon {
+        padding: 0 0.5em;
+    }
+}
+
+.showLeftPanelButton {
+    display: none;
+}
+
+.fromFeed {
+    display: flex;
+    margin-bottom: 0.2em;
+}
+.fromFeedFrom {
+    color: $gray-text-color;
+    padding-right: $thick-space;
+    flex-shrink: 0
+}
+.fromFeedImported { font-style: italic }
+.mosaic, .magazine {
+    .fromFeedFrom { display: none }
+}
+
+.mtag {
+    display: inline-flex;
+    margin: 0.2em 0.2em 0.2em 0;
+    line-height: var(--header-line-height);
+    /* ^ чтобы нормально отображались эмодзи и иероглифы */
+}
+.mtagName, .mtagRm, .postHeaderTag {
+    cursor: pointer;
+    padding-left: 0.3em; padding-right: 0.3em;
+    background-color: $cddd; color: $c666;
+    button-border-radius();
+}
+.postHeaderTag { display: inline-block }
+.mtagRm { color: $c707070; }
+.mtagName {
+    border-top-right-radius: 0; border-bottom-right-radius: 0;
+    overflow: hidden;
+}
+.mtagRm {
+    border-top-left-radius: 0; border-bottom-left-radius: 0;
+}
+.noTouch .mtagName:hover, .noTouch .mtagRm:hover {
+    background-color: $c666;
+    color: $cddd;
+}
+.ffeed, .ffLatestExcluding, .ffExcludingText {
+    height: $emr2_15;
+    display: inline-flex;
+    overflow: hidden; white-space: nowrap;
+    vertical-align: top;
+    box-sizing: border-box;
+}
+.filterSubLine {
+    display: flex;
+    padding-bottom: $emr_025;
+}
+.feedbackPage  {
+    .filterLeft {
+        width: 4.25em;
+        padding-right: 0.75em;
+    }
+    .filterRight {
+        display: inline-block;
+        width: 100%;
+        vertical-align: top;
+    }
+    .preformatted {
+        font-family: var(--paragraph-font-family);
+    }
+    .filterSubLineWithMargin {
+        margin-top: 0.5em;
+        margin-bottom: 1em;
+    }
+}
+/* .filterLine .textButton { line-height: normal } */
+.ffeed, .ffExcludingStart { padding-right: 0.5em; }
+.ffExcludingEnd { padding-right: $thick-space }
+.ffeedName {
+    color: $active-gray-text-color; max-width: 200px;
+}
+.ffeed {
+    .favicon, .iconLatest, .iconFolder {
+        img-text-margin-bottom(margin-top)
+        /* двигаем не текст, а иконку, чтобы названия подписок оставались
+           на одной строке с надписью "In" */
+        padding: 0;
+        margin-right: $thick-space;
+    }
+}
+.ffExcluding { font-style: italic }
+.ffExcludingText { color: $gray-text-color; }
+
+.downloadLink { margin-top: 0.25em; display: block }
+
+.ui-helper-hidden-accessible { display: none }
+.ui-autocomplete {
+    position: fixed; /* чтобы прокрутка body не влияла */
+    top: 0;
+    left: 0;
+    cursor: default;
+    background-color: var(--background-color);
+    input-border border;
+    margin: 0; padding: 0;
+    max-height: 12em;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+.ui-menu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: block;
+    outline: none;
+    max-width: 28em;
+    box-sizing: border-box;
+    -webkit-overflow-scrolling: touch;
+}
+.ui-menu .ui-menu-item-wrapper {
+    padding: 0 ($input-padding + 0.5em);
+    text-indent: -0.5em;
+    /* ^ на случай очень длинных поисковых запросов,
+      которые не влезают на одну строку */
+    overflow: hidden;
+}
+.subscriptions.ui-menu {
+    li {
+        border: none;
+        background-color: transparent;
+        font-weight: normal; /* unread не выделять */
+        color: var(--text-color);
+        padding: 3px 0;
+        text-indent: 0;
+    }
+    .ui-menu-item.tooManySubscriptionSearchResults {
+        padding: 0.3em $thick-space !important;
+        display: block;
+        color: $c777;
+        &:hover {
+            background-color: transparent;
+        }
+    }
+}
+.ui-menu .ui-menu-item-wrapper.ui-state-focus,
+.ui-menu .ui-menu-item-wrapper.ui-state-active {
+    background-color: $ceee !important;
+    .unreadCount {
+        background-color: $button-background-color !important;
+        /* а то сливается с фоном */
+    }
+}
+
+.howToImportMyFeeds {
+    padding-top: 0.75em;
+    display: none;
+}
+
+.noTouch li.discoveryFeed:hover, .noTouch .discoveryTopic:hover {
+    background-color: $cf0f0f0 /* $button-background-color */;
+}
+.dfTags, .dfWebsite, .dfSubscribers {
+    color: $c888;
+    padding-left: 2 * $thick-space;
+    margin-left: 16px;
+    height: $ui-line-height;
+}
+.discoveryFeed .dfTitle {
+    padding-bottom: $emr_03;
+    .buttonText { flex: 1 }
+}
+.discoveryFeed {
+    list-style: none;
+    padding-left: 0.3em;
+    padding-right: 0.5em;
+    padding-top: $emr_075;
+    padding-bottom: 1em;
+    border: none;
+    cursor: pointer;
+}
+.dfImage {
+    display: none;
+    width: 2.5em; height: 2.5em; margin: 0.2em; float:left;
+    margin-left: 0; margin-top: 0.75em;
+    button-border-radius();
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+.discoveryHeader, .discoveryContents {
+    overflow: hidden;
+    box-sizing: border-box;
+    display: none;
+}
+.left.displayDiscovery {
+    background-color: $cfafafa;
+    .discoveryHeader, .discoveryContents { display: block }
+    .subscriptions, .buyNow, .whatsNew { display: none }
+}
+.discoveryHeader, .discoveryNotFound {
+    padding: 0 $emr_05;
+    margin-top: $emr_05;
+    margin-bottom: $emr_075;
+}
+.discoveryImportButton {
+    margin-top: $emr_075;
+}
+.discoveryNotFound {
+    padding-top: 1em;
+    color: $c888;
+}
+.discoveryContents {
+    overflow-x: hidden; overflow-y: auto;
+}
+.discoveryTopic {
+    cursor: pointer;
+    padding: 0.5em 1em;
+    text-transform: capitalize;
+}
+.discoveryTopics, .discoveryCountry {
+    padding: 0.5em;
+    font-weight: bold;
+}
+.discoveryCountry {
+    padding-top: 1.5em;
+}
+.discoveryCountryName, .discoveryCountryButton {
+    padding: 0.5em 1em;
+/*     display: inline-block; */
+}
+.discoveryCountryName {
+/*     padding-right: 0 */
+}
+.discoveryCountryButton {
+    padding-top: 0; padding-bottom: 1em;
+/*     padding-left: 0.7em; */
+}
+.left.noScroll .discoveryHeader .feedUrlInput {
+    overflow-y: visible !important;
+    /* иначе в noScroll становится выше чем надо */
+}
+
+.discoveryCleanButton {
+    width: $ui-line-height;
+    text-align: center;
+    color: $caaa;
+    cursor: pointer;
+    display: none;
+    input-border border-top;
+    input-border border-bottom;
+    background-color: var(--background-color);
+}
+.discoveryNonEmptyText .discoveryCleanButton {
+    display: block;
+}
+.noTouch .discoveryCleanButton:hover {
+    color: $active-gray-text-color;
+}
+input[type="text"], input[type="password"] {
+    -moz-appearance: none;
+    -webkit-appearance: none;
+    /* убирает внутреннюю тень на iPad, хотя не уверен, что это нужно */
+    background-color: var(--background-color);
+    color: var(--text-color);
+}
+.subscribeDiscoveryFeed {
+    padding-bottom: 0.5em;
+}
+.discoveryContents .dfBtn {
+    display: inline;
+}
+.discoveryAlreadySubscribed {
+    padding: 1px;
+    color: $c888;
+}
+
+.filterLine { padding-top: $emr_05; margin-top: $emr_05; border-top: 1px solid $button-border-color-in-dialog; }
+.filtersEnd { margin-top: 1em }
+.filterQuery, .smartStreamName {
+    font-weight: bold;
+    margin-top: var(--baseline-compensation);
+    margin-bottom: calc(0px - var(--baseline-compensation));
+}
+.filterLeft { width: 3.5em; text-align: right; padding-right: 0.5em; flex-shrink: 0 }
+.bigDialogBox .dialogContent h1.smartStreamsPadding { margin-top: $emr2_138 }
+
+.feedbackUserInfo td { padding: 0; padding-right: 0.3em; padding-bottom: 0.25em }
+.feedbackUserInfo table { border-spacing: 0 }
+.feedbackUserInfo .filterLeft { color: $gray-text-color; }
+.mailText, .feedbackNotes { width: 100%; height: 12em; color: initial; }
+.feedbackUserInfo .statusRow { display: inline-block; padding-top: 1px; font-weight: bold }
+.preformatted {
+    display: block;
+    unicode-bidi: embed;
+/*     font-family: monospace; */
+    white-space: pre-wrap;
+}
+
+.pagerPage::after {
+    content: "";
+    display: block;
+    clear: both;
+}
+.nobr { white-space: nowrap }
+
+.inF, .inM {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+}
+.inM, .inL {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+pre {
+    .in, .inF, .inM, .inL {
+        display: inline;
+        /* иначе нет полей справа при горизонтальной прокрутке.
+           Убирается возможное центрование pre, но нам это и нужно
+           (при этом сами ноды с .in нужны, т.к. могут задавать цвет)
+         */
+    }
+}
+
+@require vimeo
+@require youtube
+@require habr
+@require telegram
+@require code
+@require icons
+
+.vmButtonsInMenu {
+    display: none;
+    padding-bottom: 4px;
+}
+
+$icon-width = 16px;
+
+$mobile-button-width = 50px;
+
+scaled-width(w, numIcons, numBorders, fs)
+  (w - numIcons * $icon-width - numBorders) / 24 * fs + numIcons * $icon-width + numBorders
+
+/* размер померял линейкой (Cmd+Shift+4 для скриншота и выделяем)
+   на максимальном размере шрифта
+ */
+
+tb-menuButtons-width(fs)
+  scaled-width(150px + 230px, 2, 5, fs)
+
+mtb-menuButtons-width(fs)
+  scaled-width(155px + 260px, 2, 5, fs)
+
+tb-vmButtons-width(fs)
+  scaled-width(158px, 5, 4, fs)
+
+mtb-vmButtons-width(fs)
+  scaled-width(215px, 5, 4, fs)
+
+tb-navButtons-width(fs)
+  scaled-width(485px, 5, 8, fs)
+
+mtb-navButtons-width(fs)
+  6 * $mobile-button-width
+
+$tb-narrow-navButton-width = 2.5em;
+
+tb-narrow-navButtons-width(fs)
+  scaled-width(370px, 5, 8, fs)
+/* должно быть 470, но позволяем их немного сжать */
+
+$navButtons = ".buttonSkip, .buttonIgnore, .buttonPrev, .buttonNext, .buttonReadability, .buttonOpenSearchBar, .buttonCloseSearchBar, .buttonSearch, .buttonCloseAddSubscription"
+
+narrow-navButton()
+    width: ($tb-narrow-navButton-width+1em) !important;
+    padding: 0;
+    .buttonIcon { margin-right: 0 }
+hide-navButtons-text()
+    .msgToolbar, .topToolbar {
+        {$navButtons} {
+            narrow-navButton()
+            .buttonText { display: none }
+        }
+    }
+hide-vmButtons()
+    .msgToolbar .vmButtons { display: none; }
+    .vmButtonsInMenu { display: block }
+
+menu-with-header() {
+    .dialogHeader {
+        display: flex;
+        box-sizing: border-box;
+    }
+    .dialogContent {
+        padding-top: $menu-hr-margin;
+    }
+}
+
+compact-menuButtons()
+    .buttonMarkAllAsReadSmall {
+        display: block;
+        narrow-navButton()  /* чтобы ширину задать */
+    }
+    .buttonMarkAllAsRead { display: none }
+    .buttonFeedOptionsSmall {
+        display: block;
+        narrow-navButton()  /* чтобы ширину задать */
+    }
+    .buttonFeedOptions { display: none }
+    .markAllAsReadMenu, .feedOptionsMenu {
+        .dialogHeader {
+            background-color: inherit;
+            .iconClose { display: none }
+        }
+        menu-with-header()
+    }
+
+/* right-break-width(c, w) */
+/*   if w > $narrow-left-panel-breakpoint-px - $left-panel-width */
+/*     @media ({'max-width: ' + (w + $left-panel-width)}) */
+/*       {'.noFullscreen' + c} */
+/*         {block} */
+/*   else if w > $left-panel-visibility-breakpoint-px - $narrow-left-panel-width */
+/*     @media ({'max-width: ' + (w + $narrow-left-panel-width)}) */
+/*       {'.noFullscreen' + c} */
+/*         {block} */
+/*   @media ({'max-width: ' + w}) */
+/*     {c} */
+/*       {block} */
+
+tb-break-width(w) {
+/*   if w > $narrow-left-panel-breakpoint-px - $left-panel-width */
+  @media ({'max-width: ' + ceil(w + $pseudo-left-panel-width) + ') and (min-width: ' + ($left-panel-visibility-breakpoint-px + 1px)}) {
+      {block}
+  }
+  if w > $left-panel-visibility-breakpoint-px - $narrow-left-panel-width {
+      @media ({'max-width: ' + ceil(w + $narrow-left-panel-width) + ') and (min-width: ' + ($left-panel-visibility-breakpoint-px + 1px)}) {
+          {block}
+      }
+  }
+}
+
+break-width(w) {
+    +tb-break-width(w) {
+      {block}
+    }
+    @media ({'max-width: ' + w}) {
+      {block}
+    }
+}
+
+mtb-break-width(w)
+  @media ({'max-width: ' + (w + $mobile-button-width)})
+    {block}
+mtb-buttons(n)
+  @media ({'max-width: ' + (n * $mobile-button-width)})
+    {block}
+
+tb(c, fs)
+  {c} {
+    +tb-break-width(tb-menuButtons-width(fs) + tb-vmButtons-width(fs) + tb-navButtons-width(fs)) {
+        hide-vmButtons()
+    }
+    +tb-break-width(tb-menuButtons-width(fs) + tb-navButtons-width(fs)) {
+        hide-navButtons-text()
+    }
+    +tb-break-width(tb-menuButtons-width(fs) + tb-narrow-navButtons-width(fs)) {
+        compact-menuButtons()
+    }
+    +mtb-break-width(mtb-menuButtons-width(fs) + mtb-vmButtons-width(fs) + mtb-navButtons-width(fs)) {
+        hide-vmButtons()
+    }
+    +mtb-break-width(mtb-menuButtons-width(fs) + mtb-navButtons-width(fs)) {
+        compact-menuButtons()
+    }
+    /* < * v  s x o r ^ v */
+    +mtb-buttons(9) {
+        .msgToolbar {
+            .buttonSkip, .buttonIgnore { display: none }
+        }
+        .toolbarButtonsInMenu {
+            display: block;
+            .buttonSkip, .buttonIgnore { display: block }
+        }
+    }
+    +mtb-buttons(7) {
+        .msgToolbar .buttonOpenSearchBar { display: none }
+        .toolbarButtonsInMenu .buttonOpenSearchBar { display: block }
+    }
+  }
+
+tb('.fontSize0', $fontSize0)
+tb('.fontSize1', $fontSize1)
+tb('.fontSize2', $fontSize2)
+tb('.fontSize3', $fontSize3)
+tb('.fontSize4', $fontSize4)
+tb('.fontSize5', $fontSize5)
+tb('.fontSize6', $fontSize6)
+tb('.fontSize7', $fontSize7)
+tb('.fontSize8', $fontSize8)
+
+.touch {
+    .toolbarButtonsInMenu, .buttonSelectSubscription {
+        display: block;
+    }
+}
+
+mosaic-width(n, fs, add = 0)
+    unit(n*(2*ceil($mosaic-padding-em * fs) + ceil($mosaic-thumbnail-width * fs) + 1) + add, px)
+
+mosaic-feed-align(n, c, fs) {
+    {'.feedAlignCenter' + c} {
+        .mosaic.msgFrame {
+            margin-left: "calc((100% - %s) / 2)" % mosaic-width(n, fs);
+            margin-left: "max(calc((100% - %s) / 2), %s)" % (mosaic-width(n, fs) $safe-area-inset-left);
+        }
+        .mosaic.msgFrame {
+            margin-right: "calc(0px - (100% - %s) / 2)" % mosaic-width(n, fs);
+            margin-right: "calc(0px - max((100% - %s) / 2, %s))" % (mosaic-width(n, fs) $safe-area-inset-left);
+        }
+        .magazinePadder {
+/*             margin-left: "calc((100% - %s) / 2)" % (mosaic-width(3, fs)); */
+            padding-left: "calc((100% - %s - %s + %s) / 2)" % (mosaic-width(3, fs) $text-width $default-text-width);
+            padding-left: "max(calc((100% - %s - %s + %s) / 2), %s)" % (mosaic-width(3, fs) $text-width $default-text-width $safe-area-inset-left);
+        }
+    }
+}
+mosaic-no-feed-align() {
+    &.feedAlignCenter {
+        .mosaic.msgFrame, .magazine.msgFrame {
+            margin-left: $safe-area-inset-left
+        }
+        .mosaic.msgFrame {
+            margin-right: "calc(0px - %s)" % $safe-area-inset-left
+        }
+    }
+}
+
+mosaic-three-column(fs, safe-area-width) {
+/*     .mosaic.msgFrame, .magazineImage { */
+/*         padding-right: mosaic-narrow-min-padding(fs); */
+/*         padding-left: mosaic-narrow-min-padding(fs); */
+/*     } */
+    .mosaic.msgFrame, .magazineImage {
+        box-sizing: border-box;
+    }
+    .mosaic.msgFrame {
+        width: "calc((99.9% - %s) / 3)" % safe-area-width;
+        /* не 33.33%, иначе картинки mosaic/magazine становятся чуть больше
+           при переходе в режим резиновых колонок */
+    }
+    .magazine {
+        --thumbnail-width: "calc((99.9% - %s) / 4)" % safe-area-width;
+        --thumbnail-width-padding: $mosaic-padding;
+        --thumbnail-width-padding-mul: 2;
+    }
+    .mosaicImage {
+        width: 100%;
+        padding-bottom: (100% / $thumbnail-aspect-ratio);
+    }
+    .magazineImage, .mosaicImage {
+        height: 0;
+    }
+    .magazineImage {
+        padding-bottom: "calc(%s / %s)" % ($thumbnail-width $thumbnail-aspect-ratio);
+    }
+    .mosaicDescription {
+        padding-right: $thick-space;
+        /* иначе может быть слишком маленький зазор между текстом
+           соседних плиток
+         */
+    }
+    mosaic-no-feed-align()
+}
+
+mosaic-columns-break(n, c, fs)
+  @media ({'min-width: ' + mosaic-width(n, fs, 2 * ceil($msgsPadder-padding-em * fs) + $pseudo-left-panel-width)}) {
+    {c} {
+      {'.mosaic.msgFrame.mosaic' + (n - 1)} { clear: none; }
+      {'.mosaic.msgFrame.mosaic' + n} { clear: left; }
+    }
+    mosaic-feed-align(n, c, fs)
+  }
+
+mosaic-break(c, fs) {
+    mosaic-feed-align(3, c, fs)
+    mosaic-columns-break(4, c, fs)
+    mosaic-columns-break(5, c, fs)
+    mosaic-columns-break(6, c, fs)
+    +tb-break-width(mosaic-width(3, fs, 2 * ceil($msgsPadder-padding-em * fs))) {
+        {'.noFullscreen ' + c} {
+            mosaic-three-column(fs, $safe-area-inset-right)
+        }
+    }
+    @media ({'max-width: ' + max($left-panel-visibility-breakpoint-px, mosaic-width(3, fs, 2 * ceil($msgsPadder-padding-em * fs)))}) {
+        {c} {
+            mosaic-three-column(fs, $safe-area-inset-width)
+        }
+    }
+}
+
+mosaic-break('.msgsPadder.fontSize0', $fontSize0)
+mosaic-break('.msgsPadder.fontSize1', $fontSize1)
+mosaic-break('.msgsPadder.fontSize2', $fontSize2)
+mosaic-break('.msgsPadder.fontSize3', $fontSize3)
+mosaic-break('.msgsPadder.fontSize4', $fontSize4)
+mosaic-break('.msgsPadder.fontSize5', $fontSize5)
+mosaic-break('.msgsPadder.fontSize6', $fontSize6)
+mosaic-break('.msgsPadder.fontSize7', $fontSize7)
+mosaic-break('.msgsPadder.fontSize8', $fontSize8)
+mosaic-break('.msgsPadder.fontSize9', $fontSize9)
+mosaic-break('.msgsPadder.fontSize10', $fontSize10)
+mosaic-break('.msgsPadder.fontSize11', $fontSize11)
+mosaic-break('.msgsPadder.fontSize12', $fontSize12)
+mosaic-break('.msgsPadder.fontSize13', $fontSize13)
+mosaic-break('.msgsPadder.fontSize14', $fontSize14)
+
+shorter-magazineText() {
+    .magazineTextShorter { display: block }
+    .magazineText { display: none }
+}
+
++break-width(950px) {
+    .hasSubject {
+        shorter-magazineText()
+    }
+}
+
++break-width(700px) {
+    shorter-magazineText()
+}
+@media (max-height: 900px), (max-width: 650px) {
+    .hasSubject {
+        shorter-magazineText()
+    }
+    .magazineDescription {
+        margin-bottom: 0.5em;
+        .msgFooter {
+            padding-top: 0.75em;
+/*             padding-bottom: 0.25em; */
+        }
+    }
+    .mosaic.msgFrame {
+        padding-bottom: 0.5em;
+    }
+    +break-width(950px) {
+        .hasSubject .magazineTextShorter {
+            ellipsis()
+        }
+    }
+}
+
+$left-panel-transition-duration = 0.3s
+
+/* для javascript */
+.js-movable-left-panel { margin-right: $movable-left-panel-margin-px }
+.js-left-panel-visibility { width: $left-panel-visibility-breakpoint-px }
+
+.menu .dialogHeader {
+    mobile-toolbar-height height;
+    mobile-toolbar-height line-height;
+    .iconClose {
+        mobile-toolbar-height width
+    }
+}
+
+.menuLeftTransition {
+    transition: left $left-panel-transition-duration ease;
+}
+.menuShadowTransition {
+    transition: opacity $left-panel-transition-duration linear,
+                left 0s linear $left-panel-transition-duration;
+    .showLeftPanel & {
+        transition: opacity $left-panel-transition-duration linear,
+                    left 0s;
+    }
+}
+
+.displayIfLeftPanelMovable { display: none }
+.noTouch .displayIfTouch { display: none }
+.touch .displayIfNoTouch { display: none }
+
+@media $left-panel-visibility-breakpoint {
+    full-width-right()
+    .msubject {
+        --subject-font-size: 1;
+    }
+    .top {
+        border-bottom-color: $ui-border-color;
+    }
+    .ui-menu {
+        max-width: none;
+    }
+    .articles {
+        mobile-toolbar-height-total margin-top;
+        mobile-toolbar-height-total(height, "calc(100vh - %s)");
+    }
+    span.displayIfLeftPanelMovable { display: inline }
+    div.displayIfLeftPanelMovable { display: block }
+    /* TODO: по идее это лучше сделать через display:none в min-width $left-panel-visibility-breakpoint + 1px */
+    .displayIfLeftPanelStatic { display: none }
+
+    .subMenuLabel { display: block }
+    .subMenuMenuItem { display: none }
+
+    .menu {
+        max-width: calc(100% - 50px) !important;
+        max-height: ("calc(100% - %s - %s - 21px)" % ($mobile-toolbar-height $safe-area-inset-height)) !important;
+        /* как раз центрует высокое tag/share menu,
+           TODO: учитывать разную высоту mobile toolbar?
+         */
+        height: auto !important;
+        overflow-y: auto;
+/*         border-color: $ui-border-color; */
+
+        .menu {
+            position: static !important;
+            display: block !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            max-height: none !important;
+            overflow: visible !important;
+            margin: 0;
+            box-shadow: none;
+            border: none;
+            .dialogContent {
+                overscroll-behavior: auto;
+            }
+        }
+    }
+    .settingsMenu > .dialogContent {
+        & li {
+            padding-left: "calc(%s + 16px)" % (0.5em + $thick-space);
+        }
+        .subMenu li {
+            padding-left: 0.5em;
+        }
+    }
+    .feedOptionsMenu {
+        width: auto !important;
+    }
+    .feedOptionsMenu, .markAllAsReadMenu {
+        margin-top: 1px;
+    }
+    .settingsMenu {
+        menu-with-header();
+        top: "calc(5px + %s)" % $safe-area-inset-top;
+        max-height: "calc(100% - 25px - %s)" % $safe-area-inset-height !important;
+/*         mobile-toolbar-height(top); */
+        left: 0;
+        right: 0;
+        width: 16em;
+        margin: auto;
+/*         margin-top: -1px; */
+    }
+    hide-navButtons-text();
+    .buttonAddSubscription {
+        flex: 1;
+        text-align: left;
+        padding-left: 0.2em + $thick-space;
+        margin-left: 0;
+    }
+    .left .buttonSettings, .msgToolbar .buttonOpenSearchBar, .topToolbar .buttonSearch, .topToolbar .buttonCloseSearchBar, .left .buyNow {
+        display: block;
+    }
+    .left.displayDiscovery {
+        .buttonCloseAddSubscription { display: block }
+        .buttonSettings { display: none }
+    }
+    .top.searchBarActive {
+        .topToolbar {
+            display: flex;
+            padding: 0;
+            .buyNow, .buttonSettings, .textButton, .flexSpacer {
+                display: none;
+            }
+            .oneLineInputAndButtonBorder {
+                max-width: none;
+                border: none;
+            }
+            input.oneLineInputAndButtonInput {
+                margin: 5px;
+/*                 padding: 0 $thick-space; */
+                background-color: $button-background-color;
+                button-border-radius();
+                border: 1px solid $button-background-color;
+                height: calc(100% - 10px);
+                width: calc(100% - 10px);
+            }
+        }
+        .msgToolbar { display: none }
+    }
+    .msgToolbar, .topToolbar {
+        mobile-toolbar-height-total height;
+        .vmButton {
+            padding-top: 0;
+            padding-bottom: 0;
+        }
+        .rightSeparator {
+            border: none !important;
+        }
+        .vmButtons {
+            margin: 0 $thick-space;
+        }
+        .button {
+            margin: 0;
+            border: none;
+            border-radius: 0;
+            z-index: auto;
+            color: $c888;
+            &, &:hover, &:active {
+                background: transparent;
+            }
+            .noTouch &:hover {
+                color: $c666;
+                background-color: $cf0f0f0 !important;
+            }
+            mobile-toolbar-height height;
+            .buttonText {
+                mobile-toolbar-height line-height;
+            }
+            padding: 0 0.5em;
+        }
+        {$navButtons + ", .buttonFeedOptionsSmall, .buttonMarkAllAsReadSmall, .buttonSettings"} {
+            padding: 0;
+            width: $mobile-button-width !important;
+        }
+        .buttonMarkAllAsRead {
+            .buttonLeft { padding-right: $thick-space }
+            .buttonRight { padding: 0 $thick-space }
+            margin-left: 0;
+            margin-right: 1.5em;  /* иначе иконка drop-down оказывается слишком близко к skip */
+        }
+        .showLeftPanelButton {
+            width: $mobile-button-width !important;
+            flex-shrink: 0;
+            padding: 0
+        }
+    }
+    .left {
+        box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.25);
+        left: "calc(%s - 10px - 100vw)" % $movable-left-panel-margin;
+        /* 10px для тени, iPad 2 не поддерживает вложенный calc(),
+           так что считаем через margin, а не width
+         */
+        width: $movable-left-panel-width;
+        .msgToolbar {
+            padding-left: 0;
+        }
+    }
+    .top, .left {
+        padding: 0;
+        .msgToolbar .button, .topToolbar .button {
+            padding-top: $safe-area-inset-top;
+        }
+    }
+    .left .msgToolbar .buttonAddSubscription, .top .showLeftPanelButton {
+        padding-left: $safe-area-inset-left;
+    }
+    .top .buttonNext {
+        padding-right: $safe-area-inset-right;
+    }
+    .leftPanelShadow {
+        display: block;
+        left: -101vw;
+    }
+    .bigDialogBoxShadow {
+/*         display: none; */
+    }
+    .smallDialogBoxShadow {
+        display: block;
+    }
+    .menu, .ui-menu, .smallDialogBox, .bigDialogBox, .infoMsgContainer, .smallDialogBoxShadow, .bigDialogBoxShadow {
+        z-index: 3; /* между top и появляющимся сверху .left */
+        /* а в обычном виде, когда .left всегда виден,
+           диалоги, наоборот, находятся над .left
+         */
+    }
+    .showLeftPanelButton { display: block }
+    .showLeftPanel {
+        .left {
+            left: 0;
+        }
+        .leftPanelShadow {
+            left: 0;
+            opacity: $shadow-opacity;
+        }
+    }
+    .bigDialogBox, .smallDialogBox {
+        left: $safe-area-inset-left !important;
+        right: $safe-area-inset-right !important;
+        top: $safe-area-inset-top !important;
+        margin-left: 0 !important;
+        width: auto;
+    }
+    .appearanceBox.smallDialogBox {
+        right: $safe-area-inset-right !important;
+    }
+    .bigDialogBox {
+        bottom: $safe-area-inset-bottom !important;
+    }
+    .smallDialogBox {
+        max-height: "calc(100vh - %s)" % $safe-area-inset-height;
+    }
+}
+
+center-images()
+    .i {
+        text-align: center !important;
+    }
+    .i img, .i .imgScaler, .i .iframeScaler, .i .in, .i .inF, .i .inM, .i .inL {
+        text-align: center !important;
+        /* display: block делает ссылки во всю ширину экрана,
+           так что центруем через text-align: center,
+           который заодно центрует изображения, которые не загрузились */
+        margin: 0 auto !important;
+        padding: 0 !important;
+    }
+
+
+no-msgsPadder-padding() {
+    .p, .i, .msgBodyHeader, .table, .pre, .subInfoScanning, .subInfoError, .subscriptionTitle {
+        margin-right: 0;
+    }
+    .feedMark, /.fullscreen .feedAlignCenter.feedMark { margin-left: 0 }
+    .feedMarkTop, /.fullscreen .feedAlignCenter.feedMarkTop { padding-right: $msgsPadder-padding; }
+    &.msgsPadder { padding: 0; }
+    .msgsHeader {
+        margin-left: $msgsPadder-padding;
+        margin-right: $msgsPadder-padding;
+    }
+    .welcomeText {
+        margin-left: "calc(%s - %s)" % ($mobile-margin $msgsPadder-padding);
+        margin-right: "calc(%s - %s)" % ($mobile-margin $msgsPadder-padding);
+    }
+    .loadingExpanded {
+        margin-left: $mobile-margin;
+    }
+    .depth1, .depth2 {
+        .msgBody { margin-right: $mobile-margin }
+    }
+    .post {
+        .msgCollapseMargin, .msgBody { margin-left: 0 }
+        .msgBodyHeader {
+            margin-left: "calc(%s + %s + %s)" % ($mobile-margin $authorPic-size $emr_05);
+            margin-right: $mobile-margin;
+            min-height: $authorPic-size + 0.25em;
+            /* ^ учитываем, что у аватарки в подписи может быть только
+                 одна строка */
+        }
+        &.expanded .msgFooter, &.short .msgFooter, {
+            margin-left: $mobile-margin;
+        }
+        div.authorPic {
+            margin-left: $mobile-margin;
+        }
+        .p, .readabilityLoading, .readabilityError {
+            margin-left: $mobile-margin;
+            margin-right: $mobile-margin;
+        }
+        .i {
+            padding-right: 0 !important;
+        }
+    }
+}
+
+@media (min-width: (left-panel-visibility-breakpoint-px + 1px)) {
+    .feedAlignCenter {
+        это с видимой левой панелью
+
+    .commentsGrow, .loadingExpanded {
+        padding-left: "calc((100% - 2*%s - %s) / 2)" % ($msgBody-margin-right $text-width);
+        .commentsGrow, .loadingExpanded {
+            padding-left: 0;
+        }
+    }
+    .post {
+        .msgBodyHeader, .p, .pre, .table, .readabilityLoading, .readabilityError {
+            padding-left: "calc((100% - %s - %s) / 2)" % ($msgBody-margin-right $text-width);
+        }
+        center-images()
+        .i {
+            margin-left: auto; margin-right: auto;
+            margin-bottom: 1em;
+            padding-right: "calc(%s)" % $msgBody-margin-right;
+        }
+        .i figcaption {
+            padding-left: "calc((100% - %s / %s) / 2)" % ($text-width $figcaption-font-size);
+            text-align: left;
+        }
+        div.authorPic {
+            padding-left: "calc((100% - 3em - %s - %s) / 2)" % ($msgBody-margin-right $text-width);
+        }
+        &.expanded .msgFooter, &.short .msgFooter {
+            padding-left: "calc((100% - 1em - %s - %s) / 2)" % ($msgBody-margin-right $text-width);
+        }
+
+    }
+    .fullscreen & {
+        это не должно отличаться от full-width-right
+
+        no-msgsPadder-padding()
+        .post {
+            .msgBodyHeader {
+                padding-left: "calc((100% - %s) / 2 - (%s + %s + %s))" % ($text-width $mobile-margin $authorPic-size $emr_05);
+            }
+            .i {
+                margin-right: auto;
+            }
+            .p, .pre_padding, .table_padding, .readabilityLoading, .readabilityError, &.expanded .msgFooter, &.short .msgFooter, /.fullscreen .feedAlignCenter.imagesWidthNormal .post .i {
+                padding-left: "calc((100% - %s) / 2 - %s)" % ($text-width $mobile-margin);
+                margin-left: $mobile-margin;
+                margin-right: $mobile-margin;
+            }
+            .pre_padding, .table_padding {
+                display: block;
+            }
+            .pre, .table {
+                padding-left: 0;
+                margin-left: 0;
+                margin-right: 0;
+            }
+            div.authorPic {
+                margin-left: $mobile-margin;
+                padding-left: "calc((100% - %s) / 2 - (%s + %s + %s))" % ($text-width $mobile-margin $authorPic-size $emr_05);
+            }
+        }
+    }
+}
+}
+
+.postHeaderFeed { max-width: 350px; }
+@media (max-width: 2100px) {
+    .postHeaderFeed { max-width: 300px; }
+}
+@media (max-width: 1800px) {
+    .postHeaderFeed { max-width: 250px; }
+}
+@media (max-width: 1500px) {
+    .postHeaderFeed { max-width: 220px; }
+}
+
+@media (max-width: 1300px) {
+    .postHeaderFeed { max-width: 200px; }
+}
+@media (max-width: 1100px)/* $narrow-left-panel-breakpoint */ {
+    .postHeaderFeed { max-width: 175px; }
+}
+@media $narrow-left-panel-breakpoint {
+    .hideWhenLeftPanelIsNarrow { display: none }
+}
+
+
+@media (min-width: 901px) {
+    .hideInNormalView {
+        display: none;
+    }
+}
+
+@media (max-width: $left-panel-visibility-breakpoint-px) {
+    .hideInMobileView {
+        display: none;
+    }
+    .infoMsgText {
+        max-width: 75%
+    }
+    no-msgsPadder-padding();
+    .searchTime, .searchButtons {
+        display: block;
+    }
+    .searchButtons {
+        height: 1.6em;
+    }
+    .msgButtons {
+        margin-right: 1px;
+        margin-left:  $thick-space;
+        .buttonIcon {
+            padding: 0 0.5em;
+        }
+    }
+    blockquote:not(.instagram-media), twitter-widget {
+        margin-left: (2em / 0.95) !important;
+        margin-right: (0.5em / 0.95) !important;
+        width: calc(100% - 2.5em/0.95) !important;
+    }
+    .mosaic .msubject {
+        margin-bottom: 0;
+        padding-bottom: 0.2em;
+    }
+
+    .post .msgBody, .depth1 .msgBody, .depth2 .msgBody { .p, .i, .msgBodyHeader { max-width: none } }
+    .post {
+        .msgBody {
+            margin-bottom: 1.75em;
+        }
+        &.mosaic .fromFeedFrom, &.magazine .fromFeedFrom {
+            display: none;
+        }
+        .mtext {
+            clear:both;
+            margin-top: $emr_075;
+        }
+        .table {
+            width: 100%;
+            padding: 0 !important;
+            margin: 0 !important;
+            /* у .table могут быть свои margin в style, по-этому !important */
+        }
+        .table_padding {
+            display: inline-table;
+            /* если делать inline-block, то добавляет отступ внизу */
+            margin: 0 $mobile-margin !important;
+            /* почему-то если задать padding/margin для .table
+               или .table > table, то поле справа все равно не видно
+            */
+        }
+        center-images()
+        .pre {
+            .in, .inF, .inM, .inL {
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+        }
+
+        .vspace { display: none }
+        .p, .i, .pre, .table {
+            margin-bottom: 1em !important;
+        }
+        .i .iframeScaler, .i video/* , .i object, .i embed */ {
+            width: 100% !important;
+        }
+        .i figcaption {
+            margin-left: "calc(%s / %s)" % ($mobile-margin $figcaption-font-size);
+            margin-right: "calc(%s / %s)" % ($mobile-margin $figcaption-font-size);
+            text-align: left;
+        }
+        .pre {
+            padding-left: $mobile-margin;
+            padding-right: $mobile-margin;
+        }
+
+    }
+    .msgFrame, .postHeaderLeft {
+        border-left-style: none !important;
+    }
+    .postHeader .iconStar { padding-left: 9px; }
+    .ultra.postHeader .iconStar {
+        background-position-x: 3px;
+        padding-left: 3px;
+        /* вместо border, чтобы звездочки совпадали с иконкой в groupByFeedLabel  */
+    }
+    .msgButtons .mtime {
+        display: none;
+    }
+    .mobileTime .mtime {
+        padding: 0;
+    }
+    .mobileTime {
+        display: inline;
+    }
+    .compactListViewItem .mobileTime {
+        display: none;
+    }
+    .msgFrame.depth1 { margin-left: 0.75em }
+    .msgFrame.depth2 { margin-left: 1.75em }
+    .mosaic.msgFrame, .magazineImage {
+        margin-left: "calc((100% - %s) * %s + %s)" % ($safe-area-inset-width $mobile-thumbnail-margin $safe-area-inset-left) !important;
+        margin-right: "calc(0px - %s)" % $safe-area-inset-left !important;
+    }
+    .magazine {
+        --thumbnail-width: "calc((100% - %s) / 4)" % $safe-area-inset-width;
+        --thumbnail-width-padding: "calc((100% - %s) * %s)" % ($safe-area-inset-width $mobile-thumbnail-margin) !important;
+        --thumbnail-width-padding-mul: 1.5 !important;
+    }
+
+    .mosaic.msgFrame {
+        width: "calc((100% - %s) * %s)" % ($safe-area-inset-width $mobile-thumbnail-width) !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+    .magazineDescription {
+        margin-left: "calc((100% - %s) * (1.5 * %s + %s) + %s)" % ($mobile-thumbnail-width $thumbnail-width $thick-space) !important;
+        margin-right: $mobile-margin;
+
+        .msgFooter {
+            padding-top: 0.75em;
+        }
+    }
+    .hasComments.msgFrame {
+        .msgBody { margin-bottom: 1em }
+        .msgFooter { margin-bottom: 1em }
+    }
+    .kbShortcutKey {
+        width: 6.5em;
+    }
+    .msgButtons {
+        .iconShare, .iconMsgTag/* , .iconKeepUnread, .msgFrame:not(.starred) & .iconStar */ {
+            display: none;
+        }
+    }
+}
+
+@media (max-width: 650px) {
+    .postHeaderFeed { display: none }
+    .msubject, .mosaic .msubject {
+        --subject-font-size: 0.95;
+    }
+    .magazine .msubject {
+        hyphens: manual;
+    }
+    &.mosaic {
+        .mosaicDescription {
+            font-size: calc(var(--article-font-size) - 1px);
+        }
+    }
+    .smallDialogBox, .bigDialogBox {
+        .dialogContent { padding: 0.75em }
+        .dialogHeader { padding-left: 0.75em }
+    }
+}
+
+@media $multiline-list-view-breakpoint {
+    .depth1 blockquote, .depth2 blockquote {
+        margin-right: (0em / 0.95);
+    }
+    .msgFrame {
+        /* не трогаем .postHeader внутри groupByFeedLabel/feedMark */
+        .postHeaderTime { display: none }
+        &.compactListViewItem {
+            .mobileTime { display: inline }
+            .msubjectWrapper { display: flex; }
+            .msubject {
+                ellipsis();
+                margin-bottom: 0;
+                padding-bottom: 0.2em;
+            }
+        }
+        .postHeader {
+            height: auto !important;
+        }
+        .postHeaderTags {
+            display: block;
+            white-space: normal;
+        }
+        .postHeaderRight {
+            flex-direction: column;
+        }
+        .postHeaderText, .postHeaderTags {
+            margin-right: 0.5em;
+        }
+        .ultra.postHeader .postHeaderTag {
+            margin-bottom: $emr_015;
+        }
+        .postHeaderSubject {
+            white-space: normal
+            display: block;
+        }
+        .postHeaderShortText {
+            &::before { content: "" !important }
+            ellipsis();
+        }
+    }
+}
+
+@media (max-width: 480px) {
+    .mosaic.msgFrame {
+        width: "calc((100% - %s) * (1 - 3 * %s) / 2)" % ($safe-area-inset-width $mobile-thumbnail-margin) !important;
+    }
+    .mosaic.msgFrame.mosaic3 { clear: none; }
+    .mosaic.msgFrame.mosaic2 { clear: left; }
+    .magazine .msgButtons {
+        display: none;
+    }
+}

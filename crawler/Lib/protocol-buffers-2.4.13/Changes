@@ -1,0 +1,76 @@
+Newest at the top.
+
+2.4.13
+
+- Fix build for GHC-8.8
+
+2.4.12
+
+- New option to derive ToJSON/FromJSON
+- Fix build for GHC-8.6
+- Drop support for GHC-7.10
+- New testsuite
+
+2.4.11
+
+- pr #66. Attach deriving Typeable to data declaration in hs-boot files
+- pr #65. Fix time complexity of serialization
+
+2.4.10
+
+- pr #59. Add Semigroup instance
+
+2.4.9
+
+- pr #48. Make parser float support natural or float data format
+
+2.4.8
+
+- pr #58. Fix build for HSE-1.20
+
+2.4.7
+
+- pr #57. Add GHC 8.4 support (add Semigroup instances)
+
+2.4.6
+
+- issue #55. Constraint haskell-src-exts to be < 1.20
+
+2.4.5
+
+- pr #54. Support haskell-src-exts 1.18
+
+2.4.4
+
+- pr #53. Allow decimal places at the end of line
+
+2.4.3
+
+- pr #50. restrict haskell-src-exts version constraint
+
+2.4.2
+
+- fix version constraints
+
+2.4.1
+
+- issue #10, pr #47. Fixed not to lookup a entity defined in the parent package
+
+2.3.1:
+
+- add Generic deriving
+
+2016-03-22 2.3.0:
+
+- Dump to text as decimal instead of octal (PR #34)
+- Oneof lenses
+
+2008-09: 0.3.1:
+
+- Change Parser.hs to allow negative enum values to match actual behavior of protoc.
+- Use runST & castSTUArray for both Float and Double conversion to Word32 and Word64.
+- Adding UnknownField support controlled by "-u" flag to hprotoc.
+- Fix messageGet to use the new 'isReallyEmpty' and Parial Results get Nothing, to work better.
+- Fix default instances of Descriptor messages to be Nothing instead of Just defaultValue.
+
+2008-09 : version 0.2.9 released.  This is the first working release.

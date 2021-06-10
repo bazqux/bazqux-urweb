@@ -1,8 +1,5 @@
 open Binary_ffi
-
-datatype either a b = Left of a | Right of b
-
-type assoc_list a b = list (a * b)
+open Either
 
 type put a = putBuf -> a -> putBuf
 type get a = getBuf -> (getBuf * a)
@@ -10,17 +7,18 @@ type get a = getBuf -> (getBuf * a)
 fun get_string b = (advanceGetBuf b (get_int_ b + 8), get_string_ b)
 fun get_xhead  b = (advanceGetBuf b (get_int_ b + 8), get_xhead_ b)
 fun get_xbody  b = (advanceGetBuf b (get_int_ b + 8), get_xbody_ b)
+fun get_xbodyString b = (advanceGetBuf b (get_int_ b + 8), get_xbodyString_ b)
 fun get_page   b = (advanceGetBuf b (get_int_ b + 8), get_page_ b)
 fun get_id     b = (advanceGetBuf b (get_int_ b + 8), get_id_ b)
 fun get_url    b = (advanceGetBuf b (get_int_ b + 8), get_url_ b)
 fun get_blob   b = (advanceGetBuf b (get_int_ b + 8), get_blob_ b)
 fun get_int    b = (advanceGetBuf b               8 , get_int_ b)
-fun get_char   b = (advanceGetBuf b               1 , get_char_ b)
-fun get_bool   b = (advanceGetBuf b               1 , get_char_ b <> chr 0)
+fun get_byte   b = (advanceGetBuf b               1 , get_byte_ b)
+fun get_bool   b = (advanceGetBuf b               1 , get_byte_ b <> 0)
 fun get_time   b = (advanceGetBuf b              16 , get_time_ b)
 fun get_unit   b = (b, ())
 
-fun put_bool b x = put_char b (if x then chr 1 else chr 0)
+fun put_bool b x = put_byte b (if x then 1 else 0)
 fun put_unit b () = b
 
 fun get_list [a] (g : get a) b : (getBuf * list a) =
@@ -49,13 +47,13 @@ fun put_list [a] (p : put a) b l : putBuf =
 
 fun put_option [a] (p : put a) b o : putBuf =
     case o of
-        None   => put_char b (chr 0)
-      | Some s => p (put_char b (chr 1)) s
+        None   => put_byte b 0
+      | Some s => p (put_byte b 1) s
 
 fun get_option [a] (g : get a) b : (getBuf * option a) =
-    let val (b', c) = get_char b
+    let val (b', c) = get_byte b
     in
-        if c = chr 0 then (b', None)
+        if c = 0 then (b', None)
         else
             let val (b'', s) = g b'
             in (b'', Some s) end
@@ -63,13 +61,13 @@ fun get_option [a] (g : get a) b : (getBuf * option a) =
 
 fun put_either [a] [b] (pa : put a) (pb : put b) b e : putBuf =
     case e of
-        Left l  => pa (put_char b (chr 0)) l
-      | Right r => pb (put_char b (chr 1)) r
+        Left l  => pa (put_byte b 0) l
+      | Right r => pb (put_byte b 1) r
 
 fun get_either [a] [b] (ga : get a) (gb : get b) b : (getBuf * either a b) =
-    let val (b', c) = get_char b
+    let val (b', c) = get_byte b
     in
-        if c = chr 0 then
+        if c = 0 then
             let val (b'', s) = ga b'
             in (b'', Left s) end
         else
@@ -85,12 +83,12 @@ signature BINARY = sig
     val binary_unit : binary {}
     val binary_int : binary int
     val binary_bool : binary bool
-    val binary_char : binary char
     val binary_time : binary time
     val binary_string : binary string
     val binary_url : binary url
     val binary_xhead : binary xhead
     val binary_xbody : binary xbody
+    val binary_xbodyString : binary xbodyString
     val binary_page : binary page
     val binary_id : binary Basis.id
     val binary_blob : binary blob
@@ -111,13 +109,14 @@ structure Binary : BINARY = struct
     fun mkBinary [a] p g = { Put = p, Get = g }
     val binary_int : binary int = { Put = put_int, Get = get_int }
     val binary_bool : binary bool = { Put = put_bool, Get = get_bool }
-    val binary_char : binary char = { Put = put_char, Get = get_char }
     val binary_time : binary time = { Put = put_time, Get = get_time }
     val binary_unit : binary {} = { Put = put_unit, Get = get_unit }
     val binary_string : binary string = { Put = put_string, Get = get_string }
     val binary_url : binary url = { Put = put_url, Get = get_url }
     val binary_xhead : binary xhead = { Put = put_xhead, Get = get_xhead }
     val binary_xbody : binary xbody = { Put = put_xbody, Get = get_xbody }
+    val binary_xbodyString : binary xbodyString =
+        { Put = put_xbodyString, Get = get_xbodyString }
     val binary_page : binary page = { Put = put_page, Get = get_page }
     val binary_blob : binary blob = { Put = put_blob, Get = get_blob }
     val binary_id : binary Basis.id = { Put = put_id, Get = get_id }

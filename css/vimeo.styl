@@ -1,0 +1,194 @@
+// -*- mode: css -*-
+/* Vimeo */
+.vimeo, .vimeo * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent
+}
+.vimeo {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    display: block;
+    -webkit-font-smoothing: auto;
+    line-height: normal;
+    border-collapse: separate;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    text-align: left;
+}
+.vimeo, .vimeo .h1, .vimeo .h2 {
+    font-family: "Helvetica Neue",Helvetica,Arial!important;
+    font-size: 10px
+}
+
+.vimeo {
+
+    .title {
+        display: block;
+        position: relative;
+        padding: 10px;
+        -webkit-transition: opacity 250ms ease-out;
+        transition: opacity 250ms ease-out;
+        margin-right: 4.6em
+    }
+    .title .header {
+        display: flex;
+        -webkit-flex-flow: row nowrap;
+        -ms-flex-flow: row nowrap;
+        flex-flow: row nowrap
+    }
+
+    .title .header .headers {
+        display: -webkit-box;
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-flex-flow: column nowrap;
+        -ms-flex-flow: column nowrap;
+        flex-flow: column nowrap;
+        -webkit-box-align: start;
+        -webkit-align-items: flex-start;
+        -ms-flex-align: start;
+        align-items: flex-start;
+        -webkit-box-flex: 1;
+        -webkit-flex: 1 1 100%;
+        -ms-flex: 1 1 100%;
+        flex: 1 1 100%
+    }
+
+    .title .header .h1,.title .header .h2 {
+        background: rgba(23,35,34,.75);
+        display: inline-block;
+        text-transform: none;
+        line-height: normal;
+        letter-spacing: normal
+    }
+
+    .title .header .h1 {
+        max-width: 100%;
+        font-size: 2em!important;
+        font-weight: 700;
+        margin: 0;
+        padding: .1em .2em
+    }
+    a {
+        text-decoration: none;
+    }
+    .title .header .h1 a {
+        font-weight: 700
+    }
+    .title a {
+        color: rgb(0, 173, 239) !important;
+    }
+    .title a:hover {
+        color: rgb(255, 82, 16) !important;
+    }
+    button:hover {
+        background-color: rgb(0, 173, 239);
+    }
+    .title .header .h2 {
+        font-size: 1.2em!important;
+        font-weight: 400;
+        color: #fff;
+        margin-top: .1em;
+        padding: .2em .5em
+    }
+
+    .title .header .h2 .user,.title .header .h2 a {
+        font-weight: 700
+    }
+
+    .title .portrait {
+        display: none;
+        background: rgba(23,35,34,.75);
+        width: 6em;
+        height: 6em;
+        margin-right: 1px;
+        -webkit-box-flex: 1;
+        -webkit-flex: 1 0 auto;
+        -ms-flex: 1 0 auto;
+        flex: 1 0 auto
+    }
+
+    .title .portrait img {
+        border: 0;
+        width: 6em;
+        height: 6em;
+        border-radius: 50%;
+        padding: .5em
+    }
+    .video-wrapper { display: block; }
+    .video-wrapper .video {
+        display: block;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #000;
+        background-size: contain;
+        margin: 0 auto;
+        background-repeat: no-repeat;
+        background-position: 50% 50%;
+        -webkit-transition: -webkit-filter .25s;
+    }
+    .video-wrapper .video.cover {
+        background-size: cover
+    }
+    .controls {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 10px;
+        opacity: 1;
+        display: -webkit-box;
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-box-align: end;
+        -webkit-align-items: flex-end;
+        -ms-flex-align: end;
+        align-items: flex-end
+    }
+    .controls .play {
+        width: 6.5em;
+        height: 4em;
+        margin-right: .9em;
+        color: #fff;
+        position: relative;
+        -webkit-transition: opacity 250ms ease-out,background-color 40ms,color 40ms;
+        transition: opacity 250ms ease-out,background-color 40ms,color 40ms
+    }
+    button {
+        border: 0;
+        padding: 0;
+        margin: 0;
+        font-family: "Helvetica Neue",Helvetica,Arial;
+        cursor: pointer;
+        font-size: 1em
+    }
+    .rounded-box {
+        background: rgba(23,35,34,.75);
+        border-radius: .5em
+    }
+    .fill {
+        fill: #fff
+    }
+    .controls .fill {
+        -webkit-transition: fill 40ms;
+        transition: fill 40ms
+    }
+    .controls .play-icon {
+        display: block;
+        margin: 0 auto;
+        padding: .2em 0 0 .2em
+    }
+    .controls .play-icon svg {
+        width: 2em;
+        height: 2em
+    }
+}

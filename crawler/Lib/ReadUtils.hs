@@ -1,7 +1,14 @@
 {-# LANGUAGE ViewPatterns #-}
 -- | Утилиты для чтения значений из Text, более быстрые, но
 -- менее универсальные, чем read.
-module Lib.ReadUtils where
+module Lib.ReadUtils
+    ( tryReadUnsignedInt, readUnsignedInt
+    , tryReadUnsignedInteger, readUnsignedInteger
+    , tryReadInteger, readInteger
+    , tryReadDouble
+    ) where
+-- чтение Integer на больших числах может быть медленнее Read
+-- можно взять код из css-syntax
 
 import qualified Data.Text as T
 import Data.Char
@@ -17,6 +24,14 @@ readSigned f b
 readInteger  = readSigned readUnsignedInteger
 readInt      = readSigned readUnsignedInt
 readRational = readSigned readUnsignedRational
+
+tryReadSigned :: Num a => (T.Text -> Maybe a) -> T.Text -> Maybe a
+tryReadSigned f (T.strip -> b)
+    | T.index b 0 == '-' = negate <$> f (T.drop 1 b)
+    | otherwise          = f b
+
+tryReadInteger  = tryReadSigned tryReadUnsignedInteger
+tryReadInt      = tryReadSigned tryReadUnsignedInt
 
 readUnsignedInteger :: T.Text -> Integer
 readUnsignedInteger =
@@ -36,3 +51,13 @@ tryReadUnsignedInt (T.strip -> t)
     | T.all (\ c -> c >= '0' && c <= '9') t && not (T.null t) =
         Just $ readUnsignedInt t
     | otherwise = Nothing
+
+tryReadUnsignedInteger (T.strip -> t)
+    | T.all (\ c -> c >= '0' && c <= '9') t && not (T.null t) =
+        Just $ readUnsignedInteger t
+    | otherwise = Nothing
+
+tryReadDouble :: T.Text -> Maybe Double
+tryReadDouble t = case reads (T.unpack t) of
+    [(r, [])] -> Just r
+    _ -> Nothing

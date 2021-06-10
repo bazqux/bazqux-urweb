@@ -1,0 +1,128 @@
+// -*- mode: css -*-
+/* YouTube */
+/*
+ * Video Title (YouTube style)
+ */
+
+.ytp-gradient-top {
+  display:block;
+  top: 0;
+  width: 100%;
+  height: 98px;
+  position: absolute;
+  pointer-events: none;
+  background-repeat: repeat-x;
+  background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAABiCAQAAAA7fHH2AAAAQUlEQVQYV22KQQoAIAzDyv7/Et/oVlGZVCfkkIYamsENXESyi8vc0u/PKZ6o8+7fZ0h8ShRYnD+BFKToRJkHFpkM2hZSxuyWpEYAAAAASUVORK5CYII=');
+}
+
+.ytp-chrome-top {
+  display:block;
+  position: absolute;
+  left: 12px;
+  right: 10px;
+  top: 0;
+  font-family: Roboto,Arial,Helvetica,sans-serif;
+  color: #eee;
+  text-align: left;
+  direction: ltr;
+  font-size: 11px;
+  line-height: 1.3;
+  -webkit-font-smoothing: antialiased;
+  text-shadow: 0 0 2px rgba(0,0,0,.5);
+}
+
+.ytp-title {
+    display:block;
+    font-size: 150%;
+    overflow: hidden;
+    padding-right: 20px;
+    white-space: nowrap;
+}
+
+.ytp-title-text {
+    padding-top: 15px;
+    display: inline-block;
+    line-height: 1.1;
+    vertical-align: top;
+    max-width: 100%;
+}
+
+.ytp-title-link {
+    max-width: 100%;
+    overflow: hidden;
+    color: #eee !important;
+    text-decoration: none !important;
+    white-space: nowrap;
+    word-wrap: normal;
+    -o-text-overflow: ellipsis;
+    text-overflow: ellipsis;
+    float: left;
+    padding-left: 4px;
+    padding-bottom: 5px; /* чтобы буквы не обрезало */
+}
+
+/*
+ * Thumbnail
+ */
+
+.ytp-thumbnail {
+  display:block;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  cursor: pointer;
+  background-position: 50% 50%;
+  background-repeat: no-repeat;
+  -webkit-background-size: cover;
+     -moz-background-size: cover;
+       -o-background-size: cover;
+       background-size: cover;
+  /* под Android, при перемотке, под превьюшкой появляется белый фон,
+     но он и у youtube появляется.
+   */
+}
+
+/*
+ * Play button (YouTube style)
+ */
+.ytp-button:focus,
+.ytp-button {
+  border: none;
+  outline: 0;
+  color: inherit;
+  text-align: inherit;
+  font-size: 100%;
+  font-family: inherit;
+  cursor: pointer;
+  line-height: inherit;
+  padding: 0;
+  background: transparent;
+}
+
+.ytp-large-play-button {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 68px;
+  height: 48px;
+  margin-left: -34px;
+  margin-top: -24px;
+}
+
+.ytp-large-play-button-bg {
+    -moz-transition: fill .1s cubic-bezier(0.4, 0.0, 1, 1), opacity .1s cubic-bezier(0.4, 0.0, 1, 1);
+    -webkit-transition: fill .1s cubic-bezier(0.4, 0.0, 1, 1), opacity .1s cubic-bezier(0.4, 0.0, 1, 1);
+    transition: fill .1s cubic-bezier(0.4, 0.0, 1, 1), opacity .1s cubic-bezier(0.4, 0.0, 1, 1);
+    fill: #1f1f1f;
+    opacity: .9
+}
+
+.ytp-thumbnail:hover .ytp-large-play-button-bg {
+    -moz-transition: fill .1s cubic-bezier(0.0, 0.0, 0.2, 1), opacity .1s cubic-bezier(0.0, 0.0, 0.2, 1);
+    -webkit-transition: fill .1s cubic-bezier(0.0, 0.0, 0.2, 1), opacity .1s cubic-bezier(0.0, 0.0, 0.2, 1);
+    transition: fill .1s cubic-bezier(0.0, 0.0, 0.2, 1), opacity .1s cubic-bezier(0.0, 0.0, 0.2, 1);
+    fill: #cc181e;
+    opacity: 1
+}

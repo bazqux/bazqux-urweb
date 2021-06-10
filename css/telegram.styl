@@ -1,0 +1,22 @@
+// -*- mode: css -*-
+/* Стили для Telegram */
+
+.bqrTelegram_tgme_widget_message_document_wrap {
+    display: block;
+    .bqrTelegram_tgme_widget_message_document {
+        margin-left: 2.5em
+    }
+    .bqrTelegram_tgme_widget_message_document_icon {
+        display: inline-block !important; /* игнорируем vspace */
+        float: left;
+        width: 2em;
+        height: 2em;
+        border-radius: 1em;
+        background: url(/images/telegram-document-icon.png) no-repeat center;
+        background-color: #4ca3e2;
+        margin-top: calc((var(--paragraph-line-height) - 1) * 1em);
+    }
+    .bqrTelegram_tgme_widget_message_document_icon.bqrTelegram_audio {
+        background-image: url(/images/telegram-audio-icon.png);
+    }
+}

@@ -1,0 +1,119 @@
+name:                riak-protobuf
+version:             0.22.0.0
+synopsis:            Haskell types for the Riak protocol buffer API
+description:
+  A set of Haskell types for interacting with the protocol buffer
+  API of the Riak decentralized data store.
+
+homepage:            http://github.com/markhibberd/riak-haskell-client
+license:             OtherLicense
+license-file:        LICENSE
+author:              Bryan O'Sullivan <bos@mailrank.com>
+maintainer:          Mark Hibberd <mark@hibberd.id.au>, Tim McGilchrist <timmcgil@gmail.com>
+copyright:           Copyright 2011 MailRank, Inc.
+                     Portions copyright 2007-2010 Basho Technologies, Inc.
+category:            Network
+build-type:          Simple
+extra-source-files:
+  README.markdown
+  proto.sh
+  src/riak.proto
+  src/riak_kv.proto
+  src/riak_search.proto
+  src/riak_dt.proto
+  src/riakextra.proto
+  Changes.md
+
+cabal-version:       >=1.8
+
+library
+  hs-source-dirs: src
+
+  exposed-modules:
+    Network.Riak.Protocol.AuthRequest
+    Network.Riak.Protocol.BucketKeyPreflistItem
+    Network.Riak.Protocol.BucketProps
+    Network.Riak.Protocol.BucketProps.ReplMode
+    Network.Riak.Protocol.CommitHook
+    Network.Riak.Protocol.Content
+    Network.Riak.Protocol.CounterGetRequest
+    Network.Riak.Protocol.CounterGetResponse
+    Network.Riak.Protocol.CounterOp
+    Network.Riak.Protocol.CounterUpdateRequest
+    Network.Riak.Protocol.CounterUpdateResponse
+    Network.Riak.Protocol.CSBucketRequest
+    Network.Riak.Protocol.CSBucketResponse
+    Network.Riak.Protocol.DeleteRequest
+    Network.Riak.Protocol.DtFetchRequest
+    Network.Riak.Protocol.DtFetchResponse.DataType
+    Network.Riak.Protocol.DtFetchResponse
+    Network.Riak.Protocol.DtOp
+    Network.Riak.Protocol.DtUpdateRequest
+    Network.Riak.Protocol.DtUpdateResponse
+    Network.Riak.Protocol.DtValue
+    Network.Riak.Protocol.ErrorResponse
+    Network.Riak.Protocol.GetBucketKeyPreflistRequest
+    Network.Riak.Protocol.GetBucketKeyPreflistResponse
+    Network.Riak.Protocol.GetBucketRequest
+    Network.Riak.Protocol.GetBucketResponse
+    Network.Riak.Protocol.GetBucketTypeRequest
+    Network.Riak.Protocol.GetClientIDRequest
+    Network.Riak.Protocol.GetClientIDResponse
+    Network.Riak.Protocol.GetRequest
+    Network.Riak.Protocol.GetResponse
+    Network.Riak.Protocol.GetServerInfoRequest
+    Network.Riak.Protocol.IndexObject
+    Network.Riak.Protocol.IndexRequest
+    Network.Riak.Protocol.IndexRequest.IndexQueryType
+    Network.Riak.Protocol.IndexResponse
+    Network.Riak.Protocol.Link
+    Network.Riak.Protocol.ListBucketsRequest
+    Network.Riak.Protocol.ListBucketsResponse
+    Network.Riak.Protocol.ListKeysRequest
+    Network.Riak.Protocol.ListKeysResponse
+    Network.Riak.Protocol.MapEntry
+    Network.Riak.Protocol.MapField
+    Network.Riak.Protocol.MapField.MapFieldType
+    Network.Riak.Protocol.MapOp
+    Network.Riak.Protocol.MapReduce
+    Network.Riak.Protocol.MapReduceRequest
+    Network.Riak.Protocol.MapUpdate.FlagOp
+    Network.Riak.Protocol.MapUpdate
+    Network.Riak.Protocol.ModFun
+    Network.Riak.Protocol.Pair
+    Network.Riak.Protocol.PingRequest
+    Network.Riak.Protocol.PutRequest
+    Network.Riak.Protocol.PutResponse
+    Network.Riak.Protocol.ResetBucketRequest
+    Network.Riak.Protocol.SearchDoc
+    Network.Riak.Protocol.SearchQueryRequest
+    Network.Riak.Protocol.SearchQueryResponse
+    Network.Riak.Protocol.ServerInfo
+    Network.Riak.Protocol.SetBucketRequest
+    Network.Riak.Protocol.SetBucketTypeRequest
+    Network.Riak.Protocol.SetClientIDRequest
+    Network.Riak.Protocol.SetOp
+    Network.Riak.Protocol.YzIndexDeleteRequest
+    Network.Riak.Protocol.YzIndexGetRequest
+    Network.Riak.Protocol.YzIndexGetResponse
+    Network.Riak.Protocol.YzIndex
+    Network.Riak.Protocol.YzIndexPutRequest
+    Network.Riak.Protocol.YzSchemaGetRequest
+    Network.Riak.Protocol.YzSchemaGetResponse
+    Network.Riak.Protocol.YzSchema
+    Network.Riak.Protocol.YzSchemaPutRequest
+
+  other-modules:
+    Network.Riak.Protocol
+
+  build-depends:
+    array >= 0.4,
+    base == 4.*,
+    parsec >= 3,
+    protocol-buffers >= 2.1.4 && < 2.5
+
+  ghc-options: -Wall -fno-warn-orphans
+
+source-repository head
+  type:     git
+  location: http://github.com/markhibberd/riak-haskell-client

@@ -1,0 +1,273 @@
+cabal-version:       3.0
+Name:                bazqux
+Version:             0.1
+License:             BSD-3-Clause
+Homepage:            https://bazqux.com
+Synopsis:            BazQux Reader
+Description:         Your friend for reading feeds
+Author:              Vladimir Shabanov
+Maintainer:          Vladimir Shabanov <dev@vshabanov.com>
+Build-Type:          Simple
+
+source-repository head
+    type:     git
+    location: https://github.com/vshabanov/bazqux-reader
+
+-- custom-setup
+--   setup-depends:
+--     base,
+--     mtl,
+--     directory,
+--     process,
+--     Cabal >= 3.2 && < 4,
+--     derive
+-- custom-setup почему-то собирает не в x/exe/noopt/build/exe/exe,
+-- а в просто x/noopt/build/exe/exe и потом не может запустить executable,
+-- т.к. не добавляет нужный RPATH:
+-- dyld: Library not loaded: @rpath/libHSbazqux-0.1-inplace-ghc8.6.5.dylib
+-- Если убрать executable-dynamic, то начинает долго линковать
+
+Library
+  default-language:  Haskell2010
+  hs-source-dirs:    .
+  exposed-modules:
+    Queue
+    APIServer
+    API
+    Feedback
+    Account
+    Auth
+    Config
+    Discovery
+    Generated.DataTypes
+    Generated.RiakIO
+    Generated.HsFFI
+    HotLinks
+    Lib.BArray
+    Lib.BinaryInstances
+    Lib.Cache
+    Lib.DnsCache
+    Lib.ElasticSearch
+    Lib.FastChar
+    Lib.Hash
+    Lib.Json
+    Lib.LanguageDetector
+    Lib.Log
+    Lib.Merge
+    Lib.Queue
+    Lib.ReadSet
+    Lib.ReadUtils
+    Lib.Regex
+    Lib.Stats
+    Lib.StringConversion
+    Lib.UnsafeRef
+    Lib.UrTime
+    Mailer
+    OPML
+    PageInfo
+    ParseServer
+    Parser
+    Parser.CSS
+    Parser.Custom
+    Parser.DOM
+    Parser.Default
+    Parser.Disqus
+    Parser.Facebook
+    Parser.Habr
+    Parser.Instagram
+    Parser.LiveJournal
+    Parser.LtU
+    Parser.Reddit
+    Parser.Telegram
+    Parser.Twitter
+    Parser.Types
+    Parser.VK
+    Parser.YouTube
+    Payments
+    Payments.Eofd
+    Payments.FastSpring
+    Preprocess
+    PubSubHubbub
+    Resolvables
+    Riak
+    Search
+    Session
+    Subscriptions
+    URL
+    UrCalls
+    UsageFlags
+  include-dirs:      Generated
+  autogen-modules:
+    Generated.DataTypes
+    Generated.RiakIO
+    Generated.HsFFI
+  Build-Depends:
+    base,
+    array,
+    binary >= 0.8.8.0,
+    -- почему-то жалуется на то, что не может найти символ из binary-0.8.6.0
+    -- (при динамической подгрузке библиотек под macOS), но если собрать с
+    -- 0.8.8.0, а потом с 0.8.6.0 (не соберется из-за того, что разные пакеты
+    -- используют разную версию библиотеки), а потом вернуть на 0.8.8.0, то всё
+    -- работает.
+    -- Какой-то баг в Cabal 3.2.0.0
+    deepseq,
+    bytestring >= 0.10.12.1,
+    text >= 1.2.4.1,
+    containers >= 0.6.4.1,
+    hashable,
+    unordered-containers,
+    mtl,
+    time,
+    SafeSemaphore,
+    network,
+    network-bsd,
+    iproute,
+    dns,
+    concurrent-dns-cache,
+    QuickCheck,
+    regex-base,
+    regex-tdfa,
+    ekg,
+    compact,
+    text-icu,
+    hyphenation,
+    aeson >= 1.5.6.0,
+    directory,
+    memory,
+    base16-bytestring,
+    base64-bytestring,
+    base58-bytestring,
+    cryptonite,
+
+    scientific,
+    css-syntax,
+    tagsoup,
+    fast-tagsoup,
+    network-uri,
+    punycode,
+    email-validate,
+    http-types,
+    http-client,
+    http-conduit-downloader,
+    vector,
+    riak-protobuf,
+    riak,
+    async,
+    raw-zlib,
+    random,
+    data-default,
+    url,
+    language-javascript,
+    mime-mail,
+    mime-types,
+    warp,
+    wai,
+    wai-extra,
+    authenticate,
+    authenticate-oauth,
+    case-insensitive,
+    publicsuffix,
+    process,
+    blaze-builder,
+    utf8-string,
+    zip-archive,
+    unix,
+    random-shuffle,
+    derive
+
+Executable           Reader
+  main-is:           Reader.hs
+  ghc-options:       -no-hs-main
+  hs-source-dirs:    Executables
+  default-language:  Haskell2010
+  Build-Depends:     base, bazqux
+  C-Sources:         Generated/webapp.c
+  include-dirs: /usr/local/include/urweb
+  CC-Options:
+    -D_THREAD_SAFE -Wimplicit -Werror -Wno-unused-value
+--    -O3
+  ld-options:
+    /usr/local/lib/liburweb_http.a
+    /usr/local/lib/liburweb.a
+
+Executable           Queue
+  Main-is:           RunQueue.hs
+  ghc-options:       -rtsopts
+  hs-source-dirs:    Executables
+  default-language:  Haskell2010
+  Build-Depends: base, bazqux
+
+Executable           ParseServer
+  Main-is:           RunParseServer.hs
+  ghc-options:       -rtsopts
+  hs-source-dirs:    Executables
+  default-language:  Haskell2010
+  Build-Depends: base, bazqux
+
+Executable           PubSubHubbub
+  Main-is:           RunPubSubHubbub.hs
+  ghc-options:       -rtsopts
+  hs-source-dirs:    Executables
+  default-language:  Haskell2010
+  Build-Depends: base, bazqux
+
+Executable           MuninPlugin
+  Main-is:           MuninPlugin.hs
+  ghc-options:       -rtsopts -with-rtsopts "-M3G"
+  hs-source-dirs:    Executables
+  default-language:  Haskell2010
+  Build-Depends: base, bazqux,
+    binary, bytestring, text, unordered-containers, containers
+
+Executable           Index
+  Main-is:           Index.hs
+  ghc-options:       -rtsopts
+  hs-source-dirs:    Executables
+  default-language:  Haskell2010
+  Build-Depends: base, bazqux
+
+Executable           Util
+  Main-is:           Util.hs
+  ghc-options:       -rtsopts
+  hs-source-dirs:    Executables
+  default-language:  Haskell2010
+  Build-Depends: base, bazqux, text
+
+Benchmark            ProxyTest
+  Main-is:           ProxyTest.hs
+  type:              exitcode-stdio-1.0
+  ghc-options:       -rtsopts
+  hs-source-dirs:    tests
+  default-language:  Haskell2010
+  Build-Depends: base, bazqux, bytestring, http-client, http-conduit-downloader
+
+Benchmark            FiltersTest
+  Main-is:           FiltersTest.hs
+  type:              exitcode-stdio-1.0
+  ghc-options:       -rtsopts
+  hs-source-dirs:    tests
+  default-language:  Haskell2010
+  Build-Depends: base, bazqux
+
+Benchmark            JsonBenchmark
+  Main-is:           JsonBenchmark.hs
+  type:              exitcode-stdio-1.0
+  ghc-options:       -rtsopts
+  hs-source-dirs:    tests .
+  default-language:  Haskell2010
+  other-modules:     Lib.Json Lib.StringConversion Lib.JsonB
+  Build-Depends:       base
+                     , sajson >= 0.1.0.1
+                     , criterion
+                     , aeson
+                     , vector
+                     , bytestring
+                     , deepseq
+                     , text
+                     , json-syntax, text-short, scientific-notation, byteslice
+                     , scientific, unordered-containers
+                     , Z-Data >= 0.7.4.0
+-- Z-Data не работает с executable-dynamic: True
+-- dyld: Symbol not found: __tb64avx2dec
+  ghc-options:         -Wall -O2 -threaded -rtsopts

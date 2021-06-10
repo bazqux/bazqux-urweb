@@ -1,26 +1,51 @@
+# -*- mode: conf -*-
 allow url *
 allow mime *
 allow responseHeader *
 allow requestHeader *
+allow meta *
 rewrite style Css/*
 rewrite url Main/main
 rewrite url Main/*
+rewrite url Rpcs/*
+rewrite url Session/*
+rewrite url Import/*
+rewrite url Pages/*
+rewrite url Payments/*
+rewrite cookie Session/sid Main/sid
+rewrite cookie Session/sid_beta Main/sid_beta
+rewrite cookie Session/sid_local Main/sid_local
+rewrite cookie Session/referrer referrer
+rewrite cookie Session/openIdURL Main/openIdURL
 sigfile sig.txt
-library crawler/Generated/hsffi
-# script http://cdn.bazqux.com/utils.js
-# script //ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js
-# script //ajax.googleapis.com/ajax/libs/jqueryui/1.10.1/jquery-ui.min.js
-script /js/libs_v4.js
-library crawler/Generated/utils_js
+library crawler/Generated/h_ffi
+library crawler/Generated/neverInline
+jsModule bq
 rewrite all Js/*
-minHeap 134217728
-onError Utils.errorPage
+minHeap 167772160
+onError Pages.errorPage
 lessSafeFfi
-effectful Utils.when
+html5
 safeGet
+safeGet activate_account
+safeGet password_reset
+safeGet change_email
+safeGet restore_access
+safeGet i
+safeGet Root/sitemap
+safeGet Pager/test
+safeGet Feedback/feedback
+safeGet Feedback/sign_in
+safeGet feedback
 safeGet login
+safeGet signUp
+safeGet login_with
+safeGet renew
+safeGet renew_subscription
+safeGet please_log_in_again
 safeGet getUserIdBySession
-safeGet sign_in
+safeGet passwordReset
+safeGet switch_to_user
 safeGet facebookToken
 safeGet whoami
 safeGet opml
@@ -31,103 +56,78 @@ safeGet add
 safeGet importStarredAndTaggedItemsFromGoogleReader
 safeGet activeImports
 safeGet fetcher
+safeGet media_proxy
 safeGet importOPML_
 safeGet clearSubscriptions
 safeGet deleteAccount
 safeGet privacy
 safeGet faq
 safeGet refund
+safeGet apps
+safeGet order_notification
+safeGet order_notification_new
+safeGet restart
+clientToServer Basis.postBody
+clientToServer Basis.queryString
 clientToServer Ur_ffi.bgAction
 clientToServer Ur_ffi.treeReq
 clientToServer Ur_ffi.loginType
 #debug
 #prefix http://bazqux.com/
-monoInline 5
+#monoInline 20
+# monoInline 20 вызывает перестановку performBgActions и folderMsgForest
+# в rpcs.withUser, что выражается в том, что надо Mark all as read
+# по два раза кликать. установка benignEffectful помимо effectful не помогает
+# monoInline 20 уже склеивает xml кнопок, monoInline 15 еще нет
+# monoInline 100 замедляет компиляцю на 5-8сек и увеличивает app.js на 30%
 # monoInline 0 и 7 размер увеличивается, 3-5 одинаковый
 # neverInline всех utils (не Utils/..) тоже увеличивает
 # только Utils/.. уменьшает
-#coreInline 0
-# если 3, то объем возрастает
-alwaysInline dyn_
-# ^ не Utils/dyn_
-alwaysInline qa
-alwaysInline qaX
-alwaysInline kb
-alwaysInline hrefLink
+#coreInline 10
+# по-умолчанию 5, <3 не работает, 3 чуть увеличивает app.js,
+# 10 - чуть уменьшает (на 0.1%), 20 -- увеличивается
+# если ф-ия полиморфная или содержит запись, то инлайнится вне зависимости
+# от coreInline
+alwaysInline Utils/dyn_
+alwaysInline Utils/hrefLink
+# alwaysInline qa
+# alwaysInline qaX
+# alwaysInline kb
 # ^ надо инлайнить, чтобы в helpBox было меньше вложенных cat,
 # из-за которых не работал Firefox и Chrome dev под линуксом
-#alwaysInline hrefLinkStopPropagation
-#alwaysInline Utils/buttonChar
-#alwaysInline Main/buyOpt
-#alwaysInline Utils/when
-#alwaysInline postFields
-neverInline mw
-neverInline reloadFeed
-neverInline initEditQueryBox
-neverInline reloadFeed'
-neverInline newSmartStream
-neverInline newFilter
-neverInline init
-neverInline updateSubscriptions'
-neverInline updateSubscriptions
-neverInline subscriptionsWidget
-neverInline msgsWidget
-neverInline discoveryWidget
-neverInline helpText
-neverInline buyText
-neverInline mobileLoginBox
-neverInline infoMessageAtTheTop
-neverInline setFeed
-neverInline setFeed_
-neverInline setCurrentFeed
-neverInline setDiscoveryFeed
-neverInline setFolderForest
-neverInline setFolder
-neverInline getUrls
-neverInline search'
-neverInline modifyMsgTreeViewMode
-neverInline subscribeDiscoveryFeed
-neverInline markAllRead
-neverInline toggleFull
-neverInline toggleFull'
-neverInline msgButtons
-neverInline shareMenu
-neverInline msgNodeNew
-neverInline msgBodyAndFooter
-neverInline renameDialog
-neverInline unsubscribeLiI
-neverInline publicFeedDialog
-neverInline feedAddressDialog
-neverInline addSub
-neverInline foldersMenuContents
-neverInline subItemMenuContents
-neverInline processRead
-neverInline editTags
-neverInline addTag
-neverInline markRead
-neverInline tryMarkRead
-neverInline processRead
-neverInline toggleMsgRead
-neverInline skipMsgComments
-neverInline getScrollMode
-neverInline selectS
-neverInline findScroll
-neverInline append
-neverInline checkAppend
-neverInline toggleCollapsedReal
-neverInline toggleFullText
-neverInline showMarkAllAsReadMenu
-neverInline Utils/popups
-neverInline Utils/rpcQueue
-neverInline Utils/backgroundRpc
-neverInline line
-neverInline filtersBox
-neverInline filterAction
+# необходимо учитывать rewrite url Pages/*, и убирать префикс Pages/
+# ^ это всё уже в Makefile, т.к. neverInline сильнее alwaysInline и нужно
+# отфильтровывать qa|qaX|kb на этапе генерации neverInline.urp
+neverInline login
+# чтобы в Utils/redirectToMain не превращал
+alwaysInline setReferrer
 
 $/list
 $/monad
 $/option
+$/string
 js
 css
+unsafe
 utils
+session
+rpcs
+backgroundRpc
+settings
+popups
+import
+payments
+pages
+pager
+subItem
+uim
+share
+feeds
+articles
+discovery
+filters
+appearance
+account
 main
+feedback
+crawler/Generated/root

@@ -1,15 +1,15 @@
 cabal-version:  >= 1.6
 name:           raw-zlib
 version:        0.0
-author:         Vladimir Shabanov <vshabanoff@gmail.com>
-maintainer:     Vladimir Shabanov <vshabanoff@gmail.com>
+author:         Vladimir Shabanov <dev@vshabanov.com>
+maintainer:     Vladimir Shabanov <dev@vshabanov.com>
 homepage:       https://github.com/bazqux/raw-zlib
 license:        BSD3
 category:       Codec
 build-type:     Simple
 synopsis:       Simple RAW format zlib functions
 description:
-    RAW format zlib compression/decompression. Hope less buggy than zlib-bindings (sometimes don't decompress correctly) or zlib (memory leaks)
+    RAW format zlib compression/decompression. Hope less buggy than zlib-bindings (sometimes don't decompress correctly https://github.com/snoyberg/zlib-bindings/issues/9 -- was fixed, streaming-commons now recommended, perhaps raw-zlib could be removed now) or zlib (memory leaks).
 
 source-repository head
     type:     git

@@ -4,69 +4,89 @@
 --   * Сериализацию между urweb/haskell (instance UrData)
 --   * инстансы Binary с сериализацией и версионностью
 
+module Gen (main) where
+
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Reader
 import System.IO
 import System.Directory
+import System.Info
 import Data.IORef
 import Data.List
 import Data.Char
+import Data.Maybe
 import System.Process
 import System.Exit
+
 data GenState
     = GenState
       { gsHs :: Handle
       , gsUr :: Handle
+      , gsUrBinary :: Handle
       , gsHsFFI :: Handle
       , gsCFFI :: Handle
-      , gsUrFFI :: Handle
-      , gsUrFFIur :: Handle
-      , gsUrCalls :: Handle
+      , gsH_ffi_urs :: Handle
+      , gsH_urs :: Handle
+      , gsH_ur :: Handle
       , gsUrp :: Handle
+      , gsAllowMult :: Handle
       , gsRiakIO :: Handle
---       , gsH  :: Handle
       , gsHsTypes :: IORef [String]
       , gsUrTypes :: IORef [Type]
       }
 newtype Gen a = Gen { unGen :: ReaderT GenState IO a }
-    deriving (Monad, MonadIO, Functor, MonadReader GenState)
+    deriving (Monad, Applicative, MonadIO, Functor, MonadReader GenState)
 
-genFile fn act = do
+genFile = genFile' Nothing
+genFile' after fn act = do
     r <- withFile tfn WriteMode act
     e <- doesFileExist gfn
     if e then do
+        mt <- getModificationTime gfn
+        genMt <- getModificationTime "Gen.hs"
         tf <- readFile tfn
         gf <- readFile gfn
-        when (tf /= gf) mv
+        when (tf /= gf -- || genMt >= mt
+             ) mv
     else
         mv
     return r
     where tfn = "/tmp/" ++ fn
           gfn = "Generated/" ++ fn
-          mv = void $ system $ "mv " ++ tfn ++ " " ++ gfn
+          mv = do
+              system $ "mv " ++ tfn ++ " " ++ gfn
+              forM_ after $ \ a -> a gfn
 
 runGen :: Gen a -> IO a
 runGen g = do
     r <- genFile "DataTypes.hs" $ \ gsHs ->
          genFile "datatypes.ur" $ \ gsUr -> do
+         withFile "Generated/datatypesBinary.ur" WriteMode $ \ gsUrBinary -> do
          genFile "HsFFI.hs" $ \ gsHsFFI -> do
          genFile "RiakIO.hs" $ \ gsRiakIO -> do
          genFile "CFFI.h" $ \ gsCFFI -> do
-         genFile "ur_ffi.urs" $ \ gsUrFFI -> do
-         genFile "ur_ffi.ur" $ \ gsUrFFIur -> do
-         genFile "urCalls.ur" $ \ gsUrCalls -> do
-         withFile "Generated/hsffi.urp" WriteMode $ \ gsUrp -> do
---          withFile "Generated/datatypes.h" WriteMode $ \ gsH -> do
+         genFile "h_ffi.urs" $ \ gsH_ffi_urs -> do
+         genFile "h.urs" $ \ gsH_urs -> do
+         genFile "h.ur" $ \ gsH_ur -> do
+         genFile "h_ffi.urp" $ \ gsUrp -> do
+         genFile' (Just runSH) "allow_mult.sh" $ \ gsAllowMult -> do
             gsHsTypes <- newIORef []
             gsUrTypes <- newIORef []
             runReaderT (unGen g') (GenState {..})
-    ExitSuccess <- system "cd Generated && derive DataTypes.hs && cd ../ && make -s strict_derive"
+    ExitSuccess <-
+        if os == "darwin" then
+            runCmd derive
+        else
+            system derive
     return r
-    where g' = do
+    where derive = "cabal exec derive -- Generated/DataTypes.hs && make -s strict_derive"
+          runCmd x = system $ "bash -l -c \"" <> x <> "\""
+          runSH x  = system $ "bash -l \"" <> x <> "\""
+          g' = do
               putHs "-- ФАЙЛ СГЕНЕРИРОВАН АВТОМАТИЧЕСКИ (см. Gen.hs) !!!\n\n\
-                    \{-# LANGUAGE CPP, BangPatterns #-}\n\
-                    \{-# OPTIONS_DERIVE --output=BinaryInstances_nonstrict.h #-}\n\n\
+                    \{-# LANGUAGE CPP, BangPatterns, StandaloneDeriving, DeriveGeneric #-}\n\
+                    \{-# OPTIONS_DERIVE --output=Generated/BinaryInstances_nonstrict.h #-}\n\n\
                     \-- | Описание структур данных, сохраняемых в Riak \n\
                     \-- и передаваемых между Ur/Web и Haskell\n\
                     \module Generated.DataTypes where\n\n\
@@ -79,32 +99,35 @@ runGen g = do
                     \import Lib.UnsafeRef\n\
                     \import Lib.ReadSet (ReadSet)\n\
                     \import URL\n\
+                    \import Data.Scientific (Scientific)\n\
                     \import Data.Set (Set)\n\
                     \import Data.Map (Map)\n\
                     \import Data.IntMap (IntMap)\n\
                     \import Data.IntSet (IntSet)\n\
                     \import Data.Binary\n\
                     \import Data.Hashable\n\
+                    \-- import Control.DeepSeq\n\
                     \import Lib.BinaryInstances()\n\
+                    \-- import GHC.Generics\n\
                     \\n\
                     \instance Hashable ItemTag where\n\
                     \    hashWithSalt s ITStarred = s `hashWithSalt` (0 :: Int)\n\
                     \    hashWithSalt s (ITTag t) = s `hashWithSalt` t\n\
                     \\n\
                     \ "
-              putUr "open Binary\n"
-              putUr "open Ur_ffi\n"
               -- почему-то не обрабатывало GHCRTS с более чем двумя параметрами
               -- поэтому захардкодил их тут
+              -- -c compaction дает зависания на несколько секунд, но меньший CPU
+              -- -H без -c дает отжирание проца в начале работы
               putCFFI "#include <urweb.h>\n\
                       \#include \"HsFFI.h\"\n\n\
                       \#include \"Rts.h\"\n\n\
-                      \uw_unit uw_Ur_ffi_init(uw_context ctx) { \n\
+                      \uw_unit uw_H_ffi_init(uw_context ctx) { \n\
                       \static int argc = 7;\n\
                       \static char* arg0 = \"/tmp/coreader.exe\";\n\
                       \static char* argv[20]; argv[0]=arg0; int i; for(i=1; i<20;i++)argv[i]=NULL; \n\
                       \argv[1] = \"+RTS\";\n\
-                      \argv[2] = \"-N6\";\n\
+                      \argv[2] = \"-N4\";\n\
                       \argv[3] = \"-T\";\n\
                       \argv[4] = \"-A64m\";\n\
                       \argv[5] = \"-I0\";\n\
@@ -136,15 +159,28 @@ runGen g = do
                      \module Generated.HsFFI where\n\
                      \import Generated.DataTypes\n\
                      \import Generated.RiakIO\n\
-                     \import URL (TURL)\n\
+                     \import URL\n\
                      \import Lib.UrTime\n\
+                     \import Lib.Log\n\
+                     \import Lib.Stats\n\n\
                      \import UrCalls\n\
+                     \import OPML\n\
+                     \import Session\n\
+                     \import Account\n\
+                     \import Payments\n\
+                     \import Preprocess\n\
+                     \import Mailer\n\
+                     \import Feedback\n\
                      \import Search\n\
+                     \import UsageFlags\n\
                      \import Discovery (searchSubscriptions)\n\
-                     \import API\n\
+                     \import APIServer\n\
                      \import Auth\n\
                      \import Data.Binary\n\
+                     \import Data.List\n\
+                     \import Text.HTML.TagSoup.Fast (escapeHtmlT)\n\
                      \import qualified Data.Text as T\n\
+                     \import qualified Data.Text.Encoding as T\n\
                      \import qualified Data.ByteString.Char8 as B\n\
                      \import qualified Data.ByteString.Lazy as BL\n\
                      \import qualified Data.ByteString.Internal as B\n\
@@ -154,8 +190,10 @@ runGen g = do
                      \import Control.Concurrent\n\
                      \import System.IO.Unsafe\n\
                      \import System.IO\n\
+                     \import System.Timeout\n\
                      \import Foreign hiding (unsafePerformIO)\n\
                      \import Foreign.C.Types\n\n\
+                     \import Lib.BinaryInstances\n\n\
                      \type Ctx = Ptr ()\n\n\
                      \retMap :: MVar (Map.Map Ctx B.ByteString)\n\
                      \retMap = unsafePerformIO $ newMVar Map.empty\n\
@@ -176,38 +214,75 @@ runGen g = do
                      \    s <- B.create len (\\ dst -> B.memcpy dst (castPtr ptr) (toEnum len))\n\
                      \    --print (\"peekArg\", s)\n\
                      \    return $ decode $ BL.fromChunks [s]\n\
-                     \ret :: Ctx -> Either E.SomeException B.ByteString \n\
-                     \    -> Ptr CLong -> IO (Ptr ())\n\
-                     \ret ctx (Left ex) pLen = do\n\
+                     \stripUserError :: String -> String\n\
+                     \stripUserError s\n\
+                     \    | isPrefixOf prefix s && isSuffixOf \")\" s =\n\
+                     \        drop (length prefix) $ init s\n\
+                     \    | otherwise = s\n\
+                     \    where prefix = \"user error (\"\n\
+                     \retErr :: String -> Ctx -> String\n\
+                     \       -> Ptr CLong -> IO (Ptr ())\n\
+                     \retErr func ctx err0 pLen = do\n\
+                     \    logS $ \"Exception: \" ++ err\n\
+                     \    incrStat \"exceptions\" 1\n\
                      \    poke pLen (toEnum $ 0 - B.length bs)\n\
                      \    saveBSretPtr ctx bs\n\
-                     \    where bs' = B.pack (show ex)\n\
-                     \          bs = if bs' /= \"\" then bs' else \"emtpy error?\"\n\
-                     \ret ctx (Right bs) pLen = do\n\
+                     \    where err = func ++ \": \" ++ err0\n\
+                     \          bs = T.encodeUtf8 $ T.pack err\n\
+                     \ret :: String -> Ctx -> Either E.SomeException (Maybe B.ByteString) \n\
+                     \    -> Ptr CLong -> IO (Ptr ())\n\
+                     \ret func ctx (Left ex) pLen = do\n\
+                     \    retErr func ctx (stripUserError $ show ex) pLen\n\
+                     \ret func ctx (Right Nothing) pLen = do\n\
+                     \    incrStat \"timeouts\" 1\n\
+                     \    retErr func ctx \"Timeout\" pLen\n\
+                     \ret _ ctx (Right (Just bs)) pLen = do\n\
                      \    poke pLen (toEnum $ B.length bs)\n\
                      \    saveBSretPtr ctx bs\n\
                      \enc a = B.concat $ BL.toChunks $ encode a \n\n\
                      \ "
-              putUrCalls "open Binary"
-              putUrCalls "open Ur_ffi"
-              putUrCalls "open Datatypes\n"
-              putUrp "ffi ur_ffi\n\
+              putH_ur
+                  "open Binary\n\
+                  \open H_ffi\n\
+                  \open Datatypes\n\n\
+                  \open DatatypesBinary\n\n\
+                  \task initialize = fn () => H_ffi.init\n"
+              putUrp "ffi h_ffi\n\
                      \library ../../lib/lib\n\
                      \include CFFI.h\n\
                      \link HsFFI\n\
-                     \effectful Ur_ffi.init"
+                     \effectful h_ffi.init"
               putUrFFI "val init : transaction {}"
+              putF gsAllowMult "buckets=("
+
               r <- g
-              putUrp "\ndatatypes\nurCalls"
+
+              putF gsAllowMult
+                   ")\n\
+                   \for bucket in \"${buckets[@]}\"\n\
+                   \do\n\
+                   \   curl -v -XPUT -H \"Content-Type: application/json\" \\\n\
+                   \        -d '{\"props\":{\"allow_mult\":true,\"last_write_wins\":false,\"dvv_enabled\":true}}' \\\n\
+                   \        http://127.0.0.1:8098/riak/$bucket\n\
+                   \done";
 
               putHs "\n{-!"
               types <- getList gsHsTypes
-              forM_ types $ \ t ->
+              forM_ types $ \ t -> do
                   putHs $ "deriving instance Binary " ++ t
               putHs "!-}\n#include \"BinaryInstances.h\""
+--               types <- getList gsHsTypes
+--               forM_ types $ \ t -> do
+--                   putHs $ "instance Binary " ++ t
+--                   putHs $ "instance NFData " ++ t
 
               urTypes <- getList gsUrTypes
-              putUr $ formatUrSerialization urTypes
+              let (ur, urp) = formatUrSerialization urTypes
+              putF gsUrBinary "open Datatypes\nopen Binary\n"
+              putF gsUrBinary ur
+              putUrp urp
+
+              putUrp "\ndatatypes\ndatatypesBinary\nh"
 
               return r
 
@@ -220,9 +295,9 @@ putF f s = asks f >>= liftIO . flip hPutStrLn s
 
 putRiakIO = putF gsRiakIO
 putHsFFI = putF gsHsFFI
-putUrFFI = putF gsUrFFI
--- putUrFFIur = putF gsUrFFIur
-putUrCalls = putF gsUrCalls
+putUrFFI = putF gsH_ffi_urs
+putH_ur = putF gsH_ur
+putH_urs = putF gsH_urs
 putCFFI = putF gsCFFI
 putHs = putF gsHs
 putUr = putF gsUr
@@ -230,9 +305,9 @@ putUrp = putF gsUrp
 -- putH  = putF gsH
 
 data Field = String :. Type -- name type
-    deriving Show
+    deriving (Show, Eq)
 data Ctor = String :/ [Field]
-    deriving Show
+    deriving (Show, Eq)
 data UrWeb = NoUw | Uw | UwD
     deriving (Show, Eq)
 data Type
@@ -245,11 +320,11 @@ data Type
     | Builtin String String -- haskell/urweb type
     | List Type
     | Tuple [Type]
-    | PType String String [Type]
-    deriving Show
+    | PType Bool String String [Type]
+    deriving (Show, Eq)
 
 formatHsType = formatHsType' True
-formatHsType' top = go top False False
+formatHsType' top typ = go top False False typ
     where go top field br t = case t of
               Type {..}
                   | top -> "data " ++ tName ++ "\n"
@@ -260,15 +335,20 @@ formatHsType' top = go top False False
                   | field && hs `elem` ["Int", "UrTime"] ->
                       -- а вот Bool нельзя UNPACK, т.к. два конструктора
                       "{-# UNPACK #-} !" ++ hs
-              Builtin hs _ | field -> "!" ++ hs
+              Builtin hs _ | field -> -- && hs `notElem` ["T.Text", "TURL"] ->
+                               "!" ++ hs
               Builtin hs ur -> hs
               List t -> "[" ++ go False False False t ++ "]"
               Tuple t ->
                   "(" ++ intercalate ", " (map (go False False False) t) ++ ")"
-              PType hs ur t -> braces br $ hs ++ " "
+              PType _ hs ur t -> braces br $ hs ++ " "
                                ++ intercalate " " (map (go False False True) t)
           ctors _ _ [] =
-              ["deriving (Show, Eq, Ord)"]
+              ["deriving (Show, Eq" ++ (if hasOrd [] typ then ", Ord" else "")
+               ++ "{-, Generic-})"]
+              -- с Generic компилируется на 20 сек (~10%) дольше
+              -- и кода на ~10% больше, разница небольшая,
+              -- но пока работает derive, лучше уж пользоваться им
           ctors p first ((ctor :/ flds) : cs) =
               [(if first then "= " else "| ") ++ ctor]
               ++ ident "  " (fields p True flds)
@@ -281,27 +361,49 @@ formatHsType' top = go top False False
                ++ go False True False typ]
               ++ fields p False fs
 
+
+hasOrd p (Type {..})
+    | tName `elem` p = True
+    | otherwise =
+        all (hasOrd (tName:p)) [t | (_ :/ flds) <- tCtors, (_ :. t) <- flds]
+hasOrd _ (Builtin _ _) = True
+hasOrd p (List t) = hasOrd p t
+hasOrd p (Tuple t) = all (hasOrd p) t
+hasOrd p (PType o _ _ t) = o && all (hasOrd p) t
+
 lf (x:xs) = toLower x : xs
 
-formatUrType = formatUrType' True
-formatUrType' top = go top False
-    where go top br t = case t of
-              Type {..}
-                  | top ->
+data FormatMode
+    = Top
+    | Unqualified
+    | Qualified
+    deriving (Show, Eq)
+
+urT mode = go mode False
+    where go mode br t = case t of
+              Type {..} -> case mode of
+                  Top ->
                       if tUrWeb == UwD then
                            "datatype " ++ lf tName ++ "\n"
                            ++ unlines (align ":" $ ident "  " $
                                        ctors True tCtors)
                       else
-                           "con " ++ lf tName ++ "\n"
+                           "con " ++ lf tName ++ " :: Type\n"
                            ++ unlines (align ":" $ ident "  " $
                                        ctor tCtors)
-                  | otherwise -> lf tName
+                  Unqualified -> lf tName
+                  Qualified -> "Datatypes." ++ lf tName
               Builtin hs ur -> ur
-              List t -> braces br $ "list " ++ go False True t
-              Tuple t -> "(" ++ intercalate " * " (map (go False False) t) ++ ")"
-              PType hs ur t -> braces br $ ur ++ " "
-                               ++ intercalate " " (map (go False True) t)
+              List t -> braces br $ "list " ++ go mode' True t
+              Tuple t -> "(" ++ intercalate " * " (map (go mode' False) t) ++ ")"
+              PType _ hs "assoc_list" [a,b] -> go mode br (List (Tuple [a,b]))
+              PType _ hs "int_assoc_list" [a] -> go mode br (List (Tuple [int,a]))
+              PType _ hs "int_list" [] -> go mode br (List int)
+              PType _ hs ur t -> braces br $ ur ++ " "
+                               ++ intercalate " " (map (go mode' True) t)
+          mode'
+              | mode == Top = Unqualified
+              | otherwise   = mode
           ctors _ [] =
               []
           ctors first ((ctor :/ flds) : cs) =
@@ -315,29 +417,33 @@ formatUrType' top = go top False
           fields _ [] = ["}"]
           fields first ((name :. typ) : fs) =
               [(if first then "{ " else ", ") ++ name ++ " : "
-               ++ go False False typ]
+               ++ go mode' False typ]
               ++ fields False fs
 
 formatUrSerialization types =
-    "fun recurseGets () = ()\n" ++ concatMap genGet types ++ "\n\n" ++
-    "fun recursePuts () = ()\n" ++ concatMap genPut types ++ "\n\n" ++
-    concatMap genBinary types
+    (concatMap genGet types ++ "\n\n" ++
+     concatMap genPut types ++ "\n\n" ++
+     concatMap genBinary types
+    ,concatMap genNeverInline types)
     where genBinary (Type {..}) =
               "val binary_" ++ lf tName ++ " : binary " ++ lf tName
                         ++ " = mkBinary put_"
                         ++ lf tName ++ " get_" ++ lf tName ++ "\n"
+          genNeverInline (Type {..}) =
+              "neverInline DatatypesBinary/get_" ++ lf tName ++ "\n" ++
+              "neverInline DatatypesBinary/put_" ++ lf tName ++ "\n"
           genGet (Type {..}) =
-              "and get_" ++ lf tName ++
-              " b : (getBuf * " ++ lf tName ++ ") = \n" ++
+              "fun get_" ++ lf tName ++
+              " (b : getBuf) : (getBuf * " ++ lf tName ++ ") = \n" ++
               (if length tCtors /= 1 then
-                   "  let val (b, c) = get_char b in case ord c of\n"
+                   "  let val (b, c) = get_byte b in case c of\n"
                else "  case 0 of\n" -- один конструктор
               ) ++
-              unlines (ident "  " $ getCtors (tUrWeb == UwD)
+              unlines (ident "  " $ getCtors tName (tUrWeb == UwD)
                                              True (zip [0..] tCtors)) ++
               (if length tCtors /= 1 then "  end\n" else "")
           genPut (Type {..}) =
-              "and put_" ++ lf tName ++ " b (x : " ++ lf tName ++ ") = \n" ++
+              "fun put_" ++ lf tName ++ " (b : putBuf) (x : " ++ lf tName ++ ") : putBuf = \n" ++
               "  case x of\n" ++ unlines (ident "  " $
                                           putCtors (tUrWeb == UwD)
                                                    (zip [0..] tCtors)) ++
@@ -349,16 +455,22 @@ formatUrSerialization types =
               ++ next ++ "end\n"
           put_func t = case t of
               Type {..} -> "put_" ++ lf tName
-              Builtin hs ur -> "put_" ++ ur
+              Builtin hs ur -> "put_" ++ dropModuleName ur
               List t -> "put_list (" ++ put_func t ++ ")"
-              Tuple ts -> "(fn b t =>"
+              Tuple ts -> "(fn (b : putBuf) t => "
                           ++ putNames [ ("t." ++ show i, t)
                                       | (i,t) <- zip [1..] ts]
                           ++ ")"
-              PType hs "assoc_list" [a,b] -> put_func $ List (Tuple [a,b])
-              PType hs ur [t] -> "put_" ++ ur ++ " (" ++ put_func t ++ ")"
-              PType hs ur [a,b] -> "put_" ++ ur ++ " (" ++ put_func a ++ ") (" ++ put_func b ++ ")"
-
+              PType _ hs "assoc_list" [a,b] -> put_func $ List (Tuple [a,b])
+              PType _ hs "int_assoc_list" [a] -> put_func $ List (Tuple [int,a])
+              PType _ hs "int_list" [] -> put_func $ List int
+              PType _ hs ur [t] ->
+                  "put_" ++ dropModuleName ur ++ " (" ++ put_func t ++ ")"
+              PType _ hs ur [a,b] ->
+                  "put_" ++ dropModuleName ur ++ " (" ++ put_func a ++ ") (" ++ put_func b ++ ")"
+          dropModuleName ur = case dropWhile (/= '.') ur of
+              '.':xs -> xs
+              _ -> ur
           getNames [] r = "  " ++ r ++ "\n"
           getNames ((n, t) : ns) r = get t n (getNames ns r)
           get t x next =
@@ -366,16 +478,18 @@ formatUrSerialization types =
               ++ next ++ "end\n"
           get_func t = case t of
               Type {..} -> "get_" ++ lf tName
-              Builtin hs ur -> "get_" ++ ur
+              Builtin hs ur -> "get_" ++ dropModuleName ur
               List t -> "get_list (" ++ get_func t ++ ")"
-              Tuple ts -> "(fn b =>"
+              Tuple ts -> "(fn (b : getBuf) =>"
                           ++ getNames [ (show i, t)
                                       | (i,t) <- zip [1..] ts]
                              ("(b,(" ++ intercalate ", "
                                       (map (("_" ++) . show) [1..length ts]) ++ "))")
                           ++ ")"
-              PType hs "assoc_list" [a,b] -> get_func $ List (Tuple [a,b])
-              PType hs ur ts -> "get_" ++ ur
+              PType _ hs "assoc_list" [a,b] -> get_func $ List (Tuple [a,b])
+              PType _ hs "int_assoc_list" [a] -> get_func $ List (Tuple [int,a])
+              PType _ hs "int_list" [] -> get_func $ List int
+              PType _ hs ur ts -> "get_" ++ dropModuleName ur
                                 ++ concat [" (" ++ get_func t ++ ")" | t <- ts]
           lf (x:xs) = toLower x : xs
 
@@ -389,7 +503,7 @@ formatUrSerialization types =
           putCtors' d first ((n, (ctor :/ fields)) : cs) =
               [(if first then "    " else "  | ") ++ (if d then ctor else "")
               ++ (if null fields then "" else " x") ++ " => \n"
-              ++ "        let val b = put_char b (chr " ++ show n ++ ") in"]
+              ++ "        let val b = put_byte b " ++ show n ++ " in"]
               ++ put1Ctor fields
               ++ ["      end"]
               ++ putCtors' d False cs
@@ -397,10 +511,10 @@ formatUrSerialization types =
               ident "      " (lines $ putNames [("x." ++ name, typ)
                                                | (name :. typ) <- fields])
 
-          getCtors _ _ [] =
-              ["  | n => error <xml>Oh, shi -- can't deserialize \
-               \({[n]} is out of range)</xml>"]
-          getCtors d first ((n, (ctor :/ fields)) : cs) =
+          getCtors tName _ _ [] =
+              ["  | n => error <xml>Oh, shi -- can’t deserialize "
+               <> tName <> " ({[n]} is out of range)</xml>"]
+          getCtors tName d first ((n, (ctor :/ fields)) : cs) =
               [(if first then "    " else "  | ") ++ show n ++ " => "]
               ++ ident "      "
                  (lines $ getNames [(name, typ) | (name :. typ) <- fields] $
@@ -411,8 +525,9 @@ formatUrSerialization types =
                               | (p,(name:._)) <- zip (" " : repeat "   , ") fields]
                        ++ "   })"
                  )
-              ++ getCtors d False cs
+              ++ getCtors tName d False cs
 
+braces :: Bool -> String -> String
 braces br inner
     | br        = "(" ++ inner ++ ")"
     | otherwise = inner
@@ -428,73 +543,82 @@ align prefix xs = map (aln 0) xs
               | prefix `isPrefixOf` s = replicate (maxPos - n) ' ' ++ s
               | otherwise = x : aln (n+1) xs
 
-io = regFunc (Just "effectful")
-benign = regFunc (Just "benignEffectful")
-pure = regFunc Nothing
-regFunc eff name args result = do
-    putUrFFI $ "val " ++ name ++ "_ : " ++
-             intercalate " -> " (map (const "string") args) ++
-             " -> transaction string"
-    putUrCalls $ "fun " ++ name ++ " " ++
-             concat ["(x" ++ show i ++ " : " ++ urT arg ++ ")"
-                     | (i, arg) <- iargs ]
-             ++ " : transaction (" ++ urT result ++ ") = \n"
-             ++ "  r <- " ++ name ++ "_ " ++
-             concat ["(toHaskell x" ++ show i ++ ") " | i <- is ]
-             ++ "; return (fromHaskell r)\n"
+io = regFunc (Just "effectful") Nothing
+benign = regFunc (Just "benignEffectful") Nothing
+func = regFunc Nothing Nothing
+func' n h = regFunc Nothing (Just h) n
+regFunc eff hName name args result = do
+    putUrFFI $ "val " ++ name ++ "_ : "
+        ++ intercalate " -> "
+            (map (const "string") args ++ [e "" "transaction " ++ "string"])
+    let urCall = name ++ "_ " ++
+            concat ["(toHaskell x" ++ show i ++ ") " | i <- is ]
+    putH_ur $ (if null args then "val " else "fun ") ++ name ++ " " ++
+        concat ["(x" ++ show i ++ " : " ++ urT Unqualified arg ++ ")"
+                | (i, arg) <- iargs ]
+        ++ " : " ++ e "" "transaction" ++ " (" ++ urT Unqualified result ++ ") = \n"
+        ++ e ("  fromHaskell (" ++ urCall ++ ")")
+             ("  r <- " ++ urCall ++ "; return (fromHaskell r)")
+    putH_urs $ "val " ++ name ++ " : " ++
+        concat [urT Qualified arg ++ " -> "
+                | (i, arg) <- iargs ]
+        ++ e "" "transaction" ++ " (" ++ urT Qualified result ++ ")\n"
     putCFFI $ "extern HsPtr uw_HsFFI_" ++ name ++ "(HsPtr ctx, HsPtr pLen"
-                ++ concat [", HsPtr a" ++ show i | i <- is] ++ ");"
-    putCFFI $ uwStr ++ " uw_Ur_ffi_" ++ name ++ "_(uw_context ctx, " ++
-            intercalate ", " [uwStr ++ " x" ++ show i | i <- is]
-            ++ ")\n{\n    long size;\n"
-            ++ "    char* cr = uw_HsFFI_" ++ name ++ "(ctx, &size, "
-            ++ intercalate ", " ["x" ++ show i | i <- is] ++ ");\n"
-            ++ "    long sz = size >= 0 ? size : -size;\n"
-            ++ "    " ++ uwStr ++ " r = uw_malloc(ctx, sz + 1);\n"
-            ++ "    memcpy(r, cr, sz);\n"
-            ++ "    r[sz] = '\\0';\n"
-            ++ "    if (size >= 0) return r; else uw_error(ctx, FATAL, r);\n"
-            ++ "\n}\n"
+        ++ concat [", HsPtr a" ++ show i | i <- is] ++ ");"
+    putCFFI $ uwStr ++ " uw_H_ffi_" ++ name ++ "_(" ++
+        intercalate ", " ("uw_context ctx" : [uwStr ++ " x" ++ show i | i <- is])
+        ++ ")\n{\n    long size;\n"
+        ++ "    char* cr = uw_HsFFI_" ++ name ++ "(ctx, "
+        ++ intercalate ", " ("&size" : ["x" ++ show i | i <- is]) ++ ");\n"
+        ++ "    long sz = size >= 0 ? size : -size;\n"
+        ++ "    " ++ uwStr ++ " r = uw_malloc(ctx, sz + 1);\n"
+        ++ "    memcpy(r, cr, sz);\n"
+        ++ "    r[sz] = '\\0';\n"
+        ++ "    if (size >= 0) return r; else uw_error(ctx, FATAL, r);\n"
+        ++ "\n}\n"
     putHsFFI $ "foreign export ccall uw_HsFFI_" ++ name ++
-             " :: Ctx -> Ptr CLong -> " ++
-             intercalate " -> " (map (const "Ptr ()") args) ++
-             " -> IO (Ptr ())\nuw_HsFFI_" ++ name ++ " ctx pLen " ++
-             concat [" x" ++ show i | i <- is] ++ " = do\n" ++
-             concat ["    h" ++ show i ++ " <- peekArg x" ++ show i
-                     ++ " :: IO (" ++ hsT arg ++ ")\n"
-                     | (i, arg) <- iargs] ++
-             "    r <- E.try $ do\n" ++
-             "        r <- " ++ name ++ concat [" h" ++ show i | i <- is]
-                     ++ " :: IO (" ++ hsT result ++ ")\n" ++
-             "        let bs = enc r\n" ++
-             "        B.length bs `seq` return bs\n" ++
-             "    ret ctx r pLen\n"
+        " :: Ctx -> " ++
+        intercalate " -> " ("Ptr CLong" : map (const "Ptr ()") args) ++
+        " -> IO (Ptr ())\nuw_HsFFI_" ++ name ++ " ctx pLen " ++
+        concat [" x" ++ show i | i <- is] ++ " = do\n" ++
+        concat ["    h" ++ show i ++ " <- peekArg x" ++ show i
+                ++ " :: IO (" ++ hsT arg ++ ")\n"
+                | (i, arg) <- iargs] ++
+        "    r <- E.try $ timeout (120*1000*1000) $ do\n" ++
+        "        " ++ e "let r = " "r <- "
+                ++ fromMaybe name hName ++ concat [" h" ++ show i | i <- is]
+                ++ " :: " ++ e "" "IO " ++ "(" ++ hsT result ++ ")\n" ++
+        "        let bs = enc r\n" ++
+        "        return $! bs\n" ++
+        "    ret " ++ show name ++ " ctx r pLen\n"
     case eff of
-        Just e -> putUrp $ e ++ " Ur_ffi." ++ name ++ "_"
+        Just e -> putUrp $ e ++ " H_ffi." ++ name ++ "_"
         Nothing -> return ()
+    putUrp $ "neverInline H." ++ name
     where uwStr = "uw_Basis_string"
           iargs = zip [1..] args
           is = map fst iargs
+          e pure io
+              | isNothing eff = pure
+              | otherwise = io
 
-urT = formatUrType' False
 hsT = formatHsType' False
 
-regRiak = regRiakP "riakPool"
-regRiakP pool t@(Type {..}) = regRiak' pool tName t
-regRiak' pool bucket t@(Type {..}) key checkTime cacheTime cacheSizeInMB = do
+regRiak t@(Type {..}) = regRiak' tName t
+regRiak' bucket t@(Type {..}) key checkTime cacheTime cacheSizeInMB = do
     fields <- case tCtors of
         [ctor :/ fields] -> return fields
         _ -> err "Single ctor expected"
     keyType <- case find (\ (n :. _) -> n == key) fields of
         Just (_ :. keyType) -> return keyType
         _ -> err $ "Key " ++ show key ++ " not found"
+    putF gsAllowMult $ "    " <> tName
     putRiakIO $
         "instance KV " ++ tName ++ " where\n" ++
         "    type Key " ++ tName ++ " = " ++ hsT keyType ++ "\n" ++
         "    kvBucket _ = " ++ show bucket ++ "\n" ++
         "    kvKey = " ++ tPrefix ++ key ++ "\n" ++
         "    kvCache _ = " ++ cacheVar ++ "\n" ++
-        "    kvPool _ = " ++ pool ++ "\n" ++
         cacheVar ++ " = unsafePerformIO $ newCache "
                  ++ show checkTime ++ " " ++ show cacheTime
                  ++ " (" ++ show cacheSizeInMB ++ "*1024*1024)\n" ++
@@ -530,6 +654,10 @@ regRiak' pool bucket t@(Type {..}) key checkTime cacheTime cacheSizeInMB = do
                   ++ "modify" ++ tName ++ "'_ key f "
                   ++ "= modifyKV_ key (f . fromMaybe (default" ++ tName
                   ++ " key))\n"
+    putRiakIO $ "alter" ++ tName ++ " :: "  ++ hsT keyType
+                  ++ " -> (Maybe " ++ tName ++ " -> IO (Maybe " ++ tName ++ ", b))"
+                  ++ " -> IO b\n"
+                  ++ "alter" ++ tName ++ " = alterKV\n"
     putRiakIO $ "read" ++ tName ++ "' :: Key "
                   ++ tName ++ " -> IO " ++ tName ++ "\n"
                   ++ "read" ++ tName ++ "' key "
@@ -559,32 +687,49 @@ regRiak' pool bucket t@(Type {..}) key checkTime cacheTime cacheSizeInMB = do
                   f name args r
               where name = mkName tName
 
-array_ t = PType "BA.Array Int" "array???" [t]
-maybe_ t = PType "Maybe" "option" [t]
-intMap t = PType "IntMap" "intMap???" [t]
-set_ t = PType "Set" "map???" [t]
-map_ k v = PType "Map" "assoc_list" [k, v]
-either_ l r = PType "Either" "either" [l, r]
-unsafeRef t = PType "UnsafeRef" "option" [t]
-hashSet t = PType "HS.HashSet" "option" [t]
-hashMap k v = PType "HM.HashMap" "assoc_list" [k, v]
+array_ t = PType False "BA.Array Int" "array???" [t]
+maybe_ t = PType True "Maybe" "option" [t]
+intMap t = PType False "IntMap" "int_assoc_list" [t]
+set_ t
+     | t == unit = error "Never use “set_ unit”"
+       -- если обновить структуру, но забыть перекомпилировать зависимости,
+       -- можно получить ситуацию с чтением новых "битых" данных старым кодом,
+       -- когда размер set_ unit (использовался для некоторых Reserved полей)
+       -- будет кривой (не равен нулю), а unit в binary-представлении не
+       -- занимает места, в итоге decode может пытаться создавать
+       -- гигантский список [(),(),…], съедая всю память, так и не
+       -- остановишись из-за закончившихся входных данных
+     | otherwise = PType False "Set" "set???" [t]
+hashSet t
+     | t == unit = error "Never use 'hashSet unit'"
+     | otherwise = PType False "HS.HashSet" "list" [t]
+map_ k v = PType False "Map" "assoc_list" [k, v]
+either_ l r = PType True "Either" "Either.either" [l, r]
+unsafeRef t = PType False "UnsafeRef" "option" [t]
+hashMap k v = PType False "HM.HashMap" "assoc_list" [k, v]
+-- не сравниваем HashSet -- у них кривой instance Ord, да и не нужно оно нам,
+-- Set/Map тоже не сравниваем за ненадобностью
+intSet = PType True "IntSet" "int_list" []
 
 
 int = Builtin "Int" "int"
+money = Builtin "Scientific" "???"
 double = Builtin "Double" "float"
 bool = Builtin "Bool" "bool"
 bs = Builtin "T.Text" "string"
+xbodyString = Builtin "T.Text" "Binary_ffi.xbodyString"
+junkText = Builtin "JunkText" "string"
 sbs = Builtin "SB.ShortByteString" "string"
 urId = Builtin "T.Text" "Basis.id"
 blob = Builtin "B.ByteString" "blob"
 xhead = Builtin "T.Text" "xhead"
-xbody = Builtin "T.Text" "xbody"
 page = Builtin "T.Text" "page"
+xbody = Builtin "T.Text" "xbody"
+xbodyBS = Builtin "B.ByteString" "xbody"
 unit = Builtin "()" "{}"
 guid = sbs
 url = Builtin "TURL" "url"
 time = Builtin "UrTime" "time"
-intSet = Builtin "IntSet" "intSet???"
 
 regType t = do
     case t of
@@ -597,8 +742,8 @@ regType t = do
     putHs $ formatHsType t
     return t
 regUrType t = do
-    putUr $ formatUrType t
---    putUrFFI $ formatUrType t
+    putUr $ urT Top t
+--    putUrFFI $ urT Top t
     --  ^ не может сделать urlify/unurlify
     --  а если сделать одновременно и .urs и .ur, то ошибка Impossible 9
     pushList gsUrTypes t
@@ -612,6 +757,13 @@ main = runGen $ do
             ]]
     regRiak stats "Key" 0 0 0
 
+    subscriptionParentUrl <- regType $ Type UwD "SubscriptionParentUrl" "spu"
+        [ "SpuRedirect"  :/ [ "Url" :. bs ]
+          -- redirect на заданный url
+        , "SpuHtml"      :/ [ "Url" :. bs , "Debug" :. bs ]
+          -- в html (parent-е) была ссылка на заданный фид
+        ]
+
     --  при подписке мы добавляем задачу на подписку
     --  и ждем, пока в subscriptionInfo не появится свежая инфа об url.
     subscriptionState <- regType $ Type UwD "SubscriptionState" "ss"
@@ -619,8 +771,9 @@ main = runGen $ do
         , "SSScanning" :/ [ "StartTime" :. time ]
         , "SSError" :/ [ "Message" :. bs ]
         , "SSFeed" :/ [ "Url" :. bs ]
---        , "SSNewFeed" :/ [ "Url" :. bs ]
--- потом написать свое сравнение для resolve-а
+        , "SSErrorPath" :/
+            [ "Message" :. bs
+            , "Path" :. List subscriptionParentUrl ]
         ]
 
     subscription <- regType $ Type Uw "Subscription" "s"
@@ -639,15 +792,28 @@ main = runGen $ do
         , "PVMMosaic" :/ []
         ]
 
+    mtvmEx <- regType $ Type UwD "MTVMEx" "mtvmex"
+        -- расширение MsgTreeViewMode (нельзя добавить в сам msgtreeviewmode
+        -- из-за бинарной несовместимости)
+        [ "MTVMFolderCollapsed" :/ []
+        , "MTVMFolderExpanded" :/ []
+        , "MTVMEx" :/
+            [ "FolderExpanded" :. bool
+              --  ^ не относится к msgTreeViewMode, но наиболее удобно
+              --    засунуть режим сюда
+              -- FolderCollapsed | FolderExpanded
+              --    | More { FolderExpanded :: True, GroupByFeed }
+            , "GroupByFeed" :. bool
+            , "Reserved1" :. bool
+            , "Reserved2" :. int
+            ]]
     msgTreeViewMode <- regType $ Type Uw "MsgTreeViewMode" "mtvm"
         [ "MsgTreeViewMode" :/
             [ "Ascending"     :. bool
             , "UnreadOnly"    :. bool
             , "ExpandedComments" :. bool
             , "Posts"     :. postsViewMode
-            , "FolderExpanded" :. bool
-              --  ^ не относится к msgTreeViewMode, но наиболее удобно
-              --    засунуть режим сюда
+            , "Ex" :. mtvmEx
             , "NoOverride" :. bool
               -- view mode тега должен заменять остальные
             ]]
@@ -731,15 +897,171 @@ main = runGen $ do
             [ "StreamName" :. bs ]
         ]
     let publicFeedInfo = List $ Tuple [bs, bool, maybe_ bs]
+    -- список, т.к. при слиянии папок (из-за переименования) также сливаются
+    -- их публичные фиды.
+    loginAccessToken <- regType $ Type UwD "LoginAccessToken" "lat"
+        [ "LATNone" :/ []
+        , "LATFacebook" :/ [ "AccessToken" :. bs]
+        , "LATTwitter"  :/ [ "Credentials" :. List (Tuple [bs,bs])]
+        ]
     apiKeys <- regType $ Type Uw "ApiKeys" "ak"
         ["ApiKeys" :/
             [ "Pocket" :. maybe_ (Tuple [bs,bs]) -- (access_token, username)
             , "PocketRequest" :. maybe_ (Tuple [bs,bs,bs])
               -- (requestToken, url, title)
+            , "Reserved10" :. maybe_ int -- (Tuple [time,bs,bs,bs])
+              -- (time, key, name, e-mail)
+            , "FacebookAccessToken" :. maybe_ (Tuple [time, bs])
+            , "TwitterAccessToken" :. maybe_ (Tuple [time, List $ Tuple [bs,bs]])
+            , "Reserved13" :. bool
+            , "Reserved14" :. bool
+            , "Reserved15" :. bool
+            , "Reserved16" :. bool
+            , "Reserved17" :. bool
+            , "Reserved2" :. int
+            , "Reserved3" :. int
+            , "Reserved4" :. int
+            ]]
+    userExperiment <- regType $ Type UwD "UserExperiment" "ue"
+        [ "UENo9" :/ []
+        ]
+    customShareAction <- regType $ Type Uw "CustomShareAction" "csa" $
+        ["CustomShareAction" :/
+            [ "Id" :. int
+            , "Title" :. bs
+            , "UrlFormat" :. bs
+            , "Shorten" :. bool
+            ]]
+    shareAction <- regType $ Type UwD "ShareAction" "sa" $
+        map (\ a -> ("SA" ++ a) :/ [])
+            ["EMail", "Twitter", "Facebook", "GooglePlus"
+            ,"Tumblr" -- 44/22USA  -- убрать
+            ,"Evernote" -- 390
+            ,"Delicious_discontinued" -- 2.5k/10k USA пора вниз
+            ,"Pinboard" -- 23k/12k -- как delicious
+            ,"Pocket" -- 800!
+            ,"Readability_discontinued" -- 13k
+            ,"Instapaper" -- 8.4 вместе с readability можно убрать
+            ,"Translate"
+             --  ^ старое
+            ,"Blogger"  -- 75, но blogspot 42
+            ,"Wordpress" -- 41 -- как blogspot
+            ,"LinkedIn" -- 17/12 USA
+            ,"Pinterest" -- 30/13 usa
+            ,"VK" -- 20/2 Russia
+            ,"Skype" -- 235
+            ,"Reddit" -- 34/9
+            ,"StumbleUpon" -- 400
+            ,"Digg" -- 1k
+            ,"ScoopIt" -- 1k
+            ,"Flipboard" -- 2k
+            ,"Buffer" -- 2.5k
+            ,"NewsVine" -- 7k -- больше sharing
+            ,"Diigo" -- 2.7k
+            ,"RememberTheMilk" -- 9k
+            ,"GoogleBookmarks"
+            ,"Wallabag"
+            ,"Wakelet"
+--             ,"Baidu"  -- China Google +1    4/1
+--             ,"Weibo"  -- China Twitter     18/5
+--             ,"Renren" -- China Facebook  1.4k/179china
+            -- Raindrop.io
+            ]
+        ++
+        ["SACustom" :/
+            [ "CustomShareAction" :. customShareAction
+            ]]
+        ++
+        map (\ a -> ("SA" ++ a) :/ [])
+            ["System"]
+        -- добавляем новые варианты в конец,
+        -- и не забываем пересобрать MuninPlugin и все frontend-ы
+    msgButton <- regType $ Type UwD "MsgButton" "mb"
+        ["MBKeepUnread" :/ []
+        ,"MBStar" :/ []
+        ,"MBTag" :/ []
+        ,"MBShare" :/ []
+        ,"MBShareAction" :/
+            [ "ShareAction" :. shareAction ]
+        ]
+    emailContact <- regType $ Type Uw "EmailContact" "ct"
+        [ "EMailContact" :/
+            [ "EMail" :. bs
+            , "FullName" :. bs
+            , "Groups" :. List bs
+              -- для отправки группе контактов, не уверен,
+              -- что это надо реализовывать
+            , "Avatar" :. maybe_ bs
+            , "Stats" :. maybe_ (Tuple [time, int])
+              -- можно просто последнего отправленного ставить в начало,
+              -- но не факт, что это правильно.
+              -- по-идее, статистику нужно отдельно хранить,
+              -- да желательно с блеклистом (если контакт запретил отправку
+              -- писем себе)
+            ]]
+    sharingSettings <- regType $ Type Uw "SharingSettings" "shs"
+        [ "SharingSettings" :/
+            [ "ShareMenuButtons" :. maybe_ (List msgButton)
+            , "MsgButtons"       :. maybe_ (List msgButton)
+            , "ListViewButtons"  :. maybe_ (List msgButton)
+            , "CustomShareActions" :. List customShareAction
+            -- нужен список всех возможных share actions
+            -- (с SAFacebook appId, чтобы appId был в одном месте)
+            , "EMailUsingMailto" :. bool
+            , "ReplyToEMail" :. maybe_ (Tuple [bs,bs]) -- Name, E-mail
+            , "Contacts" :. List emailContact
+            , "Reserved1" :. int
+            ]]
+        -- насчет shortener-ов -- пароль/ключ к bitly должен быть в api keys
+        -- хотя это попозже
+
+    loginType <- regType $ Type UwD "LoginType" "lt"
+        ["LTGoogle" :/ [ "Email" :. bs ]
+        ,"LTFacebook" :/ [ "Email" :. bs ]
+        ,"LTTwitter" :/ [ "Id" :. bs ] -- без redirect_by
+        ,"LTOpenId" :/ [ "URL" :. bs ]
+        ,"LTEmail" :/ [ "Email" :. bs ]
+        ,"LTUsername" :/ [ "Username" :. bs ]
+        ,"LTFeverApiKey"  :/ [ "ApiKey" :. bs ]
+        ]
+
+    login <- regType $ Type NoUw "Login" "l"
+        ["Login" :/
+            [ "LoginType" :. loginType
+            , "UserID" :. bs
             , "Reserved1" :. int
             , "Reserved2" :. int
             , "Reserved3" :. int
             , "Reserved4" :. int
+            ]]
+    regRiak login "LoginType" 300 300 10
+
+    userSettingsEx <- regType $ Type Uw "UserSettingsEx" "uste"
+        ["UserSettingsEx" :/
+            [ "LastWhatsNewTime" :. time
+            , "PasswordHash" :. maybe_ bs
+            , "Reserved1_1" :. maybe_ int
+            , "Reserved1_2" :. maybe_ int
+            , "Reserved1_3" :. maybe_ int
+            , "Reserved1_4" :. maybe_ int
+            , "Reserved1_5" :. maybe_ int
+            , "Reserved1_6" :. maybe_ int
+            , "Reserved1_7" :. maybe_ int
+            , "AssociatedAccounts" :. List loginType
+            , "AssociatedAccountNames" :. map_ loginType bs
+              -- twitter id -> twitter screen name
+            , "Reserved4" :. int
+            , "Reserved5" :. int
+            , "Reserved6" :. int
+            , "Reserved7" :. int
+            , "Reserved8" :. int
+            , "Reserved9" :. int
+            , "Reserved10" :. int
+            , "Reserved11" :. int
+            , "Reserved12" :. int
+            , "Reserved13" :. int
+            , "Reserved14" :. int
+            , "Reserved15" :. int
             ]]
     userSettings <- regType $ Type Uw "UserSettings" "ust"
         ["UserSettings" :/
@@ -750,14 +1072,14 @@ main = runGen $ do
             , "ShowFavicons" :. bool
             , "MarkReadMode" :. markReadMode
             , "UltraCompact" :. bool
-            , "MobileLogin" :. maybe_ bs
+            , "Reserved" :. maybe_ bs -- было username
             , "ExactUnreadCounts" :. bool
             , "PublicFeeds" :. maybe_ (map_ publicFeedType publicFeedInfo)
             , "Country" :. maybe_ bs
             , "ApiKeys" :. maybe_ apiKeys
-            , "Reserved7" :. maybe_ bs
-            , "Reserved8" :. maybe_ bs
-            , "Reserved9" :. maybe_ bs
+            , "Experiments" :. maybe_ (List userExperiment)
+            , "SharingSettings_" :. maybe_ sharingSettings
+            , "Ex" :. maybe_ userSettingsEx
             ]]
     regRiak userSettings "User" 240 240 10
 
@@ -776,31 +1098,6 @@ main = runGen $ do
         [ "EMail" :/ [ "Id" :. bs ]
         , "Url" :/ [ "Id" :. bs ]
         ]
-
-    mobileLogin <- regType $ Type NoUw "MobileLogin" "ml"
-        ["MobileLogin" :/
-            [ "Login" :. bs  -- key
-            , "EditsCount" :. int
-            , "UID" :. maybe_ uid
-            , "PasswordHash" :. bs
-            , "FeverApiKey" :. maybe_ bs
-            , "Reserved2" :. maybe_ bs
-            , "Reserved3" :. maybe_ bs
-            , "Reserved4" :. maybe_ bs
-            ]]
-    regRiak mobileLogin "Login" 300 300 10
-
-    feverApiKey <- regType $ Type NoUw "FeverApiKey" "fak"
-        ["FeverApiKey" :/
-            [ "Key" :. bs
-            , "EditsCount" :. int
-            , "UID" :. maybe_ uid
-            , "Reserved1" :. maybe_ bs
-            , "Reserved2" :. maybe_ bs
-            , "Reserved3" :. maybe_ bs
-            , "Reserved4" :. maybe_ bs
-            ]]
-    regRiak feverApiKey "Key" 300 300 10
 
     feverIds <- regType $ Type NoUw "FeverIds" "fi"
         ["FeverIds" :/
@@ -846,6 +1143,65 @@ main = runGen $ do
             , "User" :. bs ]]
     regRiak session "Key" 3600 3600 100
 
+    emailVerificationType <- regType $ Type NoUw "EmailVerificationType" "evt"
+        ["EVTSignUp" :/
+            [ "PasswordHash" :. bs
+            , "FeverApiKey" :. bs
+            ]
+        ,"EVTChangeEmail" :/
+            [ "User" :. bs
+            ]
+        ,"EVTResetPassword" :/
+            [ "User" :. bs
+            ]
+        ,"EVTRestoreAccess" :/
+            [ "User" :. bs
+            ]
+        ]
+    emailVerificationToken <- regType $ Type NoUw "EmailVerificationToken" "evtk"
+        ["EmailVerificationToken" :/
+            [ "Token" :. bs
+            , "Expire" :. time
+            , "Verified" :. bool
+            , "Email" :. bs
+            , "VerificationType" :. emailVerificationType
+            , "Reserved1" :. int
+            , "Reserved2" :. int
+            , "Reserved3" :. int
+            , "Reserved4" :. int
+            ]]
+    regRiak emailVerificationToken "Token" 60 60 10
+
+    emailVerification <- regType $ Type NoUw "EmailVerification" "ev"
+        ["EmailVerification" :/
+            [ "Email" :. bs
+            , "Verified" :. List bs -- для каких аккаунтов
+              -- списки токенов для ограничения числа отправляемых писем
+            , "SignUpTokens" :. List (Tuple [time, bs])
+            , "ChangeEmailTokens" :. hashMap bs (List (Tuple [time, bs]))
+            , "ResetTokens" :. List (Tuple [time, bs])
+            , "Reserved1" :. int
+            , "Reserved2" :. int
+            , "Reserved3" :. int
+            , "Reserved4" :. int
+            ]]
+    regRiak emailVerification "Email" 60 60 10
+
+    -- списки токенов для очистки
+    -- сброс пароля/смена email удаляет остальные токены сброса/смены
+    -- restore удаляет более новые restore и все токены сброса/смены
+    userEmailVerificationTokens <- regType $ Type NoUw "UserEmailVerificationTokens" "uevt"
+        ["UserEmailVerificationTokens" :/
+            [ "User" :. bs
+              -- tokenId -> (time, email, type)
+            , "Tokens" :. hashMap bs (Tuple [time, bs, emailVerificationType])
+            , "Reserved1" :. int
+            , "Reserved2" :. int
+            , "Reserved3" :. int
+            , "Reserved4" :. int
+            ]]
+    regRiak userEmailVerificationTokens "User" 60 60 10
+
     --  в процессе сканирования мы вычитываем инфу об url-е,
     --  если time больше, чем N минут назад, добавляем в очередь на подписку
     --  и меняем состояние на SUScanning
@@ -861,6 +1217,9 @@ main = runGen $ do
     subscriptionUrlKind <- regType $ Type NoUw "SubscriptionUrlKind" "suk"
         [ "SUKError" :/ [ "Message" :. bs ]
         , "SUKFeed"  :/ [ "Url" :. url ]
+        , "SUKErrorPath" :/
+             [ "Message" :. bs
+             , "Path" :. List subscriptionParentUrl ]
         ]
 
     subscriptionUrlInfo <- regType $ Type NoUw "SubscriptionUrlInfo" "sui"
@@ -912,6 +1271,20 @@ main = runGen $ do
             , "StreamTitle" :. bs
             , "HtmlUrl" :. bs
             ]
+        , "AVideo2" :/
+            [ "Url" :. url
+            , "Mime" :. bs
+            , "FileSize" :. maybe_ int
+            , "Duration" :. maybe_ int
+            , "Title" :. maybe_ bs
+            , "Width" :. maybe_ int
+            , "Height" :. maybe_ int
+            , "Poster" :. maybe_ url
+            , "Loop" :. bool -- единственное отличие от AVideo
+            ]
+        , "AThumbnail" :/
+            [ "Url" :. url
+            ]
         ]
 
     msgKey <- regType $ Type Uw "MsgKey" "msgKey"
@@ -941,9 +1314,9 @@ main = runGen $ do
             , "Tags"    :. List bs
             , "Time"    :. maybe_ time
             , "DlTime"  :. time
-            , "Text"    :. bs
+            , "Text"    :. xbodyString
             , "ShortText" :. bs
-            , "Debug"   :. bs
+            , "ShorterText" :. bs -- более короткий текст для magazine
       --       , "Feed"    :. maybe_ bs
       --       , "Next"    :. maybe_ bs
             ]]
@@ -962,12 +1335,18 @@ main = runGen $ do
               -- без лишних залезаний в базу
             ]]
 
+    timeId <- regType $ Type NoUw "TimeId" "ti"
+         ["TimeId" :/
+            [ "Time" :. time
+            , "Id"   :. int
+            ]]
+
     msgTree <- regType $ Type NoUw "MsgTree" "mt"
          ["MsgTree" :/
             [ "Headers"  :. array_ msgHeader
               -- размер можно из массива узнать
               -- id (-1 root) -> [child]
-            , "Children" :. intMap (set_ (Tuple [time, int]))
+            , "Children" :. intMap (set_ timeId)
             ]]
 
     commentUrlState <- regType $ Type NoUw "CommentUrlState" "cus"
@@ -992,7 +1371,7 @@ main = runGen $ do
             [ "BlogFeedUrl"   :. url -- ключ
 --            , "CurrentUrlKind" :. urlKind -- должен быть Feed, но вдруг что???
               --
-            , "UpdatedComments" :. intSet
+            , "UpdatedComments" :. intSet -- не используется
             , "RootMessage"   :. msg
             , "MsgTree"       :. msgTree
             , "TotalComments" :. int
@@ -1014,9 +1393,10 @@ main = runGen $ do
               -- версии.
             , "CCVersions" :. map_ time int
             ]]
-    regRiak posts "BlogFeedUrl" 3 140 700
-            -- проверяем каждые 3 сек,
-            -- дабы на свежих подписках что-то обновлялось
+    regRiak posts "BlogFeedUrl" 3 30 1000
+    -- проверяем каждые 3 сек,
+    -- дабы на свежих подписках что-то обновлялось
+    -- 30 сек -- начальное время, затем делаются recachePosts
 
     discoveryFeed <- regType $ Type NoUw "DiscoveryFeed" "df"
         ["DiscoveryFeed" :/
@@ -1032,16 +1412,12 @@ main = runGen $ do
             , "NormalizedSubscribers" :. double
             , "PostsPerDay" :. double
             , "LastRefreshTime" :. time
+            , "AveragePostLength" :. double
             , "PaidCountries" :. hashMap bs int
               --  ^ только страны, где >10 человек, иначе нерепрезентативная
               --  выборка получается и сортируем уже по NormalizedSubscribers
             , "Countries" :. hashMap bs int
-            , "Reserved1" :. int
-            , "Reserved2" :. int
-            , "Reserved3" :. int
-            , "Reserved4" :. int
             ]]
-    regRiak discoveryFeed "Url" 60 60 100
 
     postsClearTime <- regType $ Type NoUw "PostsClearTime" "pct"
         ["PostsClearTime" :/
@@ -1095,10 +1471,6 @@ main = runGen $ do
     -- Ни фига -- по одному пути можно подписаться, по другому нет.
     -- Оставляем как есть
 
-    subscriptionParentUrl <- regType $ Type NoUw "SubscriptionParentUrl" "spu"
-        [ "SpuRedirect"  :/ [ "Url" :. url ]
-        , "SpuHtml"      :/ [ "Url" :. url , "Debug" :. bs ]
-        ]
     parentUrl <- regType $ Type NoUw "ParentUrl" "pu"
         [ "PuRedirect"   :/ [ "Url" :. url ]
         , "PuHtml"       :/ [ "Url" :. url , "Debug" :. bs ]
@@ -1139,7 +1511,7 @@ main = runGen $ do
             , "ParentPaths" :. List parentPath
             , "SubscriptionParentPaths" :. List subscriptionParentPath
             ]]
-    regRiakP "riakPool" urlToScan "Url" 0 0 0
+    regRiak urlToScan "Url" 0 0 0
 
     queueType <- regType $ Type NoUw "QueueType" "qt"
         [ "QTSubscription"  :/ []
@@ -1150,13 +1522,14 @@ main = runGen $ do
         , "QTTemporary"     :/ []
         , "QTNewComment"    :/ []
         , "QTRescan"        :/ []
+        , "QTSubscriptionOPML" :/ []
         ]
     scanList <- regType $ Type NoUw "ScanList" "sl"
         ["ScanList" :/
             [ "Time" :. time -- ключ, для подписки будет 0-9 секунд
             , "Urls" :. List (Tuple [url, queueType])
             ]]
-    regRiakP "riakPool" scanList "Time" 0 0 0
+    regRiak scanList "Time" 0 0 0
 
     let readSet = Builtin "ReadSet" "ReadSet???"
 --     commentsRead <- regType $ Type NoUw "CommentsRead" "cr"
@@ -1166,12 +1539,27 @@ main = runGen $ do
 --             ]]
 --     regRiak commentsRead "Key" 300 100
 
-    feedMask <- regType $ Type NoUw "FeedMask" "fm"
-        ["FeedMask" :/
+    oldFeedMask <- regType $ Type NoUw "OldFeedMask" "ofm"
+        ["OldFeedMask" :/
             [ "Posts" :. readSet
-            , "Comments" :. intMap readSet
-            , "TotalComments" :. int
+            , "Comments" :. maybe_ (intMap readSet)
             ] ]
+    feedMask <- regType $ Type NoUw "FeedMask" "fm"
+        ["FMFeedMask" :/
+            [ "PostsMask" :. readSet
+            , "CommentsMask" :. maybe_ (intMap readSet)
+              -- если не было фильрации по комментариям вид со свернутыми
+              -- комментариями) то fmComments = Nothing)
+              -- Тогда у нас видны все комментарии у постов из маски,
+              -- по сути:
+              -- > fmComments = IntMap.fromList
+              -- >     [(pid, ReadSet.fromRange 0 (commentsCount pid))
+              -- >     | pid <- ReadSet.toList fmPosts]
+            ]
+        ,"FMError" :/ []
+         --  ^ все сообщения фида спрятаны.
+         -- Требуется обновление после overload seconds.
+        ]
     postsRead <- regType $ Type NoUw "PostsRead" "pr"
         ["PostsRead" :/
             [ "Key" :. Tuple [bs, url]
@@ -1185,8 +1573,9 @@ main = runGen $ do
               --  по-идее должен быть readSet для постов и intMap readSet
               --  для комментариев, т.е. надо будет разбить на 8 maybe
               --  также mark all as read не должен его помечать прочитанным
+              --  user/-/state/com.google/kept-unread
             ]]
-    regRiak postsRead "Key" 600 600 200
+    regRiak postsRead "Key" 600 600 400
 
     postsTagged <- regType $ Type NoUw "PostsTagged" "pt"
         ["PostsTagged" :/
@@ -1244,7 +1633,7 @@ main = runGen $ do
             , "Reserved7" :. bool
             , "Reserved8" :. bool
             ]]
-    regRiak grIds "User" 200 200 200
+    regRiak grIds "User" 200 200 400
 
     userBackup <- regType $ Type NoUw "UserBackup" "ub"
         ["UserBackup" :/
@@ -1273,7 +1662,22 @@ main = runGen $ do
             ]]
     regRiak deletedUser "User" 200 200 200
 
-    filterQuery <- regType $ Type Uw "FilterQuery" "fq"
+    mailType <- regType $ Type NoUw "MailType" "mt"
+        ["MTRenewInTwoWeeksReminder" :/
+            [ "PaidTill" :. time ]
+        ,"MTInactivityReasonRequest" :/ []
+        ]
+    mailsSent <- regType $ Type NoUw "MailsSent" "ms"
+        ["MailsSent" :/
+            [ "User"         :. bs
+            , "MailsSent"    :. set_ mailType
+            , "Reserved2"    :. int
+            , "Reserved3"    :. int
+            , "Reserved4"    :. int
+            ]]
+    regRiak mailsSent "User" 200 200 200
+
+    filterQuery <- regType $ Type NoUw "FilterQuery" "fq"
         ["FilterQuery" :/
             [ "Query" :. bs
             , "Negate" :. bool
@@ -1282,18 +1686,72 @@ main = runGen $ do
             , "Reserved1" :. int
             , "Reserved2" :. int
             ]]
+    -- для веба, с более компактным представлением списка фидов,
+    -- а то слишком много данных передаётся
+    filterQueryRpc <- regType $ Type Uw "FilterQueryRpc" "fqr"
+        ["FilterQueryRpc" :/
+            [ "Query" :. bs
+            , "Negate" :. bool
+            , "FeedGRIds" :. List int
+            ]]
+    searchError <- regType $ Type UwD "SearchError" "se"
+        ["SESyntaxError" :/
+            [ "ErrorMessage" :. bs ]
+        ,"SESystemError" :/
+            [ "ErrorMessage" :. bs ]
+        ]
+    filterUpdateTime <- regType $ Type NoUw "FilterUpdateTime" "fut"
+        ["FUTNever" :/ []
+        ,"FUTUpdatedAt" :/
+            [ "UpdateTime" :. time ]
+        ,"FUTError" :/
+            [ "ErrorTime" :. time
+            , "SearchError" :. searchError
+              -- источник не нужен, потом будут отдельные маски для
+              -- каждого фильтра, там будет понятно, где ошибка.
+            ]
+        ,"FUTEdited" :/
+            [ "UpdateTime" :. time
+            , "ChangedFeeds" :. intSet
+              -- Набор измененных фидов, для которых нужно делать
+              -- неинкрементальный запрос (т.е., без времени).
+              -- Включают в себя удаленные фиды, чтобы чистить старые маски
+            ]
+        ]
     filterFeedMasks <- regType $ Type NoUw "FilterFeedMasks" "ffm"
         ["FilterFeedMasks" :/
-            [ "LastUpdated" :. maybe_ time
-            , "FeedMasks" :. hashMap bs feedMask
+            [ "LastUpdated" :. filterUpdateTime
+            , "FeedMasks" :. intMap feedMask
+            , "OldFeedMasks" :. intMap oldFeedMask
+            , "Reserved2" :. int
+            ]]
+    oldSmartStream <- regType $ Type NoUw "OldSmartStream" "oss"
+        ["OldSmartStream" :/
+            [ "Name" :. bs
+            , "Queries" :. List filterQuery
+            , "FeedMasks" :. filterFeedMasks
+            , "Reserved1" :. int
+            , "Reserved2" :. int
+            ]]
+    filter <- regType $ Type NoUw "Filter" "filter"
+        ["Filter" :/
+            [ "Id" :. int
+            , "Query" :. filterQuery
+            , "FeedMasks" :. filterFeedMasks
+              -- Маски поиска по Query. Общие маски будут получаться
+              -- (пока не сделано) через объединение масок отдельных фидов
+              -- (а не через объединение запросов, как сделано сейчас)
             , "Reserved1" :. int
             , "Reserved2" :. int
             ]]
     smartStream <- regType $ Type NoUw "SmartStream" "ss"
         ["SmartStream" :/
             [ "Name" :. bs
-            , "Queries" :. List filterQuery
+            , "Query" :. filterQuery
             , "FeedMasks" :. filterFeedMasks
+              -- Маски поиска по Query с примененными фильтрами
+            , "UnfilteredFeedMasks" :. filterFeedMasks
+              -- Маски поиска по Query без участия фильтров
             , "Reserved1" :. int
             , "Reserved2" :. int
             ]]
@@ -1301,18 +1759,20 @@ main = runGen $ do
         ["Filters" :/
             [ "User" :. bs
             , "Version" :. int
-            , "Filters" :. List filterQuery
+            , "OldFilters" :. List filterQuery
             , "FeedMasks" :. filterFeedMasks
-            , "SmartStreams" :. List smartStream
-            , "Reserved1" :. int
-            , "Reserved2" :. int
-            , "Reserved3" :. int
+            , "OldSmartStreams" :. List oldSmartStream
+            , "OverloadDelay" :. int
+            , "NewFilters" :. List filter
+            , "NewSmartStreams" :. List smartStream
             , "Reserved4" :. int
             ]]
-    regRiak filters "User" 600 600 200
+    regRiak filters "User" 600 600 400
 
     apiMode <- regType $ Type UwD "ApiMode" "am"
-        ["AMNormal" :/ []
+        ["AMNormal" :/
+            [ "HostName" :. bs
+            , "AcceptLanguage" :. bs ]
         ,"AMGRIdsOnly" :/
             [ "Fetch" :. bool
             , "Count" :. int
@@ -1322,9 +1782,15 @@ main = runGen $ do
             , "MaxTime" :. maybe_ time
             , "ExcludeTags" :. hashSet itemTag
             , "IncludeTags" :. hashSet itemTag
-            , "ReadOnly" :. bool ]
+            , "ReadOnly" :. bool
+            , "MsgLinkParams" :. List (Tuple [bs, bs])
+            , "FromUI" :. bool
+            , "MaxMsgTextLength" :. maybe_ int
+            ]
         ,"AMDiscovery" :/
-            [ "Url" :. bs ]
+            [ "HostName" :. bs
+            , "AcceptLanguage" :. bs
+            , "Url" :. bs ]
         ]
 
     -- запросы дерева сообщений
@@ -1341,7 +1807,7 @@ main = runGen $ do
 
     postsReq <- regType $ Type Uw "PostsReq" "prq"
         [ "PostsReq" :/
-            [ "BlogFeedUrl"   :. bs
+            [ "FeedId"        :. int
             , "MsgTreePoint"  :. msgTreePoint
             , "TotalPosts"    :. int
             , "TotalComments" :. int
@@ -1354,18 +1820,47 @@ main = runGen $ do
             , "TotalComments" :. int
             ]]
 
+    -- msgKey + id-шки. Можно было бы хранить guid->id в posts/comments,
+    -- но это доп объем памяти (где-то 20% 60/300байт)
+    msgId <- regType $ Type Uw "MsgId" "mid"
+        ["MsgId" :/
+            [ "FeedId" :. int
+            , "PostId" :. int
+            , "CommentId" :. maybe_ int
+            ]]
+    longMsgId <- regType $ Type Uw "LongMsgId" "lmid"
+        ["LongMsgId" :/
+            [ "MsgKey" :. msgKey
+            , "MsgId" :. msgId
+            ]]
+
     treeReq <- regType $ Type UwD "TreeReq" "tr"
         [ "TRPosts" :/
             [ "Reqs" :. List postsReq
             ]
+          -- при Sort By Feed получится то же, только Reqs будут по-очереди
+          -- обрабатываться
+          -- По сути можно в postsReq закодировать, что он полностью выдает
+          -- до упора (ParentId сделать -2 например и отключать проверку
+          -- на время), тогда любую папку,
+          -- smart stream и поиск по ним можно не менять
+          -- в MsgTreeViewMode пока вроде некуда добавлять группировку,
+          -- но куда-то надо запихнуть
+
+          -- у hot links в принципе для next только список checksum
+          -- все равно их не более 100-150
+
           -- nextReq для all items вернет новые MsgTreePoint
           -- при следующем запросе можно будет выбирать следующие
           -- 15 фидов (на стороне клиента)
           -- Для начала можно все передавать, фильтрация -- уже оптимизация
         , "TRTags" :/
-            [ "LastMsg" :. maybe_ msgKey
-            , "Tags" :. maybe_ (List itemTag)
+            [ "Tags" :. maybe_ (List itemTag)
               -- если Nothing, то все теги
+            , "MaxTag" :. maybe_ (Tuple [time, msgId])
+              -- версия тегов, новые теги имеют большее время
+              -- (нигде не форсируется). Нужен ли msgId?
+            , "LastMsg" :. maybe_ (Tuple [time, msgId])
             ]
         , "TRComments" :/
             [ "OnExpand" :. bool
@@ -1392,7 +1887,8 @@ main = runGen $ do
             [ "Query" :. bs
             , "IdsKey" :. bs
             , "Tags" :. maybe_ (List itemTag)
-            , "LastMsg" :. maybe_ msgKey
+            , "MaxTag" :. maybe_ (Tuple [time, msgId])
+            , "LastMsg" :. maybe_ (Tuple [time, msgId])
             ]
         ]
 
@@ -1402,30 +1898,23 @@ main = runGen $ do
             [ "Msg" :. msg ]
         , "MVShort" :/
             [ "Header" :. msgHeader
---             , "MsgKey" :. msgKey
             , "CachedMsg" :. maybe_ msg ]
         ]
 
-    -- msgKey + id-шки. Можно было бы хранить guid->id в posts/comments,
-    -- но это доп объем памяти (где-то 20% 60/300байт)
-    msgId <- regType $ Type Uw "MsgId" "mid"
-        ["MsgId" :/
-            [ "MsgKey" :. msgKey
-            , "FeedId" :. int
-            , "PostId" :. int
-            , "CommentId" :. maybe_ int
-            ]]
     msgItem <- regType $ Type Uw "MsgItem" "mi"
         ["MsgItem" :/
             [ "MsgView" :. msgView
+            , "MsgKey" :. msgKey
             , "MsgId" :. msgId
             -- номер в посте для запоминания прочитанности
 --             , "PostId" :. int
 --             , "CommentId" :. maybe_ int
             , "Read" :. bool
-            , "Starred" :. bool
-            , "Tags" :. List bs
+            , "Tags" :. List itemTag
+            , "SmartStreams" :. intSet
             , "ReadLocked" :. bool
+            , "Full" :. bool
+            , "SearchResult" :. bool
 --             , "Ignored" :. bool
             -- feed не нужен, его можно по MsgKey из MsgView найти
             ]]
@@ -1434,10 +1923,51 @@ main = runGen $ do
 
     let msgForest = Type UwD "MsgForest" "mf"
          ["MsgForest" :/
-            [ "ResultsCount" :. int
+            -- все счетчики показывают общий размер, а не подгруженный
+            -- commentsForest всегда пробегает по всем комментариям,
+            -- считая сумму (но не добавляя сами сообщения, если их более 15),
+            -- чтобы были корректные числа у поддеревьев.
+            --
+            -- Для случаев, когда комментарии не раскрыты, postsForest
+            -- считает правильную сумму по маскам прочитанности/поиска.
+            --
+            -- Для root forest не имеет особого смысла, т.к. там смешивается
+            -- число постов и комментариев и выдается только сумма для
+            -- выдаваемого куска постов.
+            -- Для общего числа используются subItems
+            --
+            [ "TotalCount" :. int
+              -- сколько всего комментариев (включая прочитанные)
+              -- используется для обновления счетчиков тегов
+              -- (TotalComments) при отмечании тегом поста
+              -- с развернутыми комментариями
             , "UnreadCount" :. int
-              -- общий размер, а не подгруженный,
-              -- для отображения числа комментариев
+              -- число непрочитанных комментариев, причем в любом режиме
+              -- просмотра (в поиске и smart stream тоже),
+              -- используется в skip/ignore для правильного обновления
+              -- числа непрочитанных в исходном фиде
+            , "TotalResultsCount" :. int
+              -- всего комментариев-результатов поиска
+              -- в обычном режиме (не поиск/smart stream) равен TotalCount
+              -- используется для отображения числа комментариев
+              -- в режиме ShowAll
+            , "UnreadResultsCount" :. int
+              -- число непрочитанных результатов поиска,
+              -- отличается от UnreadCount только
+              -- при поиске или в smart stream (или поиске в smart stream)
+              -- используется для отображения числа комментариев
+              -- в режиме Show Unread
+            , "SmartStreamUnreadCounts" :. intMap int
+            , "SmartStreamUnreadResultCounts" :. intMap int
+              -- число непрочитанных результатов поиска, нужно, чтобы
+              -- корректировать число SmartStreamUnreadCounts
+              -- при mark above/below
+            , "TagTotalCounts" :. map_ (maybe_ itemTag) int
+            , "TagUnreadCounts" :. map_ (maybe_ itemTag) int
+            , "TagUnreadResultCounts" :. map_ (maybe_ itemTag) int
+              -- не GRIds, т.к. лень на клиенте возиться с перекодированием
+              -- туда и обратно (к тому же, у новых тегов может еще не быть
+              -- GRId, а делать отложенное перекодирование совсем лень).
             , "List" :. List (Tuple [msgItem, msgForest])
             , "NextReq" :. maybe_ treeReq
             ]]
@@ -1457,22 +1987,25 @@ main = runGen $ do
     -- разными доменами могут только обновлять число комментариев), а
     -- кравлер будет параллелиться именно по доменам.
 
-    loginType <- regType $ Type UwD "LoginType" "lt"
+    externalLoginType <- regType $ Type UwD "ExternalLoginType" "elt"
         ["Google" :/ []
         ,"Facebook" :/ []
         ,"Twitter" :/ []
         ,"OpenId" :/
             [ "URL" :. bs ]
         ]
+    externalLoginAction <- regType $ Type UwD "ExternalLoginAction" "ela"
+        ["ELALogin" :/ []
+        ,"ELAAddUrl" :/ [ "URL" :. bs ]
+        ,"ELAAddAssociatedAccount" :/ []
+        ]
 
-    io "loginGetForwardUrl" [loginType, bs, bs, url] url
-    io "loginCallback" [loginType, bs, url, bs] (Tuple [uid, maybe_ bs]) -- (either_ bs bs)
-    io "fbTokenGetForwardUrl" [bs, url] url
-    io "fbTokenCallback" [bs, url, bs] bs -- (either_ bs bs)
+    io "loginGetForwardUrl" [externalLoginType, bs, externalLoginAction, url] url
+    io "loginCallback" [externalLoginType, bs, url, bs] (Tuple [loginType, loginAccessToken, externalLoginAction, maybe_ bs])
 
-    io "importFromGoogleReaderGetForwardUrl" [bs, url] url
-    io "importFromGoogleReaderCallback" [bs, bs, bs, bs] unit
-    io "importStarredAndTaggedItemsFromGoogleReaderCallback" [bs, bs, bs, bs] unit
+--     io "importFromGoogleReaderGetForwardUrl" [bs, url] url
+--     io "importFromGoogleReaderCallback" [bs, bs, bs, bs] unit
+--     io "importStarredAndTaggedItemsFromGoogleReaderCallback" [bs, bs, bs, bs] unit
 
     io "userSubscribe" [bs, bs, maybe_ bs, List bs] bs
     io "userDiscoverySubscribe" [bs, bs, bs, bs, maybe_ bs, List bs] bs
@@ -1481,12 +2014,13 @@ main = runGen $ do
     io "userEditSubscriptionFolders" [bs,bs,bs,bool] unit
     io "userUnsubscribe" [bs, List bs] unit
     io "userRetrySubscription" [bs, bs] unit
-    io "userDeleteFilter" [bs, bs, bool] unit
-    io "userDeleteSmartStream" [bs, bs] unit
-    io "userAddFilter" [bs, bs, bool, List bs] unit
-    io "userEditFilter" [bs, bs, bool, bs, bool, List bs] unit
-    io "userAddSmartStream" [bs, bs, bs, List bs] unit
-    io "userEditSmartStream" [bs, bs, bs, List bs] unit
+    io "deleteFilter" [bs, int] unit
+    io "deleteSmartStream" [bs, bs] unit
+    io "checkQuerySyntax" [bs] (maybe_ bs)
+    io "addFilter" [bs, bs, bool, List int] unit
+    io "editFilter" [bs, int, bs, bool, List int] unit
+    io "addSmartStream" [bs, bs, bs, List int] unit
+    io "editSmartStream" [bs, bs, bs, List int] unit
     io "userOPML" [bool, bs] bs
     io "opmlSubscriptions" [blob, bs] unit
 
@@ -1527,13 +2061,13 @@ main = runGen $ do
             [ "TagName" :. bs ]
         , "SITSmartStream" :/
             [ "StreamName" :. bs
-            , "StreamFeeds" :. List bs ]
+            , "StreamFeedSirs" :. List int ]
         , "SITStarred" :/ []
         , "SITAllTags" :/ []
         ]
     subItemRpc <- regType $ Type Uw "SubItemRpc" "sir"
         [ "SubItemRpc" :/
-            [ "Hash" :. bs
+            [ "Path" :. bs
             , "Index" :. int
             , "Title" :. bs
             , "SIType" :. subItemType
@@ -1552,43 +2086,57 @@ main = runGen $ do
             , "StarredRestored" :. bool
             , "TaggedRestored" :. bool
             ]]
-    io "userSubscriptionsAndRenames" [bool, time, bs, bs, List bs, bs] (Tuple [maybe_ (Tuple [xbody, bs, List bs]), bs, List subItemRpc, bool, List (Tuple [time, bs, bs])])
-    io "userSubscriptionsAndSettings" [bs, bs] (Tuple [maybe_ (Tuple [xbody, bs, List bs]), bs, List subItemRpc, Tuple [bool, bool, List (Tuple [time, bs, bs]), List bs, userSettings], Tuple [maybe_ welcomeState, List filterQuery, List (Tuple [bs, List filterQuery])]])
---     io "testSubscriptions" [unit] (List subscription)
-    io "userGetFiltersAndSmartStreams" [bs] (Tuple [List filterQuery, List (Tuple [bs, List filterQuery])])
-    io "orderNotification" [bs] payment
-    io "checkOrder" [bs] payment
+
+    updateFilters <- regType $ Type UwD "UpdateFilters" "uf"
+        ["UFNone" :/ [] -- не обновляем фильтры
+        ,"UFChanged" :/ [] -- обновляем только отредактированные
+        ,"UFAll" :/ [] -- обновляем все
+        ]
+    let subscriptionsAndRenames = Tuple
+            [maybe_ (Tuple [xbodyString, bs, List bs])
+            ,bs
+            ,List subItemRpc
+            ,maybe_
+                (Tuple
+                    [Tuple
+                        [List (Tuple [int, filterQueryRpc])
+                        ,List (Tuple [bs, filterQueryRpc])]
+                    ,bs])
+            ,List (Tuple [time, bs, bs])]
+
+    io "subscriptionsAndRenames" [bs, bool, updateFilters, time, bs, bs, bs, bs]
+        subscriptionsAndRenames
+    io "subscriptionsAndSettings" [bs, bool, bool, bs]
+        (Tuple
+         [subscriptionsAndRenames
+         ,Tuple [List bs, bool, userSettings]
+         ,Tuple [welcomeState, List (Tuple [time, bs, bs]), int, int]])
+    io "orderNotification" [bs] (Tuple [bs, payment])
+    io "orderNotificationNew" [bs, bs] unit
+    io "checkOrder" [bs] (Tuple [bs, payment])
     io "getPaidTill" [bs] paidTill
-    io "activeGRImportsCount" [unit] int
-    io "activeGRImportNames" [unit] xbody
+--     io "activeGRImportsCount" [] int
+--     io "activeGRImportNames" [] xbody
+    io "getUserAccountTypeAndRenewalUrl" [bs] (Tuple [bs,bs])
 
-    io "getFeedDetails" [bs, bs] (Tuple [bs, maybe_ bs, maybe_ bs, msgTreeViewMode])
+    io "getFeedDetails" [bs, bs, bs] (Tuple [bs, maybe_ bs, maybe_ bs, msgTreeViewMode])
 
-    io "tagsMsgForest" [apiMode, bs, maybe_ (List itemTag), msgTreeViewMode] msgForest
-    let readCounters = List (Tuple [bs, int, int, int, int])
---    io "feedMsgForest" [apiMode, bs, bs, int, int, msgTreeViewMode] msgForest
-    io "folderMsgForest" [apiMode, bs, readCounters, List postsReq, msgTreeViewMode] (Tuple [readCounters, msgForest])
-    -- не subItemType, а конкретно SITFeed
-    io "userGetTree" [apiMode, bs, msgTreeViewMode, List treeReq] (List (maybe_ msgForest))
-    shareAction <- regType $ Type UwD "ShareAction" "sa" $
-        map (\ a -> ("SA" ++ a) :/ [])
-            ["EMail", "Twitter", "Facebook", "GooglePlus", "Tumblr"
-            ,"Evernote", "Delicious", "Pinboard", "Pocket", "Readability"
-            ,"Instapaper", "Translate"]
-
-    browserType <- regType $ Type NoUw "BrowserType" "" $ map (:/ [])
+    browserType <- regType $ Type UwD "BrowserType" "" $ map (:/ [])
         [ "BTUnknown", "BTAndroid", "BTIPhone", "BTIPad", "BTIPod"
         , "BTChrome", "BTIE", "BTIEMobile", "BTSafari", "BTOpera", "BTOperaMini"
-        , "BTFirefox" ]
-    appType <- regType $ Type NoUw "AppType" "" $ map (:/ [])
+        , "BTFirefox", "BTVivaldi", "BTEdge" ]
+    appType <- regType $ Type UwD "AppType" "" $ map (:/ [])
         [ "ATUnknown", "ATFeeddler", "ATMrReader", "ATReeder"
         , "ATSlowFeeds", "ATJustReader", "ATNewsPlus", "ATPress"
-        , "ATVienna", "ATReadKit", "ATNewsJet", "ATAmber", "ATgzip", "ATUnread" ]
-    operatingSystem <- regType $ Type NoUw "OperatingSystem" "" $ map (:/ [])
-        [ "OSUnknown", "OSWindows", "OSMac", "OSLinux", "OSAndroid", "OSIOS" ]
+        , "ATVienna", "ATReadKit", "ATNewsJet", "ATAmber", "ATgzip"
+        , "ATUnread", "ATFeedMe", "ATFieryFeeds", "ATLire", "ATWebSubscriber"
+        , "ATReadably", "ATokhttp", "ATFluentReader", "ATRavenReader"
+        , "ATFocusReader", "ATNetNewsWire" ]
+    operatingSystem <- regType $ Type UwD "OperatingSystem" "" $ map (:/ [])
+        [ "OSUnknown", "OSWindows", "OSMac", "OSLinux", "OSAndroid", "OSIOS"
+        , "OSChromeOS" ]
 
-
-    usageFlag <- regType $ Type NoUw "UsageFlag" "uf" $
+    usageFlag <- regType $ Type UwD "UsageFlag" "uf" $
         [ "UFWeb" :/
           [ "BrowserType" :. browserType
           , "OperatingSystem" :. operatingSystem ]
@@ -1610,7 +2158,7 @@ main = runGen $ do
         , "UFSearch", "UFSearchTags"
         , "UFSkip", "UFIgnore", "UFKeepUnread", "UFMarkAllAsRead"
         , "UFStar", "UFTag"
-        , "UFReadability", "UFSetMobileLogin"
+        , "UFReadability", "UFSetUsername"
         , "UFEnablePublicFeed", "UFDisablePublicFeed", "UFGenerateNewPublicFeed"
         , "UFDeleteAccount", "UFExportOPML" ]
         ++
@@ -1621,71 +2169,166 @@ main = runGen $ do
         map (:/ [])
         [ "UFFilterApply", "UFFilterHide", "UFNewSmartStream"
         , "UFEditFilter", "UFEditSmartStream"
-        , "UFDeleteFilter", "UFDeleteSmartStream"
+        , "UFDeleteFilter", "UFDeleteSmartStream" ]
+        ++
+        [ "UFWhatsNewClick" :/ [ "Time" :. time ]
+        , "UFWhatsNewClose" :/ [ "Time" :. time ]
+        , "UFThemeChange" :/ [ "ThemeName" :. bs ]
+        , "UFFontChange" :/ [ "FontName" :. bs ]
+        , "UFFontSizeChange" :/ [ "Size" :. int ]
+        , "UFLineHeightChange" :/ [ "Pixels" :. int, "FontSize" :. int ]
+        , "UFSetPassword" :/ []
+        , "UFSetEmail" :/ []
+        , "UFMarkReadAbove" :/ []
+        , "UFMarkReadBelow" :/ []
+        , "UFUnstarAbove" :/ []
+        , "UFUnstarBelow" :/ []
+        , "UFUntagAbove" :/ []
+        , "UFUntagBelow" :/ []
         ]
     userUsageFlags <- regType $ Type NoUw "UserUsageFlags" "uuf"
         ["UserUsageFlags" :/
             [ "PaidTill"     :. paidTill
             , "Country"      :. bs
             , "UsageFlags"   :. set_ usageFlag
-            , "Reserved1"    :. set_ unit
-            , "Reserved2"    :. set_ unit
-            , "Reserved3"    :. set_ unit
-            , "Reserved4"    :. set_ unit
+            , "Reserved1"    :. int
+            , "Reserved2"    :. int
+            , "Reserved3"    :. int
+            , "Reserved4"    :. int
             ]]
     usageFlags <- regType $ Type NoUw "UsageFlags" "ufl"
         ["UsageFlags" :/
             [ "Time"      :. time
             , "Flags"     :. hashMap bs userUsageFlags
-            , "Reserved1" :. set_ unit
-            , "Reserved2" :. set_ unit
-            , "Reserved3" :. set_ unit
-            , "Reserved4" :. set_ unit
+            , "Reserved1" :. int
+            , "Reserved2" :. int
+            , "Reserved3" :. int
+            , "Reserved4" :. int
             ]]
-    regRiak usageFlags "Time" 200 200 200
+    regRiak usageFlags "Time" 3600 3600 200
+
+--     userSession <- regType $ Type Uw "UserSession" "uSession"
+--         ["UserSession" :/
+--             [ "Key" :. bs  -- key
+--             , "Expire" :. time
+--             , "Cleared" :. bool
+--             , "User" :. bs
+--             , "LastAccessTime" :. time
+--             , "OS" : operatingSystem
+--             , "BrowserOrApp" :. either_ browserType appType
+--             , "UserAgent" :. bs
+--             , "IP" :. bs
+--             , "Country" :. bs
+--             , "Region" :. bs
+--             , "City" :. bs
+--             , "Reserved1" :. int
+--             , "Reserved2" :. int
+--             , "Reserved3" :. int
+--             , "Reserved4" :. int
+--             ]]
+--     regRiak userSession "Key" 3600 3600 100
+
+    userSessions <- regType $ Type NoUw "UserSessions" "uSessions"
+        ["UserSessions" :/
+            [ "User" :. bs
+            , "Sessions" :. hashSet bs
+            , "Reserved1" :. int
+            , "Reserved2" :. int
+            , "Reserved3" :. int
+            , "Reserved4" :. int
+            ]]
+    regRiak userSessions "User" 3600 3600 100
+
+    let readCounters = List (Tuple [int, int, int, int, int])
+    -- [(feedId/smartstreamId/tagId, readPosts, readComments, totalPosts, totalComments)]
+    let feedTcs = List (Tuple [int, Tuple [int, int]])
+    -- [(feedId, totalPosts, totalComments)]
+
+    markReq <- regType $ Type UwD "MarkReq" "mr"
+        [ "MRPosts" :/
+            [ "FeedTcs" :. feedTcs ]
+        , "MRTags" :/
+            [ "Tags" :. maybe_ (List itemTag)
+              -- если Nothing, то все теги
+            , "MaxTag" :. maybe_ (Tuple [time, msgId])
+            ]
+        , "MRSmartStream" :/
+            [ "StreamName" :. bs
+            , "FeedTcs" :. feedTcs ]
+        , "MRSearchPosts" :/
+            [ "Query" :. bs
+            , "FeedMasksKey" :. bs
+            , "FeedTcs" :. feedTcs ]
+        , "MRSearchTags" :/
+            [ "Query" :. bs
+            , "IdsKey" :. bs
+            , "Tags" :. maybe_ (List itemTag)
+            , "MaxTag" :. maybe_ (Tuple [time, msgId])
+            ]
+        , "MRSearchSmartStream" :/
+            [ "StreamName" :. bs
+            , "Query" :. bs
+            , "FeedMasksKey" :. bs
+            , "FeedTcs" :. feedTcs ]
+        ]
+    let rootMsgId = Tuple [bool, msgId] -- (isRoot, msgId)
+        -- является ли сообщение "постом" в UI
+        -- Нужно для работы mark above/below в комментариях, чтобы отличить
+        -- настоящий комментарий от помеченного звездочкой и отображаемого
+        -- как пост.
+    markReadDirection <- regType $ Type UwD "MarkReadDirection" "mrd"
+        [ "MRDAll" :/ []
+        , "MRDAbove" :/
+            [ "Point" :. Tuple [time, rootMsgId, rootMsgId] ]
+            -- (post time, click message, start message)
+            -- start message используется при помечании комментариев
+        , "MRDBelow" :/
+            [ "Point" :. Tuple [time, rootMsgId, rootMsgId] ]
+        ]
 
     bgAction <- regType $ Type UwD "BgAction" "ba"
         ["BGMarkMsgRead" :/
-            [ "MsgId"      :. msgId
-            , "Read"       :. bool
+            [ "MsgId" :. msgId
+            , "Read"  :. bool
             , "TotalComments" :. int ]
         ,"BGAddTag" :/
-            [ "MsgId"      :. msgId
-            , "Tag"        :. itemTag ]
+            [ "LongMsgId" :. longMsgId
+            , "Tag"   :. itemTag ]
         ,"BGRemoveTag" :/
-            [ "MsgId"      :. msgId
-            , "Tag"        :. itemTag ]
+            [ "LongMsgId" :. longMsgId
+            , "Tag"   :. itemTag ]
         ,"BGSkipComments" :/
             [ "MsgId" :. msgId
             , "TotalComments" :. int ]
         ,"BGIgnorePost" :/
             [ "MsgId" :. msgId
             , "TotalComments" :. int ]
-        ,"BGMarkBlogRead" :/
-            [ "BlogFeedUrl" :. bs
-            , "TotalPosts" :. int
-            , "TotalComments" :. int ]
-        ,"BGMarkBlogReadD" :/
-            [ "BlogFeedUrl" :. bs
-            , "TotalPosts" :. int
-            , "TotalComments" :. int
-            , "OlderThan" :. int
+        ,"BGMarkRead" :/
+            [ "Direction" :. markReadDirection
+            , "OlderThan" :. int -- days
+            , "ViewMode" :. msgTreeViewMode
+            , "Posts" :. List (Tuple [time, msgId])
+              -- список постов, загруженных и отмеченных в UI.
+              -- нужен для отмечания прочитанными сообщений, у которых
+              -- убрали перед этим звездочку/тег
+              -- для Mark all as read в тегах тоже передаём
+              -- в тегах тут могут быть и комментарии (с depth=0 как у постов
+              -- в обычных фидах). как-то надо по-другому назвать
+            , "MarkReq" :. markReq
             ]
-        ,"BGMarkSearchRead" :/
-            [ "Query" :. bs
-            , "ReadCounters" :. readCounters
-            , "OlderThan" :. int
+        ,"BGRemoveTagFromTree" :/
+            [ "Above" :. bool
+            , "Tags" :. maybe_ (List itemTag) -- Nothing для всех ITTag
+            , "ViewMode" :. msgTreeViewMode
+            , "TreeReqs" :. List treeReq
             ]
-        ,"BGMarkSmartStreamSearchRead" :/
-            [ "StreamName" :. bs
-            , "Query" :. bs
-            , "ReadCounters" :. readCounters
-            , "OlderThan" :. int
-            ]
-        ,"BGMarkSmartStreamRead" :/
-            [ "StreamName" :. bs
-            , "ReadCounters" :. readCounters
-            , "OlderThan" :. int
+            -- более красиво было бы обобщить код markTags из BGMarkRead
+            -- с другой стороны, подход с пробеганием по TreeReqs более
+            -- общий и достаточно быстрый, т.к. не надо забегать в комментарии
+            -- (включая комментарии прочитанных сообщений, которые не видно).
+        ,"BGRemoveTagD" :/
+            [ "Tags" :. maybe_ (List itemTag) -- Nothing для всех ITTag
+            , "OlderThan" :. int -- days
             ]
         ,"BGSetOnlyUpdatedSubscriptions" :/
             [ "Value" :. bool ]
@@ -1695,14 +2338,6 @@ main = runGen $ do
         ,"BGSetSubscriptionViewMode" :/
             [ "Url" :. bs
             , "ViewMode" :. msgTreeViewMode ]
---         ,"BGUnsubscribe" :/
---             [ "Url" :. bs ]
---         ,"BGRenameSubscription" :/
---             [ "Url" :. bs
---             , "NewTitle" :. bs ]
---         ,"BGRenameFolder" :/
---             [ "Folder" :. bs
---             , "NewTitle" :. bs ]
         ,"BGClearAllSubscriptions" :/ []
         ,"BGSaveFilterQuery" :/
             [ "Query" :. bs ]
@@ -1730,6 +2365,10 @@ main = runGen $ do
             [ "ShareAction" :. shareAction ]
         ,"BGSetCountry" :/
             [ "Country" :. bs ]
+        ,"BGWhatsNewClick" :/
+            [ "Time" :. time ]
+        ,"BGWhatsNewClose" :/
+            [ "Time" :. time ]
         ]
 
     io "performBgActions" [bs, List bgAction] bs
@@ -1737,6 +2376,21 @@ main = runGen $ do
 
 --     io "markBlogRead" [bs, bs, int, int] (maybe_ subInfo)
 --     io "markMsgsRead" [bs, List (Tuple [msgId, bool])] unit
+
+    io "tagsForest" [apiMode, bs, maybe_ (List itemTag), msgTreeViewMode] (Tuple [markReq, readCounters, msgForest])
+
+    feedsOrDiscovery <- regType $ Type UwD "FeedsOrDiscovery" "fod"
+        [ "FODFeeds" :/
+            [ "ReadCounters" :. readCounters ]
+        , "FODFeedsApi" :/
+            [ "APIMode" :. apiMode
+            , "Feeds" :. List bs ]
+        , "FODDiscovery" :/
+            [ "Url" :. bs ]
+        ]
+
+    io "folderForest" [bs, maybe_ bs, feedsOrDiscovery, List postsReq, msgTreeViewMode, bs, bs] (Tuple [markReq, readCounters, msgForest])
+    io "getTree" [apiMode, bs, msgTreeViewMode, List treeReq] (List (maybe_ msgForest))
 
     filterResults <- regType $ Type Uw "FilterResults" "fr"
         ["FilterResults" :/
@@ -1748,55 +2402,94 @@ main = runGen $ do
             , "TookReal"   :. int
             , "MsgForest"  :. msgForest
             ]]
-    io "filterMsgForest" [bs, maybe_ bs, bs, readCounters, msgTreeViewMode] (Tuple [readCounters, filterResults])
-    io "filterTagsMsgForest" [bs, bs, maybe_ (List itemTag), msgTreeViewMode] filterResults
-    io "smartStreamMsgForest" [apiMode, bs, bs, readCounters, msgTreeViewMode] (Tuple [readCounters, msgForest])
-    pure "htmlHead" [unit] xhead
-    pure "htmlHeadMain" [unit] xhead
-    pure "htmlHeadMainNoTranslate" [unit] xhead
-    pure "htmlLikeButtons" [unit] xbody
-    pure "htmlLandingScripts" [unit] page
-    pure "htmlOpenIdSignInButton" [unit] xbody
-    pure "htmlConversionLogin" [unit] xbody
-    pure "version" [unit] bs
-    pure "blessId" [bs] urId
-    pure "parseQueryStringUtf8Only" [bs] (List (Tuple [bs,bs]))
-    pure "buyLink" [bs, bs] bs
-    pure "encodeURIComponent" [bs] bs
-    pure "prettyUID" [bs] bs
-    pure "textToXbody" [bs] xbody
-    io "newSession" [uid, List (Tuple [bs,bs])] session
-    io "getUserByMobileLogin" [bs,bs] uid
-    io "clearSession" [bs] unit
-    io "userEvent" [bs,bs,bs] unit
-    io "initMailer" [unit] unit
-    io "initApiServer" [unit] unit
+    io "filterForest" [bs, maybe_ bs, bs, maybe_ bs, feedsOrDiscovery, msgTreeViewMode, bs, bs] (either_ bs $ Tuple [markReq, readCounters, filterResults])
+    io "filterTagsForest" [bs, bs, maybe_ (List itemTag), msgTreeViewMode, bs, bs] (either_ bs $ Tuple [markReq, readCounters, filterResults])
+    io "smartStreamForest" [apiMode, bs, bs, readCounters, msgTreeViewMode] (Tuple [markReq, readCounters, msgForest])
+    io "markReqReadCounters" [bs, msgTreeViewMode, markReq, List msgId] readCounters
+    benign "pageFromFile" [bs] page
+    benign "addWebpackScripts" [bs] bs
+    benign "webpackStyles" [] xhead
+    func' "blessId" "id" [bs] urId
+    func "parseQueryStringUtf8Only" [bs] (List (Tuple [bs,bs]))
 
-    fullTextCache <- regType $ Type Uw "FullTextCache" "ftc"
+    emailAddress <- regType $ Type Uw "EmailAddress" "ea"
+        ["EmailAddress" :/
+            [ "Email"     :. bs
+            , "FirstName" :. bs
+            , "LastName"  :. bs
+            ]
+        ]
+
+    io   "userEmail" [bs] (maybe_ emailAddress)
+    io   "buyPage" [bs, bs, maybe_ emailAddress] page
+    func "invoiceLink" [bs] bs
+    io   "prettyUID" [bs] bs
+    func' "xbodyStringToString" "id" [xbodyString] bs
+    func' "xbodyStringToXbody" "id" [xbodyString] xbody
+--     func' "textToXbody" "id" [bs] xbody
+    func  "escapeXbody" [xbodyBS] xbody
+    func' "hyphenatePage" "hyphenateHtml" [page] page
+    func' "hyphenateXbody" "hyphenateHtml" [xbody] xbody
+    func' "toLowerCase" "T.toLower" [bs] bs
+    io "addTwitterScreenName" [bs, bs, bs] unit
+    io "newSessionJunk" [loginType, loginAccessToken, List (Tuple [junkText,junkText])] session
+    io "getUserByLogin" [loginType, maybe_ bs] (maybe_ bs)
+    io "clearSession" [bs, bs] unit
+    io "userEvent" [bs,bs,bs] unit
+    io "runTasks" [] unit
+    io "runApiServer" [] unit
+    io "reloadBrowserPage" [] unit
+    io "logOutAllSessions" [bs, List bs] unit
+
+    fullText <- regType $ Type NoUw "FullText" "ft"
+        ["FTError" :/
+            [ "Message" :. bs ]
+        ,"FTTextV0" :/
+            [ "Text" :. bs ]
+        ,"FTTitleAndText" :/
+            [ "Title" :. bs
+            , "Text" :. bs ]
+        ]
+
+    fullTextCache <- regType $ Type NoUw "FullTextCache" "ftc"
         ["FullTextCache" :/
             [ "Url"        :. url
-            , "Text"       :. either_ bs bs
+            , "Text"       :. fullText
             , "Time"       :. time
             , "Reserved1"  :. bool
             , "Reserved2"  :. bool
             ]]
     regRiak fullTextCache "Url" 60 60 200
-    io "userGetFullText" [bs, msgKey] (either_ bs bs)
-    io "getUrTime_" [unit] time
---     io "isBeta" [unit] bool
-    io "setMobileLogin" [bs,bs,bs,bs] bool
+
+    io "getFullText" [bs, bool, bs, bs, msgKey] (either_ bs xbodyString)
+    io "getUrTime" [] time
+    io "setUsername" [maybe_ bs,bs,bs] bool
+    io "setPassword" [maybe_ bs,bs,bs] unit
+    io "tryRemoveAssociatedAccount" [maybe_ bs, bs, loginType] bool
+    io "tryAddAssociatedAccount" [maybe_ bs, bs, loginType] bool
     io "tryGetFeverUser" [bs] (maybe_ bs)
 
-    io "userEnablePublicFeed" [publicFeedType, bs] publicFeedInfo
-    io "userDisablePublicFeed" [publicFeedType, bs] publicFeedInfo
-    io "userGenerateNewPublicFeed" [publicFeedType, bs] publicFeedInfo
+    io "enablePublicFeed" [publicFeedType, bs] publicFeedInfo
+    io "disablePublicFeed" [publicFeedType, bs] publicFeedInfo
+    io "generateNewPublicFeed" [publicFeedType, bs] publicFeedInfo
 
-    io "userSearchSubscriptions" [bs,bs,bs] (maybe_ (Tuple [xbody, List (Tuple [bs, msgTreeViewMode])]))
-
-    io "userRestoreSubscriptionsFromBackup" [bs] unit
+    io "discover" [bs,bs,bs,bs] (maybe_ (Tuple [xbody, List (Tuple [bs, msgTreeViewMode])]))
+    io "restoreSubscriptionsFromBackup" [bs] unit
     io "isUserExists" [bs] bool
-    io "userDeleteAccount" [bool, bs] unit
-    io "recordWebUsage" [bs, maybe_ bs] unit
+    io "deleteAccount" [bool, bs] unit
+    io "recordWebUsage" [bs, maybe_ junkText] unit
+    io "readMsgAndApplyFixes" [bs, bs, msgKey] (maybe_ msg)
+    io "parseRenewalUserId" [bs] bs
+    io "passwordResetEmail" [bs] (either_ bs (Tuple [bs, bs]))
+    io "sendSignUpEmail" [bs, bs, bs] bool
+    io "sendPasswordResetEmail" [bs, bs, bs] bool
+    io "sendChangeEmailEmail" [bs, bs, bs] bool
+    io "verifySignUpToken" [bs] (maybe_ bs)
+    io "verifyPasswordResetToken" [bs, bs, bs] (maybe_ bs)
+    io "verifyChangeEmailToken" [bs, bs] (maybe_ bs)
+    io "verifyRestoreAccessToken" [bs, bs, bs] (maybe_ bs)
+    func "validateEmail" [bs] (maybe_ bs)
+    func "maskEmail" [bs] bs
 
     okErrorRedirect <- regType $ Type UwD "OkErrorRedirect" "oer"
         [ "OEROK" :/ []
@@ -1807,5 +2500,349 @@ main = runGen $ do
         ]
     io "userAddToPocket" [bs, bs, url, bs, bs] okErrorRedirect
     io "userAuthorizeAndAddToPocket" [bs] unit
+    io "logT" [bs] unit
+
+    pageIconSize <- regType $ Type NoUw "PageIconSize" "pis"
+        [ "PISAny" :/ []
+        , "PIS" :/
+            [ "Width"      :. int
+            , "Height"     :. int ]
+        ]
+    pageInfoTitleSource <- regType $ Type NoUw "PageInfoTitleSource" "pits"
+        [ "PITSTag" :/ []
+        , "PITSItempropName" :/ []
+        , "PITSTwitter" :/ []
+        , "PITSOpenGraph" :/ []
+        ]
+    -- title: title tag, itemprop->name, twitter:title, og:title
+
+    pageInfoDescriptionSource <- regType $ Type NoUw "PageInfoDescriptionSource" "pids"
+        [ "PIDSItemprop" :/ []
+        , "PIDSName" :/ []
+        , "PIDSTwitter" :/ []
+        , "PIDSOpenGraph" :/ []
+        ]
+    -- description: itemprop->description, name->description, og:, twitter:
+
+    pageInfoImageSource <- regType $ Type NoUw "PageInfoImageSource" "piis"
+        [ "PIISLinkRelImageSrc" :/ []
+        , "PIISItemprop" :/ []
+        , "PIISTwitter" :/ []
+        , "PIISOpenGraph" :/ []
+        , "PIISUserPic" :/ []
+        ]
+    -- image: link rel=image_src, itemprop->image, twitter:image:src, og:
+
+    pageInfoIconSource <- regType $ Type NoUw "PageInfoIconSource" "piics"
+        [ "PIICSIcon" :/ []
+        , "PIICSShortcutIcon" :/ []
+        , "PIICSShortcut" :/ []
+        , "PIICSAppleTouchIcon" :/ []
+        , "PIICSAppleTouchIconPrecomposed" :/ []
+        , "PIICSIconMask" :/ []
+        ]
+    -- icon: ["icon", "shortcut icon", "shortcut", "apple-touch-icon", "apple-touch-icon-precomposed"]
+    -- robots: robot, googlebot, bingbot, teoma -- nosnippet нафиг,
+    -- мы не поисковый движок
+
+    pageInfo <- regType $ Type NoUw "PageInfo" "pi"
+        ["PageInfo" :/
+            [ "Url"        :. url
+            , "FetchTime"  :. time
+            , "RedownloadOptions" :. List bs
+            , "Error"      :. maybe_ (Tuple [time, bs])
+            , "ContentType" :. maybe_ bs
+            , "ContentLength" :. maybe_ int
+            , "Title" :. List (Tuple [pageInfoTitleSource, bs])
+            , "Description" :. List (Tuple [pageInfoDescriptionSource, bs])
+            , "Image" :. List (Tuple [pageInfoImageSource, bs])
+            , "Icon" :. List (Tuple [ pageInfoIconSource
+                                    , Tuple [List pageIconSize, maybe_ bs, bs] ])
+            , "RedirectUrl" :. maybe_ bs
+            , "Reserved11"  :. bool
+            , "Reserved12"  :. bool
+            , "Reserved13"  :. bool
+            , "Reserved14"  :. bool
+            , "Reserved15"  :. bool
+            , "Reserved16"  :. bool
+            , "Reserved17"  :. bool
+            , "ErrorsCount" :. int
+            , "Reserved3"  :. int
+            , "Reserved4"  :. int
+            ]]
+    regRiak pageInfo "Url" 600 600 200
+
+    favicon <- regType $ Type NoUw "Favicon" "favicon"
+        ["Favicon" :/
+            [ "SourceUrl"   :. url
+            , "FetchTime"   :. time
+            , "RedownloadOptions" :. List bs
+            , "RedirectUrl" :. maybe_ bs
+            , "File" :. either_ (Tuple [time, bs]) (Tuple [sbs, sbs])
+            , "ErrorsCount" :. int
+            , "Reserved2"   :. int
+            , "Reserved3"   :. int
+            , "Reserved4"   :. int
+            ]]
+    regRiak favicon "SourceUrl" 600 600 200
+
+    linkInfo <- regType $ Type Uw "LinkInfo" "li"
+        ["LinkInfo" :/
+            [ "Url"        :. url
+--            , "FileSize" :. maybe_ int
+            , "Title" :. bs
+            , "Description" :. bs
+            , "Image" :. maybe_ url
+            , "Avatar" :. maybe_ url
+            ]
+        ]
+
+    hotLink <- regType $ Type NoUw "HotLink" "hl"
+        ["HotLink" :/
+            [ "Checksum" :. int
+            , "LinkInfo" :. linkInfo
+            , "UniqMsgs" :. List longMsgId -- уникальные сообщения, по одному на фид
+            , "MoreMsgs" :. List longMsgId -- дополнительные сообщения из тех же фидов
+            , "DupMsgs" :. List longMsgId -- сообщения, дублирующие предыдущие
+            , "Time" :. time
+            ]
+        ]
+--     еще продумать вид дерева для hotlink
+--     в принципе для next только список checksum
+--     посты можно сразу все для линка, чтобы не париться
+--     посещение линка делает его прочитанным,
+--     а посты при прокрутке должны пропускаться, только если next нажали
+--     enter на ссылке раскрывает текст
+--     еще интересно про дубликаты - я их определяю, и хорошо бы их сохранять,
+--     чтобы как-то показывать (они могут и не попасть в top 50 hotlink-ов)
+
+    hotLinkState <- regType $ Type NoUw "HotLinkState" "hls"
+        ["HotLinkState" :/
+            [ "Read" :. bool -- прочитанный -- это посещенный или помеченный
+              -- игнорирование -- это вообще прятать?
+            , "FirstAppearedAt" :. time
+              -- храним последний месяц-два, чтобы не вылезал?
+            , "Reserved_1" :. int
+            , "Reserved_2" :. int
+            ]
+        ]
+    hotLinks <- regType $ Type NoUw "HotLinks" "hls"
+        ["HotLinks" :/
+            [ "User" :. bs
+              -- ссылки
+            , "HotLinks" :. List hotLink
+
+              -- состояние
+            , "Version" :. time
+            , "LastVisit" :. time -- для пометки новых
+            , "HiddenLinks" :. intSet -- то, что убрали навсегда
+              -- уметь показывать новые ссылки с последнего раза
+              -- нужны версии
+              -- помнить, что прочитано
+            , "HotLinksState" :. intMap hotLinkState
+
+              -- настройки
+            , "ExcludedFeeds" :. hashSet url
+            , "Blacklist" :. List bs -- шаблоны url-ов
+            , "TimeRange" :. int -- секунды
+            , "TimeOffset" :. int -- секунды
+            , "MaxHotLinks" :. int -- 50, 100
+            , "MinLinks" :. int -- 2 ???
+            , "UnreadOnly" :. bool
+            , "SortByTime" :. bool -- или по числу ссылок
+            , "NewLinksFirst" :. bool
+            , "Reserved1" :. int
+            , "Reserved2" :. int
+            , "Reserved3" :. int
+            , "Reserved4" :. int
+            ]]
+    regRiak hotLinks "User" 600 600 200
+
+    feedbackEmail <- regType $ Type Uw "FeedbackEmail" "feedbackEmail"
+        ["FeedbackEmail" :/
+            [ "Address" :. emailAddress
+            , "Time" :. time
+            , "Subject" :. bs
+            , "Text" :. bs
+            , "Reserved1" :. int
+            , "Reserved2" :. int
+            ]
+        ]
+--         сгенерить такой список на сервере и Binary.encode в файл
+--         интерфейс оттачивать уже на маке
+    feedbackUserInfo <- regType $ Type Uw "FeedbackUserInfo" "fui"
+        ["FeedbackUserInfo" :/
+            [ "Id"          :. bs
+            , "Who"         :. maybe_ bs -- twitter/fb link
+            , "PaidTill"    :. paidTill
+            , "Country"     :. bs
+            , "UsageFlags"  :. List usageFlag
+            , "LastUsedTime" :. time
+            , "Deleted"     :. bool
+            , "Payments"    :. List (Tuple [time, bs, bs, emailAddress])
+              -- time, id, type, email
+            , "FeedsCount"  :. int
+            , "ErrorFeedsCount" :. int
+
+            , "ProcessedAt" :. maybe_ time -- время skip/mail
+            , "MailSent"    :. maybe_ feedbackEmail
+            , "RepliedAt" :. maybe_ time -- а нужно ли?
+            , "Tags"      :. List bs
+            , "Notes"     :. bs
+            , "Reserved1" :. int
+            , "Reserved2" :. int
+            , "Reserved3" :. int
+            , "Reserved4" :. int
+            ]]
+    feedbackUserInfosList <- regType $ Type NoUw "FeedbackUserInfosList" "fuil"
+        ["FeedbackUserInfoList" :/
+            [ "Id"        :. bs
+            , "Processed" :. List feedbackUserInfo
+            , "OrderEmailsCache" :. hashMap bs emailAddress
+            , "Reserved2" :. int
+            , "Reserved3" :. int
+            , "Reserved4" :. int
+            ]]
+    regRiak feedbackUserInfosList "Id" 60 60 10
+    io "findUsersLeft" [int] (Tuple [List feedbackUserInfo, List feedbackUserInfo])
+    io "updateFeedbackUserInfo" [feedbackUserInfo] unit
+
+    ftsReceiptTaxSystem <- regType $ Type NoUw "FtsReceiptTaxSystem" ""
+        ["FRTSObschaya" :/ []
+        ,"FRTSUsnDohod" :/ []
+        ,"FRTSUsnDohodMinusRashod" :/ []
+        ,"FRTSEnvd" :/ []
+        ,"FRTSEshn" :/ [] --
+        ,"FRTSPatent" :/ []]
+
+    ftsReceiptOperationType <- regType $ Type NoUw "FtsReceiptOperationType" ""
+        ["FROTPrihod" :/ []
+        ,"FROTVozvratPrihoda" :/ []
+        ,"FROTRashod" :/ []
+        ,"FROTVozvratRashoda" :/ []
+        ]
+    ftsReceiptVatType <- regType $ Type NoUw "FtsReceiptVatType" ""
+        ["FRVT18" :/ []
+        ,"FRVT10" :/ []
+        ,"FRVT118" :/ []
+        ,"FRVT110" :/ []
+        ,"FRVT0" :/ []
+        ,"FRVTNone" :/ []
+        ]
+    ftsReceiptItem <- regType $ Type NoUw "FtsReceiptItem" "fri"
+        ["FtsReceiptItem" :/
+            [ "Title" :. bs
+            , "Count" :. int
+            , "Price" :. money
+            , "Total" :. money
+            , "Vat"   :. ftsReceiptVatType
+            , "Reserved1" :. int
+            , "Reserved2" :. int
+            , "Reserved3" :. int
+            , "Reserved4" :. int
+            ]]
+            -- интересно, что суммы налога нет, только ставка
+            -- наименование товаров, работ, услуг (если объем и список услуг возможно определить в момент оплаты), платежа, выплаты, их количество, цена (в валюте Российской Федерации) за единицу с учетом скидок и наценок, стоимость с учетом скидок и наценок, с указанием ставки налога на добавленную стоимость (за исключением случаев осуществления расчетов пользователями, не являющимися налогоплательщиками налога на добавленную стоимость или освобожденными от исполнения обязанностей налогоплательщика налога на добавленную стоимость, а также осуществления расчетов за товары, работы, услуги, не подлежащие налогообложению (освобождаемые от налогообложения) налогом на добавленную стоимость);
+
+    -- обязательные поля чека для ФНС
+    -- https://normativ.kontur.ru/document?moduleId=1&documentId=316169#h369
+    ftsReceipt <- regType $ Type NoUw "FtsReceipt" "fr"
+        ["FtsReceipt" :/
+            [ "DocumentName" :. bs -- "Кассовый чек"
+              -- наименование документа;
+            , "NomerZaSmenu" :. int
+              -- порядковый номер за смену;
+            , "Time"         :. time
+            , "Address"      :. bs
+              -- дата, время и место (адрес) осуществления расчета (при расчете в зданиях и помещениях - адрес здания и помещения с почтовым индексом, при расчете в транспортных средствах - наименование и номер транспортного средства, адрес организации либо адрес регистрации индивидуального предпринимателя, при расчете в сети "Интернет" - адрес сайта пользователя);
+            , "OrganizationName" :. bs
+              -- наименование организации-пользователя или фамилия, имя, отчество (при наличии) индивидуального предпринимателя - пользователя;
+            , "INN" :. bs
+              -- идентификационный номер налогоплательщика пользователя;
+            , "TaxSystem" :. ftsReceiptTaxSystem
+              -- применяемая при расчете система налогообложения;
+            , "OperationType" :. ftsReceiptOperationType
+              -- признак расчета (получение средств от покупателя (клиента) - приход, возврат покупателю (клиенту) средств, полученных от него, - возврат прихода, выдача средств покупателю (клиенту) - расход, получение средств от покупателя (клиента), выданных ему, - возврат расхода);
+            , "Items" :. List ftsReceiptItem
+            , "Total" :. money
+            , "TotalVats" :. List (Tuple [ftsReceiptVatType, money])
+              -- сумма расчета с отдельным указанием ставок и сумм налога на добавленную стоимость по этим ставкам (за исключением случаев осуществления расчетов пользователями, не являющимися налогоплательщиками налога на добавленную стоимость или освобожденными от исполнения обязанностей налогоплательщика налога на добавленную стоимость, а также осуществления расчетов за товары, работы, услуги, не подлежащие налогообложению (освобождаемые от налогообложения) налогом на добавленную стоимость);
+              -- у нас всегда Электронный платеж и безнал
+              -- форма расчета (оплата наличными деньгами и (или) в безналичном порядке), а также сумма оплаты наличными деньгами и (или) в безналичном порядке; (в ред. Федерального закона от 03.07.2018 N 192-ФЗ)
+              -- должность и фамилия лица, осуществившего расчет с покупателем (клиентом), оформившего кассовый чек или бланк строгой отчетности и выдавшего (передавшего) его покупателю (клиенту) (за исключением расчетов, осуществленных с использованием автоматических устройств для расчетов, применяемых в том числе при осуществлении расчетов в безналичном порядке в сети "Интернет")
+              -- Т.е., нам это не нужно
+            , "KKTNumber" :. bs
+              -- заводской номер контрольно-кассовой техники
+              -- этого поля нет в 54-ФЗ, но на всякий случай запомним
+            , "KKTRegNumber" :. bs
+              -- регистрационный номер контрольно-кассовой техники;
+            , "FNNumber" :. bs
+              -- заводской номер экземпляра модели фискального накопителя;
+            , "FPD" :. bs
+              -- фискальный признак документа;
+            , "ReceiptSite" :. bs -- www.nalog.ru
+              -- адрес сайта уполномоченного органа в сети "Интернет", на котором может быть осуществлена проверка факта записи этого расчета и подлинности фискального признака;
+            , "BuyerEmail" :. bs
+              -- абонентский номер либо адрес электронной почты покупателя (клиента) в случае передачи ему кассового чека или бланка строгой отчетности в электронной форме или идентифицирующих такие кассовый чек или бланк строгой отчетности признаков и информации об адресе информационного ресурса в сети "Интернет", на котором такой документ может быть получен;
+            , "SenderEmail" :. bs
+              -- адрес электронной почты отправителя кассового чека или бланка строгой отчетности в электронной форме в случае передачи покупателю (клиенту) кассового чека или бланка строгой отчетности в электронной форме;
+            , "FDNumber" :. int
+              -- порядковый номер фискального документа;
+            , "ShiftNumber" :. int
+              -- номер смены;
+            -- , "" то же, что и ФПД?
+              -- фискальный признак сообщения (для кассового чека или бланка строгой отчетности, хранимых в фискальном накопителе или передаваемых оператору фискальных данных).
+              -- QR-код. (в ред. Федерального закона от 03.07.2018 N 192-ФЗ)
+              -- мы генерируем его на лету
+            , "ExchangeRate" :. Tuple [time, money]
+              -- сохраняем дату и курс ЦБ, используемый при создании чека
+              -- Возможно, что мы будем создавать чек в 23:59:59 по вчерашнему
+              -- курсу, а создастся чек уже на следующий день,
+              -- Для даты курса надо использовать время продажи на FastSpring
+            , "RetailAddress" :. bs
+              -- адрес физического магазине, не требуется,
+              -- но все же присутствует в JSON от e-ofd
+              -- (равно юр. адресу самого e-ofd)
+            , "Reserved_2" :. int
+            , "Reserved_3" :. int
+            , "Reserved_4" :. int
+            , "Reserved_5" :. int
+            , "Reserved_6" :. int
+            , "Reserved_7" :. int
+            , "Reserved_8" :. int
+            , "Reserved_9" :. int
+            , "Reserved_10" :. int
+            ]
+        ]
+
+    printableFtsReceipt <- regType $ Type NoUw "PrintableFtsReceipt" "pfr"
+        ["PrintableFtsReceipt" :/
+            [ "PdfRus"     :. sbs
+            , "HtmlRus"    :. bs
+            , "HtmlEng"    :. bs
+            , "Reserved_1" :. int
+            , "Reserved_2" :. int
+            , "Reserved_3" :. int
+            , "Reserved_4" :. int
+            ]]
+
+    ofdReceipt <- regType $ Type NoUw "OfdReceipt" "or"
+        ["OfdReceipt" :/
+            [ "OrderIdRefund" :. Tuple [bs, bool]
+            , "TransactionID" :. bs
+            , "FtsReceipt"    :. ftsReceipt
+            , "PrintableFtsReceipt" :. maybe_ printableFtsReceipt
+            , "Reserved_1" :. int
+            , "Reserved_2" :. int
+            , "Reserved_3" :. int
+            , "Reserved_4" :. int
+            ]]
+    regRiak ofdReceipt "OrderIdRefund" 60 60 10
+
+    parserEnvironment <- regType $ Type NoUw "ParserEnvironment" "pe"
+        ["ParserEnvironment" :/
+            [ "Key" :. bs
+            , "Value" :. maybe_ bs ]]
+    regRiak parserEnvironment "Key" 3600 3600 100
 
     return ()

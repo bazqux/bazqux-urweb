@@ -1,0 +1,68 @@
+packages:
+  Lib/raw-zlib/
+  Lib/protocol-buffers-2.4.13
+  Lib/riak-protobuf-0.22.0.0
+  Lib/riak-0.7.2.0/
+  *.cabal
+
+package *
+  ghc-options: -fhide-source-paths
+
+package bazqux
+  ghc-options: -j -threaded -fwarn-incomplete-patterns -fwarn-tabs
+  optimization: 2
+  profiling-detail: all-functions
+-- -fwarn-unused-imports
+-- -prof -auto-all -caf-all
+-- -Wall -Werror
+-- -fwarn-simple-patterns -fwarn-tabs -fwarn-incomplete-record-updates -fwarn-monomorphism-restriction
+-- -fwarn-implicit-prelude
+-- -fno-warn-unused-binds -fno-warn-unused-imports -fno-warn-name-shadowing
+  haddock-hyperlink-source: True
+
+allow-newer: Cabal:time, ekg:time, snap-server:time, io-streams:time, snap-core:time
+
+source-repository-package
+    type: git
+    location: https://github.com/vshabanov/haskell-sajson.git
+    tag: 7b52183073eebce9c88d24a4ac24c907267d8c92
+
+------------------------------------------------------------------------------
+-- Для разработки под macOS
+-- cabal.project.local:
+
+-- package text-icu
+--   -- macports
+--   extra-include-dirs: /opt/local/include
+--   extra-lib-dirs: /opt/local/lib
+--   -- надо такое же исправление, как в HsOpenSSL
+--   -- https://github.com/bos/text-icu/pull/20 -- для Homebrew
+
+-- package HsOpenSSL
+--   flags: macports-openssl
+
+-- package bazqux
+--   ghc-options: -optl/usr/lib/libiconv.dylib
+--   -- https://stackoverflow.com/questions/2726248/ghc-6-12-and-macports
+--   --
+--   -- Из-за использования MacPorts в text-icu и HsOpenSSL
+--   -- и добавления /opt/local/lib в extra-lib-dirs
+--   -- GHC использует несовместимую /opt/local/lib/libiconv от MacPorts
+--   -- вместо системной /usr/lib/libiconv от OS X,
+--   -- что приводит к ошибкам при статической сборке (не может найти _iconv).
+--   --
+--   -- В GHCi и executable-dynamic=true проблем нет, т.к. используются dylib-ы,
+--   -- и base.dylib использует правильный /usr/lib/libiconv,
+--   -- а HsOpenSSL.dylib использует правильный /opt/local/lib/libssl
+--   --
+--   -- Можно добавить extra-lib-dirs: /usr/lib, чтобы linker искал системную
+--   -- libiconv, но тогда (при статической сборке) будет использоваться
+--   -- несовместимая системная /usr/lib/libssl (вместо /opt/local/lib/libssl),
+--   -- что вызовет runtime ошибку OpenSSL.
+--   --
+--   -- Решаем это прямым указанием файла libiconv.dylib без изменения lib-dirs.
+--   --
+--   optimization: False
+--   executable-dynamic: True
+--   -- значительно ускоряет линковку, но может вызвать проблемы с запуском
+--   -- после обновления GHC, так что в production не используем

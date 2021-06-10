@@ -60,12 +60,12 @@ uw_Basis_string uw_Binary_ffi_putBufString (uw_context ctx, uw_Binary_ffi_putBuf
     *(uw_Basis_int*)(r-8) = totalSize;
     return r;
 }
-uw_Binary_ffi_putBuf uw_Binary_ffi_put_char   (uw_context ctx, uw_Binary_ffi_putBuf prev, uw_Basis_char c)
+uw_Binary_ffi_putBuf uw_Binary_ffi_put_byte   (uw_context ctx, uw_Binary_ffi_putBuf prev, uw_Basis_int c)
 {
     uw_Binary_ffi_putBuf pb = uw_Binary_ffi_mkPutBufP(ctx, prev);
     pb->chunkSize = 1; pb->totalSize += pb->chunkSize;
     pb->chunk = uw_malloc(ctx,1);
-    *((uw_Basis_char*)pb->chunk) = c;
+    *((uw_Basis_char*)pb->chunk) = (uw_Basis_char)c;
     return pb;
 }
 #define ASSIGN_INT64_BE(_d, _i)                                         \
@@ -94,6 +94,18 @@ uw_Binary_ffi_putBuf uw_Binary_ffi_put_time   (uw_context ctx, uw_Binary_ffi_put
     ASSIGN_INT64_BE(((char*)pb->chunk + 8), t.microseconds);
     return pb;
 }
+
+/* const uint8_t * */
+/* _hs_text_decode_utf8(uint16_t *const dest, size_t *destoff, */
+/*                      const uint8_t *src, const uint8_t *const srcend); */
+/* void */
+/* _hs_text_encode_utf8(uint8_t **destp, const uint16_t *src, size_t srcoff, */
+/* 		     size_t srclen); */
+// пробегаемся decode в массив uint16_t длиной в исходную строку,
+// если жалоб нет, то оставляем исходную
+// иначе, копируем неудачные байты в uint16_t как есть и делаем encode
+// выделяя length*4
+
 uw_Binary_ffi_putBuf uw_Binary_ffi_put_string (uw_context ctx, uw_Binary_ffi_putBuf prev, uw_Basis_string str)
 {
     uw_Basis_int len = uw_Basis_strlen(ctx, str);
@@ -123,9 +135,9 @@ uw_Binary_ffi_getBuf uw_Binary_ffi_advanceGetBuf(uw_context ctx, uw_Binary_ffi_g
 {
     return str + n;
 }
-uw_Basis_char uw_Binary_ffi_get_char_   (uw_context ctx, uw_Binary_ffi_getBuf buf)
+uw_Basis_int uw_Binary_ffi_get_byte_   (uw_context ctx, uw_Binary_ffi_getBuf buf)
 {
-    return *((uw_Basis_char*)buf);
+    return (uw_Basis_int)(*((uw_Basis_char*)buf));
 }
 
 #define READ_INT64_BE(_s) (uw_Basis_int)(                       \
@@ -165,10 +177,13 @@ uw_Basis_blob uw_Binary_ffi_get_blob_ (uw_context ctx, uw_Binary_ffi_getBuf buf)
     return r;
 }
 #define uw_Binary_ffi_xhead uw_Basis_string
+#define uw_Binary_ffi_xbodyString uw_Basis_string
 #define uw_Binary_ffi_get_xhead_ uw_Binary_ffi_get_string_
 #define uw_Binary_ffi_put_xhead uw_Binary_ffi_put_string
 #define uw_Binary_ffi_get_xbody_ uw_Binary_ffi_get_string_
 #define uw_Binary_ffi_put_xbody uw_Binary_ffi_put_string
+#define uw_Binary_ffi_get_xbodyString_ uw_Binary_ffi_get_string_
+#define uw_Binary_ffi_put_xbodyString uw_Binary_ffi_put_string
 #define uw_Binary_ffi_get_page_ uw_Binary_ffi_get_string_
 #define uw_Binary_ffi_put_page uw_Binary_ffi_put_string
 #define uw_Binary_ffi_get_id_ uw_Binary_ffi_get_string_
@@ -177,4 +192,26 @@ uw_Basis_blob uw_Binary_ffi_get_blob_ (uw_context ctx, uw_Binary_ffi_getBuf buf)
 uw_Basis_string uw_Binary_ffi_get_url_ (uw_context ctx, uw_Binary_ffi_getBuf buf)
 {
     return uw_Binary_ffi_get_string_(ctx, buf);
+}
+
+
+uw_unit uw_Binary_ffi_urlifyXbodyString_w(uw_context ctx, uw_Binary_ffi_xbodyString s) {
+  char *p, *r;
+
+  p = r = (char *)uw_malloc(ctx, strlen(s) * 3 + 1);
+
+  for (; *s; s++) {
+    unsigned char c = *s;
+
+    if (c == '/' || c == '%' || c < ' ' || c == 127) {
+      sprintf(p, "%%%02X", c);
+      p += 3;
+    }
+    else
+      *p++ = c;
+  }
+  *p++ = 0;
+
+  uw_write(ctx, r);
+  return uw_unit_v;
 }

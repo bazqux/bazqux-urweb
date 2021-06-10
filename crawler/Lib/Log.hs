@@ -1,8 +1,9 @@
 {-# LANGUAGE BangPatterns, ScopedTypeVariables, ViewPatterns,
              OverloadedStrings #-}
 module Lib.Log
-    ( nullLogger, Logger, withLogger, logS, logLS, logTime
-    , getTime, logT, logLT, showSecs, loggerFlush, time
+    ( nullLogger, directLogger, Logger, withLogger, logS, logBS, logLS
+    , logTime, logTime'
+    , getTime, logT, logTL, logLT, logLTL, showSecs, showMSecs, loggerFlush, time
     , newLogger, loggerGetAndClean
     ) where
 
@@ -29,27 +30,34 @@ logMVar = unsafePerformIO $ newMVar ()
 
 -- | Строка в utf8
 logS :: MonadIO m => String -> m ()
-logS = logBS . B.pack
+logS = logT . T.pack
 
-logBS s = seq (B.length s) $ liftIO $ withMVar logMVar $ \ _ -> do
+logBS !s = liftIO $ withMVar logMVar $ \ _ -> do
     B.hPutStrLn stderr s
     hFlush stderr
 logT :: MonadIO m => T.Text -> m ()
 logT = logBS . T.encodeUtf8
 
+logTL :: MonadIO m => [T.Text] -> m ()
+logTL = logT . T.concat
+
 data Logger
     = Logger (MVar [T.Text])
     | Null
+    | Direct
 
 nullLogger = Null
+directLogger = Direct
 
-logLS l s = logLBS l (B.pack s)
+logLS l s = logLT l (T.pack s)
 logLBS l bs = logLT l (toText bs)
-logLT (Logger m) t =
-    seq (T.length t) $ liftIO $ modifyMVar_ m $ \ l -> do
+logLT (Logger m) !t = liftIO $ modifyMVar_ m $ \ l -> do
         let !r = t:l
         return r
+logLT Direct t =
+    logT t
 logLT Null _ = return ()
+logLTL l t = logLT l $ T.concat t
 
 newLogger = liftIO $ fmap Logger $ newMVar []
 
@@ -57,17 +65,19 @@ loggerFlush (Logger m) = liftIO $ modifyMVar_ m $ \ s -> do
     when (not $ null s) $
         logT $ T.unlines $ reverse s
     return []
-loggerFlush Null = return ()
+loggerFlush _ = return ()
 
 loggerGetAndClean (Logger m) = liftIO $ modifyMVar m $ \ s -> do
     return ([], T.unlines $ reverse s)
-loggerGetAndClean Null = return ""
+loggerGetAndClean _ = return ""
 
 withLogger = E.bracket newLogger loggerFlush
 
 logTime Null _ a = a
 logTime l what act = do
     start <- getTime
+    logTime' l start what act
+logTime' l start what act = do
     act `E.finally` do
         end <- getTime
         logLT l $ T.concat [what, ": ", T.pack $ showSecs $ end - start]
@@ -109,3 +119,6 @@ showSecs k
                | t >= 1e2  = printf "%.4f %s" t u
                | t >= 1e1  = printf "%.5f %s" t u
                | otherwise = printf "%.6f %s" t u
+
+showMSecs :: Double -> String
+showMSecs t = show (round $ t*1000) ++ " ms"

@@ -15,7 +15,6 @@ instance KV Stats where
     kvBucket _ = "Stats"
     kvKey = statsKey
     kvCache _ = _statsCache
-    kvPool _ = riakPool
 _statsCache = unsafePerformIO $ newCache 0 0 (0*1024*1024)
 {-# NOINLINE _statsCache #-}
 readStats :: T.Text -> IO (Maybe Stats)
@@ -57,6 +56,9 @@ modifyStats' key f = modifyKV key (f . fromMaybe (defaultStats key))
 modifyStats'_ :: T.Text -> (Stats -> IO Stats) -> IO ()
 modifyStats'_ key f = modifyKV_ key (f . fromMaybe (defaultStats key))
 
+alterStats :: T.Text -> (Maybe Stats -> IO (Maybe Stats, b)) -> IO b
+alterStats = alterKV
+
 readStats' :: Key Stats -> IO Stats
 readStats' key = liftM (fromMaybe (defaultStats key)) (readKV key)
 
@@ -71,7 +73,6 @@ instance KV User where
     kvBucket _ = "User"
     kvKey = uId
     kvCache _ = _uCache
-    kvPool _ = riakPool
 _uCache = unsafePerformIO $ newCache 240 240 (200*1024*1024)
 {-# NOINLINE _uCache #-}
 readUser :: T.Text -> IO (Maybe User)
@@ -113,6 +114,9 @@ modifyUser' key f = modifyKV key (f . fromMaybe (defaultUser key))
 modifyUser'_ :: T.Text -> (User -> IO User) -> IO ()
 modifyUser'_ key f = modifyKV_ key (f . fromMaybe (defaultUser key))
 
+alterUser :: T.Text -> (Maybe User -> IO (Maybe User, b)) -> IO b
+alterUser = alterKV
+
 readUser' :: Key User -> IO User
 readUser' key = liftM (fromMaybe (defaultUser key)) (readKV key)
 
@@ -127,7 +131,6 @@ instance KV UserFilters where
     kvBucket _ = "UserFilters"
     kvKey = ufUser
     kvCache _ = _ufCache
-    kvPool _ = riakPool
 _ufCache = unsafePerformIO $ newCache 240 240 (10*1024*1024)
 {-# NOINLINE _ufCache #-}
 readUserFilters :: T.Text -> IO (Maybe UserFilters)
@@ -169,6 +172,9 @@ modifyUserFilters' key f = modifyKV key (f . fromMaybe (defaultUserFilters key))
 modifyUserFilters'_ :: T.Text -> (UserFilters -> IO UserFilters) -> IO ()
 modifyUserFilters'_ key f = modifyKV_ key (f . fromMaybe (defaultUserFilters key))
 
+alterUserFilters :: T.Text -> (Maybe UserFilters -> IO (Maybe UserFilters, b)) -> IO b
+alterUserFilters = alterKV
+
 readUserFilters' :: Key UserFilters -> IO UserFilters
 readUserFilters' key = liftM (fromMaybe (defaultUserFilters key)) (readKV key)
 
@@ -178,12 +184,69 @@ cachedReadUserFilters' key = liftM (fromMaybe (defaultUserFilters key)) (cachedR
 cachedNothingReadUserFilters' :: Key UserFilters -> IO UserFilters
 cachedNothingReadUserFilters' key = liftM (fromMaybe (defaultUserFilters key)) (cachedNothingReadKV key)
 
+instance KV Login where
+    type Key Login = LoginType
+    kvBucket _ = "Login"
+    kvKey = lLoginType
+    kvCache _ = _lCache
+_lCache = unsafePerformIO $ newCache 300 300 (10*1024*1024)
+{-# NOINLINE _lCache #-}
+readLogin :: LoginType -> IO (Maybe Login)
+readLogin = readKV
+
+cachedReadLogin :: LoginType -> IO (Maybe Login)
+cachedReadLogin = cachedReadKV
+
+cachedNothingReadLogin :: LoginType -> IO (Maybe Login)
+cachedNothingReadLogin = cachedNothingReadKV
+
+mergeWriteLogin :: Login -> IO (())
+mergeWriteLogin = mergeWriteKV
+
+deleteLogin :: Login -> IO (())
+deleteLogin = deleteKV
+
+readManyLogins :: [LoginType] -> IO ([Maybe Login])
+readManyLogins = readManyKVs
+
+cachedReadManyLogins :: [LoginType] -> IO ([Maybe Login])
+cachedReadManyLogins = cachedReadManyKVs
+
+cachedNothingReadManyLogins :: [LoginType] -> IO ([Maybe Login])
+cachedNothingReadManyLogins = cachedNothingReadManyKVs
+
+writeManyLogins :: [Login] -> IO (())
+writeManyLogins = writeManyKVs
+
+modifyLogin :: LoginType -> (Maybe Login -> IO (Login, b)) -> IO b
+modifyLogin = modifyKV
+
+modifyLogin_ :: LoginType -> (Maybe Login -> IO Login) -> IO ()
+modifyLogin_ = modifyKV_
+
+modifyLogin' :: LoginType -> (Login -> IO (Login, b)) -> IO b
+modifyLogin' key f = modifyKV key (f . fromMaybe (defaultLogin key))
+
+modifyLogin'_ :: LoginType -> (Login -> IO Login) -> IO ()
+modifyLogin'_ key f = modifyKV_ key (f . fromMaybe (defaultLogin key))
+
+alterLogin :: LoginType -> (Maybe Login -> IO (Maybe Login, b)) -> IO b
+alterLogin = alterKV
+
+readLogin' :: Key Login -> IO Login
+readLogin' key = liftM (fromMaybe (defaultLogin key)) (readKV key)
+
+cachedReadLogin' :: Key Login -> IO Login
+cachedReadLogin' key = liftM (fromMaybe (defaultLogin key)) (cachedReadKV key)
+
+cachedNothingReadLogin' :: Key Login -> IO Login
+cachedNothingReadLogin' key = liftM (fromMaybe (defaultLogin key)) (cachedNothingReadKV key)
+
 instance KV UserSettings where
     type Key UserSettings = T.Text
     kvBucket _ = "UserSettings"
     kvKey = ustUser
     kvCache _ = _ustCache
-    kvPool _ = riakPool
 _ustCache = unsafePerformIO $ newCache 240 240 (10*1024*1024)
 {-# NOINLINE _ustCache #-}
 readUserSettings :: T.Text -> IO (Maybe UserSettings)
@@ -225,6 +288,9 @@ modifyUserSettings' key f = modifyKV key (f . fromMaybe (defaultUserSettings key
 modifyUserSettings'_ :: T.Text -> (UserSettings -> IO UserSettings) -> IO ()
 modifyUserSettings'_ key f = modifyKV_ key (f . fromMaybe (defaultUserSettings key))
 
+alterUserSettings :: T.Text -> (Maybe UserSettings -> IO (Maybe UserSettings, b)) -> IO b
+alterUserSettings = alterKV
+
 readUserSettings' :: Key UserSettings -> IO UserSettings
 readUserSettings' key = liftM (fromMaybe (defaultUserSettings key)) (readKV key)
 
@@ -239,7 +305,6 @@ instance KV PublicFeed where
     kvBucket _ = "PublicFeed"
     kvKey = pfId
     kvCache _ = _pfCache
-    kvPool _ = riakPool
 _pfCache = unsafePerformIO $ newCache 240 240 (10*1024*1024)
 {-# NOINLINE _pfCache #-}
 readPublicFeed :: T.Text -> IO (Maybe PublicFeed)
@@ -281,6 +346,9 @@ modifyPublicFeed' key f = modifyKV key (f . fromMaybe (defaultPublicFeed key))
 modifyPublicFeed'_ :: T.Text -> (PublicFeed -> IO PublicFeed) -> IO ()
 modifyPublicFeed'_ key f = modifyKV_ key (f . fromMaybe (defaultPublicFeed key))
 
+alterPublicFeed :: T.Text -> (Maybe PublicFeed -> IO (Maybe PublicFeed, b)) -> IO b
+alterPublicFeed = alterKV
+
 readPublicFeed' :: Key PublicFeed -> IO PublicFeed
 readPublicFeed' key = liftM (fromMaybe (defaultPublicFeed key)) (readKV key)
 
@@ -290,124 +358,11 @@ cachedReadPublicFeed' key = liftM (fromMaybe (defaultPublicFeed key)) (cachedRea
 cachedNothingReadPublicFeed' :: Key PublicFeed -> IO PublicFeed
 cachedNothingReadPublicFeed' key = liftM (fromMaybe (defaultPublicFeed key)) (cachedNothingReadKV key)
 
-instance KV MobileLogin where
-    type Key MobileLogin = T.Text
-    kvBucket _ = "MobileLogin"
-    kvKey = mlLogin
-    kvCache _ = _mlCache
-    kvPool _ = riakPool
-_mlCache = unsafePerformIO $ newCache 300 300 (10*1024*1024)
-{-# NOINLINE _mlCache #-}
-readMobileLogin :: T.Text -> IO (Maybe MobileLogin)
-readMobileLogin = readKV
-
-cachedReadMobileLogin :: T.Text -> IO (Maybe MobileLogin)
-cachedReadMobileLogin = cachedReadKV
-
-cachedNothingReadMobileLogin :: T.Text -> IO (Maybe MobileLogin)
-cachedNothingReadMobileLogin = cachedNothingReadKV
-
-mergeWriteMobileLogin :: MobileLogin -> IO (())
-mergeWriteMobileLogin = mergeWriteKV
-
-deleteMobileLogin :: MobileLogin -> IO (())
-deleteMobileLogin = deleteKV
-
-readManyMobileLogins :: [T.Text] -> IO ([Maybe MobileLogin])
-readManyMobileLogins = readManyKVs
-
-cachedReadManyMobileLogins :: [T.Text] -> IO ([Maybe MobileLogin])
-cachedReadManyMobileLogins = cachedReadManyKVs
-
-cachedNothingReadManyMobileLogins :: [T.Text] -> IO ([Maybe MobileLogin])
-cachedNothingReadManyMobileLogins = cachedNothingReadManyKVs
-
-writeManyMobileLogins :: [MobileLogin] -> IO (())
-writeManyMobileLogins = writeManyKVs
-
-modifyMobileLogin :: T.Text -> (Maybe MobileLogin -> IO (MobileLogin, b)) -> IO b
-modifyMobileLogin = modifyKV
-
-modifyMobileLogin_ :: T.Text -> (Maybe MobileLogin -> IO MobileLogin) -> IO ()
-modifyMobileLogin_ = modifyKV_
-
-modifyMobileLogin' :: T.Text -> (MobileLogin -> IO (MobileLogin, b)) -> IO b
-modifyMobileLogin' key f = modifyKV key (f . fromMaybe (defaultMobileLogin key))
-
-modifyMobileLogin'_ :: T.Text -> (MobileLogin -> IO MobileLogin) -> IO ()
-modifyMobileLogin'_ key f = modifyKV_ key (f . fromMaybe (defaultMobileLogin key))
-
-readMobileLogin' :: Key MobileLogin -> IO MobileLogin
-readMobileLogin' key = liftM (fromMaybe (defaultMobileLogin key)) (readKV key)
-
-cachedReadMobileLogin' :: Key MobileLogin -> IO MobileLogin
-cachedReadMobileLogin' key = liftM (fromMaybe (defaultMobileLogin key)) (cachedReadKV key)
-
-cachedNothingReadMobileLogin' :: Key MobileLogin -> IO MobileLogin
-cachedNothingReadMobileLogin' key = liftM (fromMaybe (defaultMobileLogin key)) (cachedNothingReadKV key)
-
-instance KV FeverApiKey where
-    type Key FeverApiKey = T.Text
-    kvBucket _ = "FeverApiKey"
-    kvKey = fakKey
-    kvCache _ = _fakCache
-    kvPool _ = riakPool
-_fakCache = unsafePerformIO $ newCache 300 300 (10*1024*1024)
-{-# NOINLINE _fakCache #-}
-readFeverApiKey :: T.Text -> IO (Maybe FeverApiKey)
-readFeverApiKey = readKV
-
-cachedReadFeverApiKey :: T.Text -> IO (Maybe FeverApiKey)
-cachedReadFeverApiKey = cachedReadKV
-
-cachedNothingReadFeverApiKey :: T.Text -> IO (Maybe FeverApiKey)
-cachedNothingReadFeverApiKey = cachedNothingReadKV
-
-mergeWriteFeverApiKey :: FeverApiKey -> IO (())
-mergeWriteFeverApiKey = mergeWriteKV
-
-deleteFeverApiKey :: FeverApiKey -> IO (())
-deleteFeverApiKey = deleteKV
-
-readManyFeverApiKeys :: [T.Text] -> IO ([Maybe FeverApiKey])
-readManyFeverApiKeys = readManyKVs
-
-cachedReadManyFeverApiKeys :: [T.Text] -> IO ([Maybe FeverApiKey])
-cachedReadManyFeverApiKeys = cachedReadManyKVs
-
-cachedNothingReadManyFeverApiKeys :: [T.Text] -> IO ([Maybe FeverApiKey])
-cachedNothingReadManyFeverApiKeys = cachedNothingReadManyKVs
-
-writeManyFeverApiKeys :: [FeverApiKey] -> IO (())
-writeManyFeverApiKeys = writeManyKVs
-
-modifyFeverApiKey :: T.Text -> (Maybe FeverApiKey -> IO (FeverApiKey, b)) -> IO b
-modifyFeverApiKey = modifyKV
-
-modifyFeverApiKey_ :: T.Text -> (Maybe FeverApiKey -> IO FeverApiKey) -> IO ()
-modifyFeverApiKey_ = modifyKV_
-
-modifyFeverApiKey' :: T.Text -> (FeverApiKey -> IO (FeverApiKey, b)) -> IO b
-modifyFeverApiKey' key f = modifyKV key (f . fromMaybe (defaultFeverApiKey key))
-
-modifyFeverApiKey'_ :: T.Text -> (FeverApiKey -> IO FeverApiKey) -> IO ()
-modifyFeverApiKey'_ key f = modifyKV_ key (f . fromMaybe (defaultFeverApiKey key))
-
-readFeverApiKey' :: Key FeverApiKey -> IO FeverApiKey
-readFeverApiKey' key = liftM (fromMaybe (defaultFeverApiKey key)) (readKV key)
-
-cachedReadFeverApiKey' :: Key FeverApiKey -> IO FeverApiKey
-cachedReadFeverApiKey' key = liftM (fromMaybe (defaultFeverApiKey key)) (cachedReadKV key)
-
-cachedNothingReadFeverApiKey' :: Key FeverApiKey -> IO FeverApiKey
-cachedNothingReadFeverApiKey' key = liftM (fromMaybe (defaultFeverApiKey key)) (cachedNothingReadKV key)
-
 instance KV FeverIds where
     type Key FeverIds = T.Text
     kvBucket _ = "FeverIds"
     kvKey = fiUser
     kvCache _ = _fiCache
-    kvPool _ = riakPool
 _fiCache = unsafePerformIO $ newCache 240 240 (100*1024*1024)
 {-# NOINLINE _fiCache #-}
 readFeverIds :: T.Text -> IO (Maybe FeverIds)
@@ -449,6 +404,9 @@ modifyFeverIds' key f = modifyKV key (f . fromMaybe (defaultFeverIds key))
 modifyFeverIds'_ :: T.Text -> (FeverIds -> IO FeverIds) -> IO ()
 modifyFeverIds'_ key f = modifyKV_ key (f . fromMaybe (defaultFeverIds key))
 
+alterFeverIds :: T.Text -> (Maybe FeverIds -> IO (Maybe FeverIds, b)) -> IO b
+alterFeverIds = alterKV
+
 readFeverIds' :: Key FeverIds -> IO FeverIds
 readFeverIds' key = liftM (fromMaybe (defaultFeverIds key)) (readKV key)
 
@@ -463,7 +421,6 @@ instance KV UserStats where
     kvBucket _ = "UserStats"
     kvKey = usId
     kvCache _ = _usCache
-    kvPool _ = riakPool
 _usCache = unsafePerformIO $ newCache 240 240 (200*1024*1024)
 {-# NOINLINE _usCache #-}
 readUserStats :: T.Text -> IO (Maybe UserStats)
@@ -505,6 +462,9 @@ modifyUserStats' key f = modifyKV key (f . fromMaybe (defaultUserStats key))
 modifyUserStats'_ :: T.Text -> (UserStats -> IO UserStats) -> IO ()
 modifyUserStats'_ key f = modifyKV_ key (f . fromMaybe (defaultUserStats key))
 
+alterUserStats :: T.Text -> (Maybe UserStats -> IO (Maybe UserStats, b)) -> IO b
+alterUserStats = alterKV
+
 readUserStats' :: Key UserStats -> IO UserStats
 readUserStats' key = liftM (fromMaybe (defaultUserStats key)) (readKV key)
 
@@ -519,7 +479,6 @@ instance KV MailQueue where
     kvBucket _ = "MailQueue"
     kvKey = mqId
     kvCache _ = _mqCache
-    kvPool _ = riakPool
 _mqCache = unsafePerformIO $ newCache 300 300 (200*1024*1024)
 {-# NOINLINE _mqCache #-}
 readMailQueue :: T.Text -> IO (Maybe MailQueue)
@@ -561,6 +520,9 @@ modifyMailQueue' key f = modifyKV key (f . fromMaybe (defaultMailQueue key))
 modifyMailQueue'_ :: T.Text -> (MailQueue -> IO MailQueue) -> IO ()
 modifyMailQueue'_ key f = modifyKV_ key (f . fromMaybe (defaultMailQueue key))
 
+alterMailQueue :: T.Text -> (Maybe MailQueue -> IO (Maybe MailQueue, b)) -> IO b
+alterMailQueue = alterKV
+
 readMailQueue' :: Key MailQueue -> IO MailQueue
 readMailQueue' key = liftM (fromMaybe (defaultMailQueue key)) (readKV key)
 
@@ -575,7 +537,6 @@ instance KV Session where
     kvBucket _ = "Session"
     kvKey = sessionKey
     kvCache _ = _sessionCache
-    kvPool _ = riakPool
 _sessionCache = unsafePerformIO $ newCache 3600 3600 (100*1024*1024)
 {-# NOINLINE _sessionCache #-}
 readSession :: T.Text -> IO (Maybe Session)
@@ -617,6 +578,9 @@ modifySession' key f = modifyKV key (f . fromMaybe (defaultSession key))
 modifySession'_ :: T.Text -> (Session -> IO Session) -> IO ()
 modifySession'_ key f = modifyKV_ key (f . fromMaybe (defaultSession key))
 
+alterSession :: T.Text -> (Maybe Session -> IO (Maybe Session, b)) -> IO b
+alterSession = alterKV
+
 readSession' :: Key Session -> IO Session
 readSession' key = liftM (fromMaybe (defaultSession key)) (readKV key)
 
@@ -626,12 +590,185 @@ cachedReadSession' key = liftM (fromMaybe (defaultSession key)) (cachedReadKV ke
 cachedNothingReadSession' :: Key Session -> IO Session
 cachedNothingReadSession' key = liftM (fromMaybe (defaultSession key)) (cachedNothingReadKV key)
 
+instance KV EmailVerificationToken where
+    type Key EmailVerificationToken = T.Text
+    kvBucket _ = "EmailVerificationToken"
+    kvKey = evtkToken
+    kvCache _ = _evtkCache
+_evtkCache = unsafePerformIO $ newCache 60 60 (10*1024*1024)
+{-# NOINLINE _evtkCache #-}
+readEmailVerificationToken :: T.Text -> IO (Maybe EmailVerificationToken)
+readEmailVerificationToken = readKV
+
+cachedReadEmailVerificationToken :: T.Text -> IO (Maybe EmailVerificationToken)
+cachedReadEmailVerificationToken = cachedReadKV
+
+cachedNothingReadEmailVerificationToken :: T.Text -> IO (Maybe EmailVerificationToken)
+cachedNothingReadEmailVerificationToken = cachedNothingReadKV
+
+mergeWriteEmailVerificationToken :: EmailVerificationToken -> IO (())
+mergeWriteEmailVerificationToken = mergeWriteKV
+
+deleteEmailVerificationToken :: EmailVerificationToken -> IO (())
+deleteEmailVerificationToken = deleteKV
+
+readManyEmailVerificationTokens :: [T.Text] -> IO ([Maybe EmailVerificationToken])
+readManyEmailVerificationTokens = readManyKVs
+
+cachedReadManyEmailVerificationTokens :: [T.Text] -> IO ([Maybe EmailVerificationToken])
+cachedReadManyEmailVerificationTokens = cachedReadManyKVs
+
+cachedNothingReadManyEmailVerificationTokens :: [T.Text] -> IO ([Maybe EmailVerificationToken])
+cachedNothingReadManyEmailVerificationTokens = cachedNothingReadManyKVs
+
+writeManyEmailVerificationTokens :: [EmailVerificationToken] -> IO (())
+writeManyEmailVerificationTokens = writeManyKVs
+
+modifyEmailVerificationToken :: T.Text -> (Maybe EmailVerificationToken -> IO (EmailVerificationToken, b)) -> IO b
+modifyEmailVerificationToken = modifyKV
+
+modifyEmailVerificationToken_ :: T.Text -> (Maybe EmailVerificationToken -> IO EmailVerificationToken) -> IO ()
+modifyEmailVerificationToken_ = modifyKV_
+
+modifyEmailVerificationToken' :: T.Text -> (EmailVerificationToken -> IO (EmailVerificationToken, b)) -> IO b
+modifyEmailVerificationToken' key f = modifyKV key (f . fromMaybe (defaultEmailVerificationToken key))
+
+modifyEmailVerificationToken'_ :: T.Text -> (EmailVerificationToken -> IO EmailVerificationToken) -> IO ()
+modifyEmailVerificationToken'_ key f = modifyKV_ key (f . fromMaybe (defaultEmailVerificationToken key))
+
+alterEmailVerificationToken :: T.Text -> (Maybe EmailVerificationToken -> IO (Maybe EmailVerificationToken, b)) -> IO b
+alterEmailVerificationToken = alterKV
+
+readEmailVerificationToken' :: Key EmailVerificationToken -> IO EmailVerificationToken
+readEmailVerificationToken' key = liftM (fromMaybe (defaultEmailVerificationToken key)) (readKV key)
+
+cachedReadEmailVerificationToken' :: Key EmailVerificationToken -> IO EmailVerificationToken
+cachedReadEmailVerificationToken' key = liftM (fromMaybe (defaultEmailVerificationToken key)) (cachedReadKV key)
+
+cachedNothingReadEmailVerificationToken' :: Key EmailVerificationToken -> IO EmailVerificationToken
+cachedNothingReadEmailVerificationToken' key = liftM (fromMaybe (defaultEmailVerificationToken key)) (cachedNothingReadKV key)
+
+instance KV EmailVerification where
+    type Key EmailVerification = T.Text
+    kvBucket _ = "EmailVerification"
+    kvKey = evEmail
+    kvCache _ = _evCache
+_evCache = unsafePerformIO $ newCache 60 60 (10*1024*1024)
+{-# NOINLINE _evCache #-}
+readEmailVerification :: T.Text -> IO (Maybe EmailVerification)
+readEmailVerification = readKV
+
+cachedReadEmailVerification :: T.Text -> IO (Maybe EmailVerification)
+cachedReadEmailVerification = cachedReadKV
+
+cachedNothingReadEmailVerification :: T.Text -> IO (Maybe EmailVerification)
+cachedNothingReadEmailVerification = cachedNothingReadKV
+
+mergeWriteEmailVerification :: EmailVerification -> IO (())
+mergeWriteEmailVerification = mergeWriteKV
+
+deleteEmailVerification :: EmailVerification -> IO (())
+deleteEmailVerification = deleteKV
+
+readManyEmailVerifications :: [T.Text] -> IO ([Maybe EmailVerification])
+readManyEmailVerifications = readManyKVs
+
+cachedReadManyEmailVerifications :: [T.Text] -> IO ([Maybe EmailVerification])
+cachedReadManyEmailVerifications = cachedReadManyKVs
+
+cachedNothingReadManyEmailVerifications :: [T.Text] -> IO ([Maybe EmailVerification])
+cachedNothingReadManyEmailVerifications = cachedNothingReadManyKVs
+
+writeManyEmailVerifications :: [EmailVerification] -> IO (())
+writeManyEmailVerifications = writeManyKVs
+
+modifyEmailVerification :: T.Text -> (Maybe EmailVerification -> IO (EmailVerification, b)) -> IO b
+modifyEmailVerification = modifyKV
+
+modifyEmailVerification_ :: T.Text -> (Maybe EmailVerification -> IO EmailVerification) -> IO ()
+modifyEmailVerification_ = modifyKV_
+
+modifyEmailVerification' :: T.Text -> (EmailVerification -> IO (EmailVerification, b)) -> IO b
+modifyEmailVerification' key f = modifyKV key (f . fromMaybe (defaultEmailVerification key))
+
+modifyEmailVerification'_ :: T.Text -> (EmailVerification -> IO EmailVerification) -> IO ()
+modifyEmailVerification'_ key f = modifyKV_ key (f . fromMaybe (defaultEmailVerification key))
+
+alterEmailVerification :: T.Text -> (Maybe EmailVerification -> IO (Maybe EmailVerification, b)) -> IO b
+alterEmailVerification = alterKV
+
+readEmailVerification' :: Key EmailVerification -> IO EmailVerification
+readEmailVerification' key = liftM (fromMaybe (defaultEmailVerification key)) (readKV key)
+
+cachedReadEmailVerification' :: Key EmailVerification -> IO EmailVerification
+cachedReadEmailVerification' key = liftM (fromMaybe (defaultEmailVerification key)) (cachedReadKV key)
+
+cachedNothingReadEmailVerification' :: Key EmailVerification -> IO EmailVerification
+cachedNothingReadEmailVerification' key = liftM (fromMaybe (defaultEmailVerification key)) (cachedNothingReadKV key)
+
+instance KV UserEmailVerificationTokens where
+    type Key UserEmailVerificationTokens = T.Text
+    kvBucket _ = "UserEmailVerificationTokens"
+    kvKey = uevtUser
+    kvCache _ = _uevtCache
+_uevtCache = unsafePerformIO $ newCache 60 60 (10*1024*1024)
+{-# NOINLINE _uevtCache #-}
+readUserEmailVerificationTokens :: T.Text -> IO (Maybe UserEmailVerificationTokens)
+readUserEmailVerificationTokens = readKV
+
+cachedReadUserEmailVerificationTokens :: T.Text -> IO (Maybe UserEmailVerificationTokens)
+cachedReadUserEmailVerificationTokens = cachedReadKV
+
+cachedNothingReadUserEmailVerificationTokens :: T.Text -> IO (Maybe UserEmailVerificationTokens)
+cachedNothingReadUserEmailVerificationTokens = cachedNothingReadKV
+
+mergeWriteUserEmailVerificationTokens :: UserEmailVerificationTokens -> IO (())
+mergeWriteUserEmailVerificationTokens = mergeWriteKV
+
+deleteUserEmailVerificationTokens :: UserEmailVerificationTokens -> IO (())
+deleteUserEmailVerificationTokens = deleteKV
+
+readManyUserEmailVerificationTokenss :: [T.Text] -> IO ([Maybe UserEmailVerificationTokens])
+readManyUserEmailVerificationTokenss = readManyKVs
+
+cachedReadManyUserEmailVerificationTokenss :: [T.Text] -> IO ([Maybe UserEmailVerificationTokens])
+cachedReadManyUserEmailVerificationTokenss = cachedReadManyKVs
+
+cachedNothingReadManyUserEmailVerificationTokenss :: [T.Text] -> IO ([Maybe UserEmailVerificationTokens])
+cachedNothingReadManyUserEmailVerificationTokenss = cachedNothingReadManyKVs
+
+writeManyUserEmailVerificationTokenss :: [UserEmailVerificationTokens] -> IO (())
+writeManyUserEmailVerificationTokenss = writeManyKVs
+
+modifyUserEmailVerificationTokens :: T.Text -> (Maybe UserEmailVerificationTokens -> IO (UserEmailVerificationTokens, b)) -> IO b
+modifyUserEmailVerificationTokens = modifyKV
+
+modifyUserEmailVerificationTokens_ :: T.Text -> (Maybe UserEmailVerificationTokens -> IO UserEmailVerificationTokens) -> IO ()
+modifyUserEmailVerificationTokens_ = modifyKV_
+
+modifyUserEmailVerificationTokens' :: T.Text -> (UserEmailVerificationTokens -> IO (UserEmailVerificationTokens, b)) -> IO b
+modifyUserEmailVerificationTokens' key f = modifyKV key (f . fromMaybe (defaultUserEmailVerificationTokens key))
+
+modifyUserEmailVerificationTokens'_ :: T.Text -> (UserEmailVerificationTokens -> IO UserEmailVerificationTokens) -> IO ()
+modifyUserEmailVerificationTokens'_ key f = modifyKV_ key (f . fromMaybe (defaultUserEmailVerificationTokens key))
+
+alterUserEmailVerificationTokens :: T.Text -> (Maybe UserEmailVerificationTokens -> IO (Maybe UserEmailVerificationTokens, b)) -> IO b
+alterUserEmailVerificationTokens = alterKV
+
+readUserEmailVerificationTokens' :: Key UserEmailVerificationTokens -> IO UserEmailVerificationTokens
+readUserEmailVerificationTokens' key = liftM (fromMaybe (defaultUserEmailVerificationTokens key)) (readKV key)
+
+cachedReadUserEmailVerificationTokens' :: Key UserEmailVerificationTokens -> IO UserEmailVerificationTokens
+cachedReadUserEmailVerificationTokens' key = liftM (fromMaybe (defaultUserEmailVerificationTokens key)) (cachedReadKV key)
+
+cachedNothingReadUserEmailVerificationTokens' :: Key UserEmailVerificationTokens -> IO UserEmailVerificationTokens
+cachedNothingReadUserEmailVerificationTokens' key = liftM (fromMaybe (defaultUserEmailVerificationTokens key)) (cachedNothingReadKV key)
+
 instance KV SubscriptionUrlInfo where
     type Key SubscriptionUrlInfo = TURL
     kvBucket _ = "SubscriptionUrlInfo"
     kvKey = suiUrl
     kvCache _ = _suiCache
-    kvPool _ = riakPool
 _suiCache = unsafePerformIO $ newCache 0 0 (0*1024*1024)
 {-# NOINLINE _suiCache #-}
 readSubscriptionUrlInfo :: TURL -> IO (Maybe SubscriptionUrlInfo)
@@ -673,6 +810,9 @@ modifySubscriptionUrlInfo' key f = modifyKV key (f . fromMaybe (defaultSubscript
 modifySubscriptionUrlInfo'_ :: TURL -> (SubscriptionUrlInfo -> IO SubscriptionUrlInfo) -> IO ()
 modifySubscriptionUrlInfo'_ key f = modifyKV_ key (f . fromMaybe (defaultSubscriptionUrlInfo key))
 
+alterSubscriptionUrlInfo :: TURL -> (Maybe SubscriptionUrlInfo -> IO (Maybe SubscriptionUrlInfo, b)) -> IO b
+alterSubscriptionUrlInfo = alterKV
+
 readSubscriptionUrlInfo' :: Key SubscriptionUrlInfo -> IO SubscriptionUrlInfo
 readSubscriptionUrlInfo' key = liftM (fromMaybe (defaultSubscriptionUrlInfo key)) (readKV key)
 
@@ -687,7 +827,6 @@ instance KV Msg where
     kvBucket _ = "Msg"
     kvKey = msgKey
     kvCache _ = _msgCache
-    kvPool _ = riakPool
 _msgCache = unsafePerformIO $ newCache 60 60 (10*1024*1024)
 {-# NOINLINE _msgCache #-}
 readMsg :: MsgKey -> IO (Maybe Msg)
@@ -729,6 +868,9 @@ modifyMsg' key f = modifyKV key (f . fromMaybe (defaultMsg key))
 modifyMsg'_ :: MsgKey -> (Msg -> IO Msg) -> IO ()
 modifyMsg'_ key f = modifyKV_ key (f . fromMaybe (defaultMsg key))
 
+alterMsg :: MsgKey -> (Maybe Msg -> IO (Maybe Msg, b)) -> IO b
+alterMsg = alterKV
+
 readMsg' :: Key Msg -> IO Msg
 readMsg' key = liftM (fromMaybe (defaultMsg key)) (readKV key)
 
@@ -743,7 +885,6 @@ instance KV BlogPostsScanned where
     kvBucket _ = "BlogPostsScanned"
     kvKey = bpsBlogFeedUrl
     kvCache _ = _bpsCache
-    kvPool _ = riakPool
 _bpsCache = unsafePerformIO $ newCache 3 240 (128*1024*1024)
 {-# NOINLINE _bpsCache #-}
 readBlogPostsScanned :: TURL -> IO (Maybe BlogPostsScanned)
@@ -785,6 +926,9 @@ modifyBlogPostsScanned' key f = modifyKV key (f . fromMaybe (defaultBlogPostsSca
 modifyBlogPostsScanned'_ :: TURL -> (BlogPostsScanned -> IO BlogPostsScanned) -> IO ()
 modifyBlogPostsScanned'_ key f = modifyKV_ key (f . fromMaybe (defaultBlogPostsScanned key))
 
+alterBlogPostsScanned :: TURL -> (Maybe BlogPostsScanned -> IO (Maybe BlogPostsScanned, b)) -> IO b
+alterBlogPostsScanned = alterKV
+
 readBlogPostsScanned' :: Key BlogPostsScanned -> IO BlogPostsScanned
 readBlogPostsScanned' key = liftM (fromMaybe (defaultBlogPostsScanned key)) (readKV key)
 
@@ -799,8 +943,7 @@ instance KV Posts where
     kvBucket _ = "Posts"
     kvKey = pBlogFeedUrl
     kvCache _ = _pCache
-    kvPool _ = riakPool
-_pCache = unsafePerformIO $ newCache 3 140 (700*1024*1024)
+_pCache = unsafePerformIO $ newCache 3 30 (1000*1024*1024)
 {-# NOINLINE _pCache #-}
 readPosts :: TURL -> IO (Maybe Posts)
 readPosts = readKV
@@ -841,6 +984,9 @@ modifyPosts' key f = modifyKV key (f . fromMaybe (defaultPosts key))
 modifyPosts'_ :: TURL -> (Posts -> IO Posts) -> IO ()
 modifyPosts'_ key f = modifyKV_ key (f . fromMaybe (defaultPosts key))
 
+alterPosts :: TURL -> (Maybe Posts -> IO (Maybe Posts, b)) -> IO b
+alterPosts = alterKV
+
 readPosts' :: Key Posts -> IO Posts
 readPosts' key = liftM (fromMaybe (defaultPosts key)) (readKV key)
 
@@ -850,68 +996,11 @@ cachedReadPosts' key = liftM (fromMaybe (defaultPosts key)) (cachedReadKV key)
 cachedNothingReadPosts' :: Key Posts -> IO Posts
 cachedNothingReadPosts' key = liftM (fromMaybe (defaultPosts key)) (cachedNothingReadKV key)
 
-instance KV DiscoveryFeed where
-    type Key DiscoveryFeed = TURL
-    kvBucket _ = "DiscoveryFeed"
-    kvKey = dfUrl
-    kvCache _ = _dfCache
-    kvPool _ = riakPool
-_dfCache = unsafePerformIO $ newCache 60 60 (100*1024*1024)
-{-# NOINLINE _dfCache #-}
-readDiscoveryFeed :: TURL -> IO (Maybe DiscoveryFeed)
-readDiscoveryFeed = readKV
-
-cachedReadDiscoveryFeed :: TURL -> IO (Maybe DiscoveryFeed)
-cachedReadDiscoveryFeed = cachedReadKV
-
-cachedNothingReadDiscoveryFeed :: TURL -> IO (Maybe DiscoveryFeed)
-cachedNothingReadDiscoveryFeed = cachedNothingReadKV
-
-mergeWriteDiscoveryFeed :: DiscoveryFeed -> IO (())
-mergeWriteDiscoveryFeed = mergeWriteKV
-
-deleteDiscoveryFeed :: DiscoveryFeed -> IO (())
-deleteDiscoveryFeed = deleteKV
-
-readManyDiscoveryFeeds :: [TURL] -> IO ([Maybe DiscoveryFeed])
-readManyDiscoveryFeeds = readManyKVs
-
-cachedReadManyDiscoveryFeeds :: [TURL] -> IO ([Maybe DiscoveryFeed])
-cachedReadManyDiscoveryFeeds = cachedReadManyKVs
-
-cachedNothingReadManyDiscoveryFeeds :: [TURL] -> IO ([Maybe DiscoveryFeed])
-cachedNothingReadManyDiscoveryFeeds = cachedNothingReadManyKVs
-
-writeManyDiscoveryFeeds :: [DiscoveryFeed] -> IO (())
-writeManyDiscoveryFeeds = writeManyKVs
-
-modifyDiscoveryFeed :: TURL -> (Maybe DiscoveryFeed -> IO (DiscoveryFeed, b)) -> IO b
-modifyDiscoveryFeed = modifyKV
-
-modifyDiscoveryFeed_ :: TURL -> (Maybe DiscoveryFeed -> IO DiscoveryFeed) -> IO ()
-modifyDiscoveryFeed_ = modifyKV_
-
-modifyDiscoveryFeed' :: TURL -> (DiscoveryFeed -> IO (DiscoveryFeed, b)) -> IO b
-modifyDiscoveryFeed' key f = modifyKV key (f . fromMaybe (defaultDiscoveryFeed key))
-
-modifyDiscoveryFeed'_ :: TURL -> (DiscoveryFeed -> IO DiscoveryFeed) -> IO ()
-modifyDiscoveryFeed'_ key f = modifyKV_ key (f . fromMaybe (defaultDiscoveryFeed key))
-
-readDiscoveryFeed' :: Key DiscoveryFeed -> IO DiscoveryFeed
-readDiscoveryFeed' key = liftM (fromMaybe (defaultDiscoveryFeed key)) (readKV key)
-
-cachedReadDiscoveryFeed' :: Key DiscoveryFeed -> IO DiscoveryFeed
-cachedReadDiscoveryFeed' key = liftM (fromMaybe (defaultDiscoveryFeed key)) (cachedReadKV key)
-
-cachedNothingReadDiscoveryFeed' :: Key DiscoveryFeed -> IO DiscoveryFeed
-cachedNothingReadDiscoveryFeed' key = liftM (fromMaybe (defaultDiscoveryFeed key)) (cachedNothingReadKV key)
-
 instance KV PostsClearTime where
     type Key PostsClearTime = TURL
     kvBucket _ = "PostsClearTime"
     kvKey = pctBlogFeedUrl
     kvCache _ = _pctCache
-    kvPool _ = riakPool
 _pctCache = unsafePerformIO $ newCache 300 300 (100*1024*1024)
 {-# NOINLINE _pctCache #-}
 readPostsClearTime :: TURL -> IO (Maybe PostsClearTime)
@@ -953,6 +1042,9 @@ modifyPostsClearTime' key f = modifyKV key (f . fromMaybe (defaultPostsClearTime
 modifyPostsClearTime'_ :: TURL -> (PostsClearTime -> IO PostsClearTime) -> IO ()
 modifyPostsClearTime'_ key f = modifyKV_ key (f . fromMaybe (defaultPostsClearTime key))
 
+alterPostsClearTime :: TURL -> (Maybe PostsClearTime -> IO (Maybe PostsClearTime, b)) -> IO b
+alterPostsClearTime = alterKV
+
 readPostsClearTime' :: Key PostsClearTime -> IO PostsClearTime
 readPostsClearTime' key = liftM (fromMaybe (defaultPostsClearTime key)) (readKV key)
 
@@ -967,7 +1059,6 @@ instance KV PostsSubscribers where
     kvBucket _ = "PostsSubscribers"
     kvKey = psBlogFeedUrl
     kvCache _ = _psCache
-    kvPool _ = riakPool
 _psCache = unsafePerformIO $ newCache 300 300 (100*1024*1024)
 {-# NOINLINE _psCache #-}
 readPostsSubscribers :: TURL -> IO (Maybe PostsSubscribers)
@@ -1009,6 +1100,9 @@ modifyPostsSubscribers' key f = modifyKV key (f . fromMaybe (defaultPostsSubscri
 modifyPostsSubscribers'_ :: TURL -> (PostsSubscribers -> IO PostsSubscribers) -> IO ()
 modifyPostsSubscribers'_ key f = modifyKV_ key (f . fromMaybe (defaultPostsSubscribers key))
 
+alterPostsSubscribers :: TURL -> (Maybe PostsSubscribers -> IO (Maybe PostsSubscribers, b)) -> IO b
+alterPostsSubscribers = alterKV
+
 readPostsSubscribers' :: Key PostsSubscribers -> IO PostsSubscribers
 readPostsSubscribers' key = liftM (fromMaybe (defaultPostsSubscribers key)) (readKV key)
 
@@ -1023,7 +1117,6 @@ instance KV ActiveCheckSubscriptions where
     kvBucket _ = "ActiveCheckSubscriptions"
     kvKey = acsKey
     kvCache _ = _acsCache
-    kvPool _ = riakPool
 _acsCache = unsafePerformIO $ newCache 0 0 (0*1024*1024)
 {-# NOINLINE _acsCache #-}
 readActiveCheckSubscriptions :: () -> IO (Maybe ActiveCheckSubscriptions)
@@ -1065,6 +1158,9 @@ modifyActiveCheckSubscriptions' key f = modifyKV key (f . fromMaybe (defaultActi
 modifyActiveCheckSubscriptions'_ :: () -> (ActiveCheckSubscriptions -> IO ActiveCheckSubscriptions) -> IO ()
 modifyActiveCheckSubscriptions'_ key f = modifyKV_ key (f . fromMaybe (defaultActiveCheckSubscriptions key))
 
+alterActiveCheckSubscriptions :: () -> (Maybe ActiveCheckSubscriptions -> IO (Maybe ActiveCheckSubscriptions, b)) -> IO b
+alterActiveCheckSubscriptions = alterKV
+
 readActiveCheckSubscriptions' :: Key ActiveCheckSubscriptions -> IO ActiveCheckSubscriptions
 readActiveCheckSubscriptions' key = liftM (fromMaybe (defaultActiveCheckSubscriptions key)) (readKV key)
 
@@ -1079,7 +1175,6 @@ instance KV Comments where
     kvBucket _ = "Comments"
     kvKey = cKey
     kvCache _ = _cCache
-    kvPool _ = riakPool
 _cCache = unsafePerformIO $ newCache 3 60 (20*1024*1024)
 {-# NOINLINE _cCache #-}
 readComments :: CommentsKey -> IO (Maybe Comments)
@@ -1121,6 +1216,9 @@ modifyComments' key f = modifyKV key (f . fromMaybe (defaultComments key))
 modifyComments'_ :: CommentsKey -> (Comments -> IO Comments) -> IO ()
 modifyComments'_ key f = modifyKV_ key (f . fromMaybe (defaultComments key))
 
+alterComments :: CommentsKey -> (Maybe Comments -> IO (Maybe Comments, b)) -> IO b
+alterComments = alterKV
+
 readComments' :: Key Comments -> IO Comments
 readComments' key = liftM (fromMaybe (defaultComments key)) (readKV key)
 
@@ -1135,7 +1233,6 @@ instance KV UrlToScan where
     kvBucket _ = "UrlToScan"
     kvKey = utsUrl
     kvCache _ = _utsCache
-    kvPool _ = riakPool
 _utsCache = unsafePerformIO $ newCache 0 0 (0*1024*1024)
 {-# NOINLINE _utsCache #-}
 readUrlToScan :: TURL -> IO (Maybe UrlToScan)
@@ -1177,6 +1274,9 @@ modifyUrlToScan' key f = modifyKV key (f . fromMaybe (defaultUrlToScan key))
 modifyUrlToScan'_ :: TURL -> (UrlToScan -> IO UrlToScan) -> IO ()
 modifyUrlToScan'_ key f = modifyKV_ key (f . fromMaybe (defaultUrlToScan key))
 
+alterUrlToScan :: TURL -> (Maybe UrlToScan -> IO (Maybe UrlToScan, b)) -> IO b
+alterUrlToScan = alterKV
+
 readUrlToScan' :: Key UrlToScan -> IO UrlToScan
 readUrlToScan' key = liftM (fromMaybe (defaultUrlToScan key)) (readKV key)
 
@@ -1191,7 +1291,6 @@ instance KV ScanList where
     kvBucket _ = "ScanList"
     kvKey = slTime
     kvCache _ = _slCache
-    kvPool _ = riakPool
 _slCache = unsafePerformIO $ newCache 0 0 (0*1024*1024)
 {-# NOINLINE _slCache #-}
 readScanList :: UrTime -> IO (Maybe ScanList)
@@ -1233,6 +1332,9 @@ modifyScanList' key f = modifyKV key (f . fromMaybe (defaultScanList key))
 modifyScanList'_ :: UrTime -> (ScanList -> IO ScanList) -> IO ()
 modifyScanList'_ key f = modifyKV_ key (f . fromMaybe (defaultScanList key))
 
+alterScanList :: UrTime -> (Maybe ScanList -> IO (Maybe ScanList, b)) -> IO b
+alterScanList = alterKV
+
 readScanList' :: Key ScanList -> IO ScanList
 readScanList' key = liftM (fromMaybe (defaultScanList key)) (readKV key)
 
@@ -1247,8 +1349,7 @@ instance KV PostsRead where
     kvBucket _ = "PostsRead"
     kvKey = prKey
     kvCache _ = _prCache
-    kvPool _ = riakPool
-_prCache = unsafePerformIO $ newCache 600 600 (200*1024*1024)
+_prCache = unsafePerformIO $ newCache 600 600 (400*1024*1024)
 {-# NOINLINE _prCache #-}
 readPostsRead :: (T.Text, TURL) -> IO (Maybe PostsRead)
 readPostsRead = readKV
@@ -1289,6 +1390,9 @@ modifyPostsRead' key f = modifyKV key (f . fromMaybe (defaultPostsRead key))
 modifyPostsRead'_ :: (T.Text, TURL) -> (PostsRead -> IO PostsRead) -> IO ()
 modifyPostsRead'_ key f = modifyKV_ key (f . fromMaybe (defaultPostsRead key))
 
+alterPostsRead :: (T.Text, TURL) -> (Maybe PostsRead -> IO (Maybe PostsRead, b)) -> IO b
+alterPostsRead = alterKV
+
 readPostsRead' :: Key PostsRead -> IO PostsRead
 readPostsRead' key = liftM (fromMaybe (defaultPostsRead key)) (readKV key)
 
@@ -1303,7 +1407,6 @@ instance KV PostsTagged where
     kvBucket _ = "PostsTagged"
     kvKey = ptBlogFeedUrl
     kvCache _ = _ptCache
-    kvPool _ = riakPool
 _ptCache = unsafePerformIO $ newCache 120 120 (200*1024*1024)
 {-# NOINLINE _ptCache #-}
 readPostsTagged :: TURL -> IO (Maybe PostsTagged)
@@ -1345,6 +1448,9 @@ modifyPostsTagged' key f = modifyKV key (f . fromMaybe (defaultPostsTagged key))
 modifyPostsTagged'_ :: TURL -> (PostsTagged -> IO PostsTagged) -> IO ()
 modifyPostsTagged'_ key f = modifyKV_ key (f . fromMaybe (defaultPostsTagged key))
 
+alterPostsTagged :: TURL -> (Maybe PostsTagged -> IO (Maybe PostsTagged, b)) -> IO b
+alterPostsTagged = alterKV
+
 readPostsTagged' :: Key PostsTagged -> IO PostsTagged
 readPostsTagged' key = liftM (fromMaybe (defaultPostsTagged key)) (readKV key)
 
@@ -1359,7 +1465,6 @@ instance KV PostsTaggedGuids where
     kvBucket _ = "PostsTaggedGuids"
     kvKey = ptgBlogFeedUrl
     kvCache _ = _ptgCache
-    kvPool _ = riakPool
 _ptgCache = unsafePerformIO $ newCache 120 120 (200*1024*1024)
 {-# NOINLINE _ptgCache #-}
 readPostsTaggedGuids :: TURL -> IO (Maybe PostsTaggedGuids)
@@ -1401,6 +1506,9 @@ modifyPostsTaggedGuids' key f = modifyKV key (f . fromMaybe (defaultPostsTaggedG
 modifyPostsTaggedGuids'_ :: TURL -> (PostsTaggedGuids -> IO PostsTaggedGuids) -> IO ()
 modifyPostsTaggedGuids'_ key f = modifyKV_ key (f . fromMaybe (defaultPostsTaggedGuids key))
 
+alterPostsTaggedGuids :: TURL -> (Maybe PostsTaggedGuids -> IO (Maybe PostsTaggedGuids, b)) -> IO b
+alterPostsTaggedGuids = alterKV
+
 readPostsTaggedGuids' :: Key PostsTaggedGuids -> IO PostsTaggedGuids
 readPostsTaggedGuids' key = liftM (fromMaybe (defaultPostsTaggedGuids key)) (readKV key)
 
@@ -1415,8 +1523,7 @@ instance KV GRIds where
     kvBucket _ = "GRIds"
     kvKey = griUser
     kvCache _ = _griCache
-    kvPool _ = riakPool
-_griCache = unsafePerformIO $ newCache 200 200 (200*1024*1024)
+_griCache = unsafePerformIO $ newCache 200 200 (400*1024*1024)
 {-# NOINLINE _griCache #-}
 readGRIds :: T.Text -> IO (Maybe GRIds)
 readGRIds = readKV
@@ -1457,6 +1564,9 @@ modifyGRIds' key f = modifyKV key (f . fromMaybe (defaultGRIds key))
 modifyGRIds'_ :: T.Text -> (GRIds -> IO GRIds) -> IO ()
 modifyGRIds'_ key f = modifyKV_ key (f . fromMaybe (defaultGRIds key))
 
+alterGRIds :: T.Text -> (Maybe GRIds -> IO (Maybe GRIds, b)) -> IO b
+alterGRIds = alterKV
+
 readGRIds' :: Key GRIds -> IO GRIds
 readGRIds' key = liftM (fromMaybe (defaultGRIds key)) (readKV key)
 
@@ -1471,7 +1581,6 @@ instance KV UserBackup where
     kvBucket _ = "UserBackup"
     kvKey = ubKey
     kvCache _ = _ubCache
-    kvPool _ = riakPool
 _ubCache = unsafePerformIO $ newCache 200 200 (200*1024*1024)
 {-# NOINLINE _ubCache #-}
 readUserBackup :: (T.Text, UrTime) -> IO (Maybe UserBackup)
@@ -1513,6 +1622,9 @@ modifyUserBackup' key f = modifyKV key (f . fromMaybe (defaultUserBackup key))
 modifyUserBackup'_ :: (T.Text, UrTime) -> (UserBackup -> IO UserBackup) -> IO ()
 modifyUserBackup'_ key f = modifyKV_ key (f . fromMaybe (defaultUserBackup key))
 
+alterUserBackup :: (T.Text, UrTime) -> (Maybe UserBackup -> IO (Maybe UserBackup, b)) -> IO b
+alterUserBackup = alterKV
+
 readUserBackup' :: Key UserBackup -> IO UserBackup
 readUserBackup' key = liftM (fromMaybe (defaultUserBackup key)) (readKV key)
 
@@ -1527,7 +1639,6 @@ instance KV DeletedUser where
     kvBucket _ = "DeletedUser"
     kvKey = duUser
     kvCache _ = _duCache
-    kvPool _ = riakPool
 _duCache = unsafePerformIO $ newCache 200 200 (200*1024*1024)
 {-# NOINLINE _duCache #-}
 readDeletedUser :: T.Text -> IO (Maybe DeletedUser)
@@ -1569,6 +1680,9 @@ modifyDeletedUser' key f = modifyKV key (f . fromMaybe (defaultDeletedUser key))
 modifyDeletedUser'_ :: T.Text -> (DeletedUser -> IO DeletedUser) -> IO ()
 modifyDeletedUser'_ key f = modifyKV_ key (f . fromMaybe (defaultDeletedUser key))
 
+alterDeletedUser :: T.Text -> (Maybe DeletedUser -> IO (Maybe DeletedUser, b)) -> IO b
+alterDeletedUser = alterKV
+
 readDeletedUser' :: Key DeletedUser -> IO DeletedUser
 readDeletedUser' key = liftM (fromMaybe (defaultDeletedUser key)) (readKV key)
 
@@ -1578,13 +1692,70 @@ cachedReadDeletedUser' key = liftM (fromMaybe (defaultDeletedUser key)) (cachedR
 cachedNothingReadDeletedUser' :: Key DeletedUser -> IO DeletedUser
 cachedNothingReadDeletedUser' key = liftM (fromMaybe (defaultDeletedUser key)) (cachedNothingReadKV key)
 
+instance KV MailsSent where
+    type Key MailsSent = T.Text
+    kvBucket _ = "MailsSent"
+    kvKey = msUser
+    kvCache _ = _msCache
+_msCache = unsafePerformIO $ newCache 200 200 (200*1024*1024)
+{-# NOINLINE _msCache #-}
+readMailsSent :: T.Text -> IO (Maybe MailsSent)
+readMailsSent = readKV
+
+cachedReadMailsSent :: T.Text -> IO (Maybe MailsSent)
+cachedReadMailsSent = cachedReadKV
+
+cachedNothingReadMailsSent :: T.Text -> IO (Maybe MailsSent)
+cachedNothingReadMailsSent = cachedNothingReadKV
+
+mergeWriteMailsSent :: MailsSent -> IO (())
+mergeWriteMailsSent = mergeWriteKV
+
+deleteMailsSent :: MailsSent -> IO (())
+deleteMailsSent = deleteKV
+
+readManyMailsSents :: [T.Text] -> IO ([Maybe MailsSent])
+readManyMailsSents = readManyKVs
+
+cachedReadManyMailsSents :: [T.Text] -> IO ([Maybe MailsSent])
+cachedReadManyMailsSents = cachedReadManyKVs
+
+cachedNothingReadManyMailsSents :: [T.Text] -> IO ([Maybe MailsSent])
+cachedNothingReadManyMailsSents = cachedNothingReadManyKVs
+
+writeManyMailsSents :: [MailsSent] -> IO (())
+writeManyMailsSents = writeManyKVs
+
+modifyMailsSent :: T.Text -> (Maybe MailsSent -> IO (MailsSent, b)) -> IO b
+modifyMailsSent = modifyKV
+
+modifyMailsSent_ :: T.Text -> (Maybe MailsSent -> IO MailsSent) -> IO ()
+modifyMailsSent_ = modifyKV_
+
+modifyMailsSent' :: T.Text -> (MailsSent -> IO (MailsSent, b)) -> IO b
+modifyMailsSent' key f = modifyKV key (f . fromMaybe (defaultMailsSent key))
+
+modifyMailsSent'_ :: T.Text -> (MailsSent -> IO MailsSent) -> IO ()
+modifyMailsSent'_ key f = modifyKV_ key (f . fromMaybe (defaultMailsSent key))
+
+alterMailsSent :: T.Text -> (Maybe MailsSent -> IO (Maybe MailsSent, b)) -> IO b
+alterMailsSent = alterKV
+
+readMailsSent' :: Key MailsSent -> IO MailsSent
+readMailsSent' key = liftM (fromMaybe (defaultMailsSent key)) (readKV key)
+
+cachedReadMailsSent' :: Key MailsSent -> IO MailsSent
+cachedReadMailsSent' key = liftM (fromMaybe (defaultMailsSent key)) (cachedReadKV key)
+
+cachedNothingReadMailsSent' :: Key MailsSent -> IO MailsSent
+cachedNothingReadMailsSent' key = liftM (fromMaybe (defaultMailsSent key)) (cachedNothingReadKV key)
+
 instance KV Filters where
     type Key Filters = T.Text
     kvBucket _ = "Filters"
     kvKey = fUser
     kvCache _ = _fCache
-    kvPool _ = riakPool
-_fCache = unsafePerformIO $ newCache 600 600 (200*1024*1024)
+_fCache = unsafePerformIO $ newCache 600 600 (400*1024*1024)
 {-# NOINLINE _fCache #-}
 readFilters :: T.Text -> IO (Maybe Filters)
 readFilters = readKV
@@ -1625,6 +1796,9 @@ modifyFilters' key f = modifyKV key (f . fromMaybe (defaultFilters key))
 modifyFilters'_ :: T.Text -> (Filters -> IO Filters) -> IO ()
 modifyFilters'_ key f = modifyKV_ key (f . fromMaybe (defaultFilters key))
 
+alterFilters :: T.Text -> (Maybe Filters -> IO (Maybe Filters, b)) -> IO b
+alterFilters = alterKV
+
 readFilters' :: Key Filters -> IO Filters
 readFilters' key = liftM (fromMaybe (defaultFilters key)) (readKV key)
 
@@ -1639,8 +1813,7 @@ instance KV UsageFlags where
     kvBucket _ = "UsageFlags"
     kvKey = uflTime
     kvCache _ = _uflCache
-    kvPool _ = riakPool
-_uflCache = unsafePerformIO $ newCache 200 200 (200*1024*1024)
+_uflCache = unsafePerformIO $ newCache 3600 3600 (200*1024*1024)
 {-# NOINLINE _uflCache #-}
 readUsageFlags :: UrTime -> IO (Maybe UsageFlags)
 readUsageFlags = readKV
@@ -1681,6 +1854,9 @@ modifyUsageFlags' key f = modifyKV key (f . fromMaybe (defaultUsageFlags key))
 modifyUsageFlags'_ :: UrTime -> (UsageFlags -> IO UsageFlags) -> IO ()
 modifyUsageFlags'_ key f = modifyKV_ key (f . fromMaybe (defaultUsageFlags key))
 
+alterUsageFlags :: UrTime -> (Maybe UsageFlags -> IO (Maybe UsageFlags, b)) -> IO b
+alterUsageFlags = alterKV
+
 readUsageFlags' :: Key UsageFlags -> IO UsageFlags
 readUsageFlags' key = liftM (fromMaybe (defaultUsageFlags key)) (readKV key)
 
@@ -1690,12 +1866,69 @@ cachedReadUsageFlags' key = liftM (fromMaybe (defaultUsageFlags key)) (cachedRea
 cachedNothingReadUsageFlags' :: Key UsageFlags -> IO UsageFlags
 cachedNothingReadUsageFlags' key = liftM (fromMaybe (defaultUsageFlags key)) (cachedNothingReadKV key)
 
+instance KV UserSessions where
+    type Key UserSessions = T.Text
+    kvBucket _ = "UserSessions"
+    kvKey = uSessionsUser
+    kvCache _ = _uSessionsCache
+_uSessionsCache = unsafePerformIO $ newCache 3600 3600 (100*1024*1024)
+{-# NOINLINE _uSessionsCache #-}
+readUserSessions :: T.Text -> IO (Maybe UserSessions)
+readUserSessions = readKV
+
+cachedReadUserSessions :: T.Text -> IO (Maybe UserSessions)
+cachedReadUserSessions = cachedReadKV
+
+cachedNothingReadUserSessions :: T.Text -> IO (Maybe UserSessions)
+cachedNothingReadUserSessions = cachedNothingReadKV
+
+mergeWriteUserSessions :: UserSessions -> IO (())
+mergeWriteUserSessions = mergeWriteKV
+
+deleteUserSessions :: UserSessions -> IO (())
+deleteUserSessions = deleteKV
+
+readManyUserSessionss :: [T.Text] -> IO ([Maybe UserSessions])
+readManyUserSessionss = readManyKVs
+
+cachedReadManyUserSessionss :: [T.Text] -> IO ([Maybe UserSessions])
+cachedReadManyUserSessionss = cachedReadManyKVs
+
+cachedNothingReadManyUserSessionss :: [T.Text] -> IO ([Maybe UserSessions])
+cachedNothingReadManyUserSessionss = cachedNothingReadManyKVs
+
+writeManyUserSessionss :: [UserSessions] -> IO (())
+writeManyUserSessionss = writeManyKVs
+
+modifyUserSessions :: T.Text -> (Maybe UserSessions -> IO (UserSessions, b)) -> IO b
+modifyUserSessions = modifyKV
+
+modifyUserSessions_ :: T.Text -> (Maybe UserSessions -> IO UserSessions) -> IO ()
+modifyUserSessions_ = modifyKV_
+
+modifyUserSessions' :: T.Text -> (UserSessions -> IO (UserSessions, b)) -> IO b
+modifyUserSessions' key f = modifyKV key (f . fromMaybe (defaultUserSessions key))
+
+modifyUserSessions'_ :: T.Text -> (UserSessions -> IO UserSessions) -> IO ()
+modifyUserSessions'_ key f = modifyKV_ key (f . fromMaybe (defaultUserSessions key))
+
+alterUserSessions :: T.Text -> (Maybe UserSessions -> IO (Maybe UserSessions, b)) -> IO b
+alterUserSessions = alterKV
+
+readUserSessions' :: Key UserSessions -> IO UserSessions
+readUserSessions' key = liftM (fromMaybe (defaultUserSessions key)) (readKV key)
+
+cachedReadUserSessions' :: Key UserSessions -> IO UserSessions
+cachedReadUserSessions' key = liftM (fromMaybe (defaultUserSessions key)) (cachedReadKV key)
+
+cachedNothingReadUserSessions' :: Key UserSessions -> IO UserSessions
+cachedNothingReadUserSessions' key = liftM (fromMaybe (defaultUserSessions key)) (cachedNothingReadKV key)
+
 instance KV FullTextCache where
     type Key FullTextCache = TURL
     kvBucket _ = "FullTextCache"
     kvKey = ftcUrl
     kvCache _ = _ftcCache
-    kvPool _ = riakPool
 _ftcCache = unsafePerformIO $ newCache 60 60 (200*1024*1024)
 {-# NOINLINE _ftcCache #-}
 readFullTextCache :: TURL -> IO (Maybe FullTextCache)
@@ -1737,6 +1970,9 @@ modifyFullTextCache' key f = modifyKV key (f . fromMaybe (defaultFullTextCache k
 modifyFullTextCache'_ :: TURL -> (FullTextCache -> IO FullTextCache) -> IO ()
 modifyFullTextCache'_ key f = modifyKV_ key (f . fromMaybe (defaultFullTextCache key))
 
+alterFullTextCache :: TURL -> (Maybe FullTextCache -> IO (Maybe FullTextCache, b)) -> IO b
+alterFullTextCache = alterKV
+
 readFullTextCache' :: Key FullTextCache -> IO FullTextCache
 readFullTextCache' key = liftM (fromMaybe (defaultFullTextCache key)) (readKV key)
 
@@ -1745,4 +1981,352 @@ cachedReadFullTextCache' key = liftM (fromMaybe (defaultFullTextCache key)) (cac
 
 cachedNothingReadFullTextCache' :: Key FullTextCache -> IO FullTextCache
 cachedNothingReadFullTextCache' key = liftM (fromMaybe (defaultFullTextCache key)) (cachedNothingReadKV key)
+
+instance KV PageInfo where
+    type Key PageInfo = TURL
+    kvBucket _ = "PageInfo"
+    kvKey = piUrl
+    kvCache _ = _piCache
+_piCache = unsafePerformIO $ newCache 600 600 (200*1024*1024)
+{-# NOINLINE _piCache #-}
+readPageInfo :: TURL -> IO (Maybe PageInfo)
+readPageInfo = readKV
+
+cachedReadPageInfo :: TURL -> IO (Maybe PageInfo)
+cachedReadPageInfo = cachedReadKV
+
+cachedNothingReadPageInfo :: TURL -> IO (Maybe PageInfo)
+cachedNothingReadPageInfo = cachedNothingReadKV
+
+mergeWritePageInfo :: PageInfo -> IO (())
+mergeWritePageInfo = mergeWriteKV
+
+deletePageInfo :: PageInfo -> IO (())
+deletePageInfo = deleteKV
+
+readManyPageInfos :: [TURL] -> IO ([Maybe PageInfo])
+readManyPageInfos = readManyKVs
+
+cachedReadManyPageInfos :: [TURL] -> IO ([Maybe PageInfo])
+cachedReadManyPageInfos = cachedReadManyKVs
+
+cachedNothingReadManyPageInfos :: [TURL] -> IO ([Maybe PageInfo])
+cachedNothingReadManyPageInfos = cachedNothingReadManyKVs
+
+writeManyPageInfos :: [PageInfo] -> IO (())
+writeManyPageInfos = writeManyKVs
+
+modifyPageInfo :: TURL -> (Maybe PageInfo -> IO (PageInfo, b)) -> IO b
+modifyPageInfo = modifyKV
+
+modifyPageInfo_ :: TURL -> (Maybe PageInfo -> IO PageInfo) -> IO ()
+modifyPageInfo_ = modifyKV_
+
+modifyPageInfo' :: TURL -> (PageInfo -> IO (PageInfo, b)) -> IO b
+modifyPageInfo' key f = modifyKV key (f . fromMaybe (defaultPageInfo key))
+
+modifyPageInfo'_ :: TURL -> (PageInfo -> IO PageInfo) -> IO ()
+modifyPageInfo'_ key f = modifyKV_ key (f . fromMaybe (defaultPageInfo key))
+
+alterPageInfo :: TURL -> (Maybe PageInfo -> IO (Maybe PageInfo, b)) -> IO b
+alterPageInfo = alterKV
+
+readPageInfo' :: Key PageInfo -> IO PageInfo
+readPageInfo' key = liftM (fromMaybe (defaultPageInfo key)) (readKV key)
+
+cachedReadPageInfo' :: Key PageInfo -> IO PageInfo
+cachedReadPageInfo' key = liftM (fromMaybe (defaultPageInfo key)) (cachedReadKV key)
+
+cachedNothingReadPageInfo' :: Key PageInfo -> IO PageInfo
+cachedNothingReadPageInfo' key = liftM (fromMaybe (defaultPageInfo key)) (cachedNothingReadKV key)
+
+instance KV Favicon where
+    type Key Favicon = TURL
+    kvBucket _ = "Favicon"
+    kvKey = faviconSourceUrl
+    kvCache _ = _faviconCache
+_faviconCache = unsafePerformIO $ newCache 600 600 (200*1024*1024)
+{-# NOINLINE _faviconCache #-}
+readFavicon :: TURL -> IO (Maybe Favicon)
+readFavicon = readKV
+
+cachedReadFavicon :: TURL -> IO (Maybe Favicon)
+cachedReadFavicon = cachedReadKV
+
+cachedNothingReadFavicon :: TURL -> IO (Maybe Favicon)
+cachedNothingReadFavicon = cachedNothingReadKV
+
+mergeWriteFavicon :: Favicon -> IO (())
+mergeWriteFavicon = mergeWriteKV
+
+deleteFavicon :: Favicon -> IO (())
+deleteFavicon = deleteKV
+
+readManyFavicons :: [TURL] -> IO ([Maybe Favicon])
+readManyFavicons = readManyKVs
+
+cachedReadManyFavicons :: [TURL] -> IO ([Maybe Favicon])
+cachedReadManyFavicons = cachedReadManyKVs
+
+cachedNothingReadManyFavicons :: [TURL] -> IO ([Maybe Favicon])
+cachedNothingReadManyFavicons = cachedNothingReadManyKVs
+
+writeManyFavicons :: [Favicon] -> IO (())
+writeManyFavicons = writeManyKVs
+
+modifyFavicon :: TURL -> (Maybe Favicon -> IO (Favicon, b)) -> IO b
+modifyFavicon = modifyKV
+
+modifyFavicon_ :: TURL -> (Maybe Favicon -> IO Favicon) -> IO ()
+modifyFavicon_ = modifyKV_
+
+modifyFavicon' :: TURL -> (Favicon -> IO (Favicon, b)) -> IO b
+modifyFavicon' key f = modifyKV key (f . fromMaybe (defaultFavicon key))
+
+modifyFavicon'_ :: TURL -> (Favicon -> IO Favicon) -> IO ()
+modifyFavicon'_ key f = modifyKV_ key (f . fromMaybe (defaultFavicon key))
+
+alterFavicon :: TURL -> (Maybe Favicon -> IO (Maybe Favicon, b)) -> IO b
+alterFavicon = alterKV
+
+readFavicon' :: Key Favicon -> IO Favicon
+readFavicon' key = liftM (fromMaybe (defaultFavicon key)) (readKV key)
+
+cachedReadFavicon' :: Key Favicon -> IO Favicon
+cachedReadFavicon' key = liftM (fromMaybe (defaultFavicon key)) (cachedReadKV key)
+
+cachedNothingReadFavicon' :: Key Favicon -> IO Favicon
+cachedNothingReadFavicon' key = liftM (fromMaybe (defaultFavicon key)) (cachedNothingReadKV key)
+
+instance KV HotLinks where
+    type Key HotLinks = T.Text
+    kvBucket _ = "HotLinks"
+    kvKey = hlsUser
+    kvCache _ = _hlsCache
+_hlsCache = unsafePerformIO $ newCache 600 600 (200*1024*1024)
+{-# NOINLINE _hlsCache #-}
+readHotLinks :: T.Text -> IO (Maybe HotLinks)
+readHotLinks = readKV
+
+cachedReadHotLinks :: T.Text -> IO (Maybe HotLinks)
+cachedReadHotLinks = cachedReadKV
+
+cachedNothingReadHotLinks :: T.Text -> IO (Maybe HotLinks)
+cachedNothingReadHotLinks = cachedNothingReadKV
+
+mergeWriteHotLinks :: HotLinks -> IO (())
+mergeWriteHotLinks = mergeWriteKV
+
+deleteHotLinks :: HotLinks -> IO (())
+deleteHotLinks = deleteKV
+
+readManyHotLinkss :: [T.Text] -> IO ([Maybe HotLinks])
+readManyHotLinkss = readManyKVs
+
+cachedReadManyHotLinkss :: [T.Text] -> IO ([Maybe HotLinks])
+cachedReadManyHotLinkss = cachedReadManyKVs
+
+cachedNothingReadManyHotLinkss :: [T.Text] -> IO ([Maybe HotLinks])
+cachedNothingReadManyHotLinkss = cachedNothingReadManyKVs
+
+writeManyHotLinkss :: [HotLinks] -> IO (())
+writeManyHotLinkss = writeManyKVs
+
+modifyHotLinks :: T.Text -> (Maybe HotLinks -> IO (HotLinks, b)) -> IO b
+modifyHotLinks = modifyKV
+
+modifyHotLinks_ :: T.Text -> (Maybe HotLinks -> IO HotLinks) -> IO ()
+modifyHotLinks_ = modifyKV_
+
+modifyHotLinks' :: T.Text -> (HotLinks -> IO (HotLinks, b)) -> IO b
+modifyHotLinks' key f = modifyKV key (f . fromMaybe (defaultHotLinks key))
+
+modifyHotLinks'_ :: T.Text -> (HotLinks -> IO HotLinks) -> IO ()
+modifyHotLinks'_ key f = modifyKV_ key (f . fromMaybe (defaultHotLinks key))
+
+alterHotLinks :: T.Text -> (Maybe HotLinks -> IO (Maybe HotLinks, b)) -> IO b
+alterHotLinks = alterKV
+
+readHotLinks' :: Key HotLinks -> IO HotLinks
+readHotLinks' key = liftM (fromMaybe (defaultHotLinks key)) (readKV key)
+
+cachedReadHotLinks' :: Key HotLinks -> IO HotLinks
+cachedReadHotLinks' key = liftM (fromMaybe (defaultHotLinks key)) (cachedReadKV key)
+
+cachedNothingReadHotLinks' :: Key HotLinks -> IO HotLinks
+cachedNothingReadHotLinks' key = liftM (fromMaybe (defaultHotLinks key)) (cachedNothingReadKV key)
+
+instance KV FeedbackUserInfosList where
+    type Key FeedbackUserInfosList = T.Text
+    kvBucket _ = "FeedbackUserInfosList"
+    kvKey = fuilId
+    kvCache _ = _fuilCache
+_fuilCache = unsafePerformIO $ newCache 60 60 (10*1024*1024)
+{-# NOINLINE _fuilCache #-}
+readFeedbackUserInfosList :: T.Text -> IO (Maybe FeedbackUserInfosList)
+readFeedbackUserInfosList = readKV
+
+cachedReadFeedbackUserInfosList :: T.Text -> IO (Maybe FeedbackUserInfosList)
+cachedReadFeedbackUserInfosList = cachedReadKV
+
+cachedNothingReadFeedbackUserInfosList :: T.Text -> IO (Maybe FeedbackUserInfosList)
+cachedNothingReadFeedbackUserInfosList = cachedNothingReadKV
+
+mergeWriteFeedbackUserInfosList :: FeedbackUserInfosList -> IO (())
+mergeWriteFeedbackUserInfosList = mergeWriteKV
+
+deleteFeedbackUserInfosList :: FeedbackUserInfosList -> IO (())
+deleteFeedbackUserInfosList = deleteKV
+
+readManyFeedbackUserInfosLists :: [T.Text] -> IO ([Maybe FeedbackUserInfosList])
+readManyFeedbackUserInfosLists = readManyKVs
+
+cachedReadManyFeedbackUserInfosLists :: [T.Text] -> IO ([Maybe FeedbackUserInfosList])
+cachedReadManyFeedbackUserInfosLists = cachedReadManyKVs
+
+cachedNothingReadManyFeedbackUserInfosLists :: [T.Text] -> IO ([Maybe FeedbackUserInfosList])
+cachedNothingReadManyFeedbackUserInfosLists = cachedNothingReadManyKVs
+
+writeManyFeedbackUserInfosLists :: [FeedbackUserInfosList] -> IO (())
+writeManyFeedbackUserInfosLists = writeManyKVs
+
+modifyFeedbackUserInfosList :: T.Text -> (Maybe FeedbackUserInfosList -> IO (FeedbackUserInfosList, b)) -> IO b
+modifyFeedbackUserInfosList = modifyKV
+
+modifyFeedbackUserInfosList_ :: T.Text -> (Maybe FeedbackUserInfosList -> IO FeedbackUserInfosList) -> IO ()
+modifyFeedbackUserInfosList_ = modifyKV_
+
+modifyFeedbackUserInfosList' :: T.Text -> (FeedbackUserInfosList -> IO (FeedbackUserInfosList, b)) -> IO b
+modifyFeedbackUserInfosList' key f = modifyKV key (f . fromMaybe (defaultFeedbackUserInfosList key))
+
+modifyFeedbackUserInfosList'_ :: T.Text -> (FeedbackUserInfosList -> IO FeedbackUserInfosList) -> IO ()
+modifyFeedbackUserInfosList'_ key f = modifyKV_ key (f . fromMaybe (defaultFeedbackUserInfosList key))
+
+alterFeedbackUserInfosList :: T.Text -> (Maybe FeedbackUserInfosList -> IO (Maybe FeedbackUserInfosList, b)) -> IO b
+alterFeedbackUserInfosList = alterKV
+
+readFeedbackUserInfosList' :: Key FeedbackUserInfosList -> IO FeedbackUserInfosList
+readFeedbackUserInfosList' key = liftM (fromMaybe (defaultFeedbackUserInfosList key)) (readKV key)
+
+cachedReadFeedbackUserInfosList' :: Key FeedbackUserInfosList -> IO FeedbackUserInfosList
+cachedReadFeedbackUserInfosList' key = liftM (fromMaybe (defaultFeedbackUserInfosList key)) (cachedReadKV key)
+
+cachedNothingReadFeedbackUserInfosList' :: Key FeedbackUserInfosList -> IO FeedbackUserInfosList
+cachedNothingReadFeedbackUserInfosList' key = liftM (fromMaybe (defaultFeedbackUserInfosList key)) (cachedNothingReadKV key)
+
+instance KV OfdReceipt where
+    type Key OfdReceipt = (T.Text, Bool)
+    kvBucket _ = "OfdReceipt"
+    kvKey = orOrderIdRefund
+    kvCache _ = _orCache
+_orCache = unsafePerformIO $ newCache 60 60 (10*1024*1024)
+{-# NOINLINE _orCache #-}
+readOfdReceipt :: (T.Text, Bool) -> IO (Maybe OfdReceipt)
+readOfdReceipt = readKV
+
+cachedReadOfdReceipt :: (T.Text, Bool) -> IO (Maybe OfdReceipt)
+cachedReadOfdReceipt = cachedReadKV
+
+cachedNothingReadOfdReceipt :: (T.Text, Bool) -> IO (Maybe OfdReceipt)
+cachedNothingReadOfdReceipt = cachedNothingReadKV
+
+mergeWriteOfdReceipt :: OfdReceipt -> IO (())
+mergeWriteOfdReceipt = mergeWriteKV
+
+deleteOfdReceipt :: OfdReceipt -> IO (())
+deleteOfdReceipt = deleteKV
+
+readManyOfdReceipts :: [(T.Text, Bool)] -> IO ([Maybe OfdReceipt])
+readManyOfdReceipts = readManyKVs
+
+cachedReadManyOfdReceipts :: [(T.Text, Bool)] -> IO ([Maybe OfdReceipt])
+cachedReadManyOfdReceipts = cachedReadManyKVs
+
+cachedNothingReadManyOfdReceipts :: [(T.Text, Bool)] -> IO ([Maybe OfdReceipt])
+cachedNothingReadManyOfdReceipts = cachedNothingReadManyKVs
+
+writeManyOfdReceipts :: [OfdReceipt] -> IO (())
+writeManyOfdReceipts = writeManyKVs
+
+modifyOfdReceipt :: (T.Text, Bool) -> (Maybe OfdReceipt -> IO (OfdReceipt, b)) -> IO b
+modifyOfdReceipt = modifyKV
+
+modifyOfdReceipt_ :: (T.Text, Bool) -> (Maybe OfdReceipt -> IO OfdReceipt) -> IO ()
+modifyOfdReceipt_ = modifyKV_
+
+modifyOfdReceipt' :: (T.Text, Bool) -> (OfdReceipt -> IO (OfdReceipt, b)) -> IO b
+modifyOfdReceipt' key f = modifyKV key (f . fromMaybe (defaultOfdReceipt key))
+
+modifyOfdReceipt'_ :: (T.Text, Bool) -> (OfdReceipt -> IO OfdReceipt) -> IO ()
+modifyOfdReceipt'_ key f = modifyKV_ key (f . fromMaybe (defaultOfdReceipt key))
+
+alterOfdReceipt :: (T.Text, Bool) -> (Maybe OfdReceipt -> IO (Maybe OfdReceipt, b)) -> IO b
+alterOfdReceipt = alterKV
+
+readOfdReceipt' :: Key OfdReceipt -> IO OfdReceipt
+readOfdReceipt' key = liftM (fromMaybe (defaultOfdReceipt key)) (readKV key)
+
+cachedReadOfdReceipt' :: Key OfdReceipt -> IO OfdReceipt
+cachedReadOfdReceipt' key = liftM (fromMaybe (defaultOfdReceipt key)) (cachedReadKV key)
+
+cachedNothingReadOfdReceipt' :: Key OfdReceipt -> IO OfdReceipt
+cachedNothingReadOfdReceipt' key = liftM (fromMaybe (defaultOfdReceipt key)) (cachedNothingReadKV key)
+
+instance KV ParserEnvironment where
+    type Key ParserEnvironment = T.Text
+    kvBucket _ = "ParserEnvironment"
+    kvKey = peKey
+    kvCache _ = _peCache
+_peCache = unsafePerformIO $ newCache 3600 3600 (100*1024*1024)
+{-# NOINLINE _peCache #-}
+readParserEnvironment :: T.Text -> IO (Maybe ParserEnvironment)
+readParserEnvironment = readKV
+
+cachedReadParserEnvironment :: T.Text -> IO (Maybe ParserEnvironment)
+cachedReadParserEnvironment = cachedReadKV
+
+cachedNothingReadParserEnvironment :: T.Text -> IO (Maybe ParserEnvironment)
+cachedNothingReadParserEnvironment = cachedNothingReadKV
+
+mergeWriteParserEnvironment :: ParserEnvironment -> IO (())
+mergeWriteParserEnvironment = mergeWriteKV
+
+deleteParserEnvironment :: ParserEnvironment -> IO (())
+deleteParserEnvironment = deleteKV
+
+readManyParserEnvironments :: [T.Text] -> IO ([Maybe ParserEnvironment])
+readManyParserEnvironments = readManyKVs
+
+cachedReadManyParserEnvironments :: [T.Text] -> IO ([Maybe ParserEnvironment])
+cachedReadManyParserEnvironments = cachedReadManyKVs
+
+cachedNothingReadManyParserEnvironments :: [T.Text] -> IO ([Maybe ParserEnvironment])
+cachedNothingReadManyParserEnvironments = cachedNothingReadManyKVs
+
+writeManyParserEnvironments :: [ParserEnvironment] -> IO (())
+writeManyParserEnvironments = writeManyKVs
+
+modifyParserEnvironment :: T.Text -> (Maybe ParserEnvironment -> IO (ParserEnvironment, b)) -> IO b
+modifyParserEnvironment = modifyKV
+
+modifyParserEnvironment_ :: T.Text -> (Maybe ParserEnvironment -> IO ParserEnvironment) -> IO ()
+modifyParserEnvironment_ = modifyKV_
+
+modifyParserEnvironment' :: T.Text -> (ParserEnvironment -> IO (ParserEnvironment, b)) -> IO b
+modifyParserEnvironment' key f = modifyKV key (f . fromMaybe (defaultParserEnvironment key))
+
+modifyParserEnvironment'_ :: T.Text -> (ParserEnvironment -> IO ParserEnvironment) -> IO ()
+modifyParserEnvironment'_ key f = modifyKV_ key (f . fromMaybe (defaultParserEnvironment key))
+
+alterParserEnvironment :: T.Text -> (Maybe ParserEnvironment -> IO (Maybe ParserEnvironment, b)) -> IO b
+alterParserEnvironment = alterKV
+
+readParserEnvironment' :: Key ParserEnvironment -> IO ParserEnvironment
+readParserEnvironment' key = liftM (fromMaybe (defaultParserEnvironment key)) (readKV key)
+
+cachedReadParserEnvironment' :: Key ParserEnvironment -> IO ParserEnvironment
+cachedReadParserEnvironment' key = liftM (fromMaybe (defaultParserEnvironment key)) (cachedReadKV key)
+
+cachedNothingReadParserEnvironment' :: Key ParserEnvironment -> IO ParserEnvironment
+cachedNothingReadParserEnvironment' key = liftM (fromMaybe (defaultParserEnvironment key)) (cachedNothingReadKV key)
 

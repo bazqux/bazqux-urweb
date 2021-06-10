@@ -8,15 +8,17 @@
 --
 module Lib.BArray
     ( Array(..)
-    , listArray, elems, (!), bounds, assocs
+    , listArray, elems, (!), bounds, assocs, amap
     )
     where
 
 import qualified Data.Array as A
+import qualified Data.Array.IArray as A (amap)
 import Data.Binary
+import Control.DeepSeq
 
 newtype Array i a = Array { unArray :: A.Array i a }
-    deriving (Ord, Binary)
+    deriving (Ord, Binary, NFData)
 
 instance (A.Ix i, Show i, Show a) => Show (Array i a) where
     showsPrec i (Array a) = showsPrec i a
@@ -34,3 +36,4 @@ elems (Array a) = A.elems a
 Array a ! i = a A.! i
 bounds (Array a) = A.bounds a
 assocs (Array a) = A.assocs a
+amap f (Array a) = Array (A.amap f a)

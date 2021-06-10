@@ -1,0 +1,72 @@
+name:           protocol-buffers
+version:        2.4.13
+cabal-version:  >= 1.6
+build-type:     Simple
+license:        BSD3
+license-file:   LICENSE
+copyright:      (c) 2008-2015 Christopher Edward Kuklewicz
+author:         Christopher Edward Kuklewicz
+maintainer:     Timo von Holtz <tvh@tvholtz.de>, Kostiantyn Rybnikov <k-bx@k-bx.com>
+homepage:       https://github.com/k-bx/protocol-buffers
+package-url:    http://hackage.haskell.org/package/protocol-buffers
+synopsis:       Parse Google Protocol Buffer specifications
+description:    Parse proto files and generate Haskell code.
+category:       Text
+extra-source-files: TODO
+                    README.md
+                    Changes
+Tested-With: GHC == 8.0.2, GHC == 8.2.1, GHC == 8.4.2, GHC == 8.6.2
+source-repository head
+  type: git
+  location: git://github.com/k-bx/protocol-buffers.git
+
+Library
+  -- Added -fspec-constr-count=10 to quiet ghc-7.0.2.
+  ghc-options:  -Wall -O2 -fspec-constr-count=10
+  -- ghc-prof-options: -auto-all -prof
+  exposed-modules: Text.ProtocolBuffers
+                   Text.ProtocolBuffers.Basic
+                   Text.ProtocolBuffers.Extensions
+                   Text.ProtocolBuffers.Get
+                   Text.ProtocolBuffers.Header
+                   Text.ProtocolBuffers.Identifiers
+                   Text.ProtocolBuffers.Reflections
+                   Text.ProtocolBuffers.TextMessage
+                   Text.ProtocolBuffers.Unknown
+                   Text.ProtocolBuffers.WireMessage
+                   Text.ProtocolBuffers.ProtoJSON
+
+  build-depends: base >= 4.9.0 && < 5,
+                 aeson >= 1.1.0.0,
+                 array,
+                 base16-bytestring == 1.*,
+                 text,
+                 binary,
+                 bytestring,
+                 containers,
+                 directory,
+                 filepath,
+                 mtl,
+                 vector,
+                 parsec,
+                 utf8-string,
+                 syb
+
+-- Most of these are needed for protocol-buffers (Get and WireMessage.hs)
+-- Nothing especially hazardous in this list
+  extensions:      BangPatterns,
+                   CPP,
+                   DeriveDataTypeable,
+                   EmptyDataDecls,
+                   FlexibleInstances,
+                   FunctionalDependencies,
+                   GADTs,
+                   GeneralizedNewtypeDeriving,
+                   MagicHash,
+                   MultiParamTypeClasses,
+                   PatternGuards,
+                   RankNTypes,
+                   RecordWildCards
+                   ScopedTypeVariables,
+                   StandaloneDeriving,
+                   TypeSynonymInstances

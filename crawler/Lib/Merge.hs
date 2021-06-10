@@ -1,5 +1,8 @@
 -- | Утилиты слияния ключей
-module Lib.Merge where
+module Lib.Merge
+    ( unionByWith
+    )
+    where
 
 import Data.List
 import Data.Ord

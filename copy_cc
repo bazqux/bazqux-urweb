@@ -1,0 +1,13 @@
+#!/bin/bash
+# копирование webapp.c в crawler/Generated вместо компиляции
+
+for arg
+do
+    case $arg in
+        *.c) sed s%uw_set_script_header%uw_Hacks_set_script_header%g $arg >crawler/Generated/webapp.c
+#              echo "$arg -- COPIED TO crawler/Generated"
+             ;;
+#         *)   echo "$arg"
+#              ;;
+    esac
+done

@@ -1,4 +1,4 @@
-{-# LANGUAGE RecordWildCards, OverloadedStrings, BangPatterns #-}
+{-# LANGUAGE RecordWildCards, OverloadedStrings, BangPatterns, LambdaCase #-}
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 -- | default-значения и Resolvable instance-ы для значений, хранящихся в Riak.
 module Resolvables where
@@ -7,7 +7,7 @@ import Generated.DataTypes
 import Riak
 import Data.List
 import Data.Maybe
-import Control.Monad
+import Control.Applicative
 import Control.Arrow
 import Lib.ReadSet (ReadSet)
 import qualified Lib.ReadSet as ReadSet
@@ -23,6 +23,7 @@ import Lib.UrTime
 import qualified Lib.BArray as BA
 import Lib.Merge
 import Lib.StringConversion
+import Data.Ord
 
 instance Resolvable User where
     resolve a b
@@ -31,13 +32,22 @@ instance Resolvable User where
             a { uSubscriptions = unionByWith sUrl merge
                                  (uSubscriptions a) (uSubscriptions b)
               , uViewMode = resolve (uViewMode a) (uViewMode b)
-              , uPayments = union (uPayments a) (uPayments b)
+              , uPayments =
+                  unionByWith pOrderId max (uPayments a) (uPayments b)
               }
         where merge a b
-                  | sState a > sState b = a
-                  | sState a < sState b = b
-                  | sEditsCount a < sEditsCount b = b
-                  | otherwise = a
+                  | stateOrd a > stateOrd b = u a b
+                  | stateOrd a < stateOrd b = u b a
+                  | sEditsCount a < sEditsCount b = u b a
+                  | otherwise = u a b
+              u a b = a { sFolders = union (sFolders a) (sFolders b)
+                        }
+              stateOrd a = case sState a of
+                  SSAdded -> 0
+                  SSScanning {} -> 1
+                  SSError {} -> 2
+                  SSErrorPath {} -> 3
+                  SSFeed {} -> 10
 
 instance Resolvable PaidTill where
     resolve = maxC pte
@@ -46,9 +56,10 @@ instance Resolvable PaidTill where
               pte (PTFreeTrialFinished t) = (2,t)
               pte (PTPaidFinished t) = (3,t)
               pte (PTPaid t) = (4,t)
-              maxC c a b
-                  | c a > c b = a
-                  | otherwise = b
+
+maxC c a b
+    | c a > c b = a
+    | otherwise = b
 
 instance Resolvable UserViewMode where
     resolve a b =
@@ -95,9 +106,23 @@ defaultMsgTreeViewMode =
     , mtvmUnreadOnly = True
     , mtvmExpandedComments = False
     , mtvmPosts = PVMFull
-    , mtvmFolderExpanded = True
+    , mtvmEx =
+        MTVMEx
+        { mtvmexFolderExpanded = True
+        , mtvmexGroupByFeed    = False
+        , mtvmexReserved1      = False
+        , mtvmexReserved2      = 0
+        }
     , mtvmNoOverride = True
     }
+
+mtvmFolderExpanded m = case mtvmEx m of
+    MTVMFolderCollapsed -> False
+    MTVMFolderExpanded -> True
+    MTVMEx {..} -> mtvmexFolderExpanded
+mtvmGroupByFeed m = case mtvmEx m of
+    MTVMEx {..} -> mtvmexGroupByFeed
+    _ -> False
 
 maxBy f a b
     | f a >= f b = a
@@ -143,7 +168,7 @@ defaultSubscriptionUrlInfo url =
     SubscriptionUrlInfo
     { suiUrl = url
     , suiTime = UrTime 0 0
-    , suiKind = SUKError "Uninitialized SubscriptionUrlInfo???"
+    , suiKind = SUKErrorPath "Uninitialized SubscriptionUrlInfo???" []
     }
 
 instance Resolvable Msg where
@@ -164,7 +189,7 @@ defaultMsg key =
     , msgDlTime      = UrTime 0 0
     , msgText        = ""
     , msgShortText   = ""
-    , msgDebug       = "defaultMsg"
+    , msgShorterText = ""
     }
 
 instance Resolvable Posts where
@@ -360,7 +385,13 @@ defaultStats k =
 instance Resolvable Session where
     resolve = max
 
-defaultSession k = error "defaultSession"
+defaultSession k =
+    Session
+    { sessionKey     = k
+    , sessionExpire  = UrTime 0 0
+    , sessionCleared = False
+    , sessionUser    = ""
+    }
 
 defaultBlogPostsScanned k =
     BlogPostsScanned
@@ -380,7 +411,7 @@ instance Resolvable BlogPostsScanned where
         }
         where unionState (st1, sct1, cus1) (st2, sct2, cus2) =
                   ( min st1 st2
-                  , min sct1 sct2 `mplus` sct1 `mplus` sct2
+                  , min sct1 sct2 <|> sct1 <|> sct2
                   , max cus1 cus2 )
 
 instance TextKey MsgKey where
@@ -392,6 +423,18 @@ instance TextKey UrTime where
     textKey (UrTime a b) = T.pack $ show a ++ "." ++ show b
 instance TextKey () where
     textKey () = "()"
+instance TextKey Bool where
+    textKey True = "True"
+    textKey False = "False"
+instance TextKey LoginType where
+    textKey = \ case
+        LTGoogle e   -> "g " <> e
+        LTFacebook e -> "f " <> e
+        LTTwitter i  -> "t " <> i
+        LTOpenId u   -> "o " <> u
+        LTEmail e    -> "e " <> e
+        LTUsername u -> "u " <> u
+        LTFeverApiKey ak -> "fak " <> ak
 
 defaultMailQueue k =
     MailQueue
@@ -410,6 +453,18 @@ instance Resolvable MailQueue where
         where active = Set.union (mqActive a) (mqActive b)
               inactive = Set.union (mqInactive a) (mqInactive b)
 
+defaultMailsSent u =
+    MailsSent
+    { msUser      = u
+    , msMailsSent = Set.empty
+    , msReserved2 = 0
+    , msReserved3 = 0
+    , msReserved4 = 0
+    }
+
+instance Resolvable MailsSent where
+    resolve a b = a { msMailsSent = Set.union (msMailsSent a) (msMailsSent b) }
+
 defaultFullTextCache k = error "defaultFullTextCache"
 
 instance Resolvable FullTextCache where
@@ -427,6 +482,32 @@ defaultUserFilters k =
 instance Resolvable UserFilters where
     resolve = maxBy ufFilters
 
+defaultUserSettingsEx =
+    UserSettingsEx
+    { usteLastWhatsNewTime = UrTime 0 0
+    , ustePasswordHash = Nothing
+    , usteReserved1_1 = Nothing
+    , usteReserved1_2 = Nothing
+    , usteReserved1_3 = Nothing
+    , usteReserved1_4 = Nothing
+    , usteReserved1_5 = Nothing
+    , usteReserved1_6 = Nothing
+    , usteReserved1_7 = Nothing
+    , usteAssociatedAccounts = []
+    , usteAssociatedAccountNames = Map.empty
+    , usteReserved4  = 0
+    , usteReserved5  = 0
+    , usteReserved6  = 0
+    , usteReserved7  = 0
+    , usteReserved8  = 0
+    , usteReserved9  = 0
+    , usteReserved10 = 0
+    , usteReserved11 = 0
+    , usteReserved12 = 0
+    , usteReserved13 = 0
+    , usteReserved14 = 0
+    , usteReserved15 = 0
+    }
 defaultUserSettings u =
     UserSettings
     { ustUser         = u
@@ -436,15 +517,19 @@ defaultUserSettings u =
     , ustShowFavicons = True
     , ustMarkReadMode = MRMOnScroll
     , ustUltraCompact = False
-    , ustMobileLogin  = Nothing
+    , ustReserved = Nothing
     , ustExactUnreadCounts    = False
     , ustPublicFeeds  = Nothing
     , ustCountry      = Nothing
     , ustApiKeys      = Nothing
-    , ustReserved7    = Nothing
-    , ustReserved8    = Nothing
-    , ustReserved9    = Nothing
+    , ustExperiments  = Nothing
+    , ustSharingSettings_ = Nothing
+    , ustEx    = Nothing
     }
+
+modifyUSTEx f ust =
+    ust { ustEx = Just $ f $ ustEx' ust }
+ustEx' = fromMaybe defaultUserSettingsEx . ustEx
 
 instance Resolvable UserSettings where
     resolve = maxBy ustEditsCount
@@ -486,34 +571,18 @@ defaultGRIds user =
 instance Resolvable GRIds where
     resolve = maxBy griLastId
 
-defaultMobileLogin login =
-    MobileLogin
-    { mlLogin        = login
-    , mlEditsCount   = 0
-    , mlUID          = Nothing
-    , mlPasswordHash = ""
-    , mlFeverApiKey  = Nothing
-    , mlReserved2    = Nothing
-    , mlReserved3    = Nothing
-    , mlReserved4    = Nothing
+defaultLogin loginType =
+    Login
+    { lLoginType    = loginType
+    , lUserID = ""
+    , lReserved1    = 0
+    , lReserved2    = 0
+    , lReserved3    = 0
+    , lReserved4    = 0
     }
 
-instance Resolvable MobileLogin where
-    resolve = maxBy mlEditsCount
-
-defaultFeverApiKey key =
-    FeverApiKey
-    { fakKey          = key
-    , fakEditsCount   = 0
-    , fakUID          = Nothing
-    , fakReserved1    = Nothing
-    , fakReserved2    = Nothing
-    , fakReserved3    = Nothing
-    , fakReserved4    = Nothing
-    }
-
-instance Resolvable FeverApiKey where
-    resolve = maxBy fakEditsCount
+instance Resolvable Login where
+    resolve = maxBy lUserID
 
 defaultFeverIds user =
     FeverIds
@@ -579,7 +648,7 @@ instance Resolvable PostsSubscribers where
               filterAs
 --                   | Just ((maxT,maxU,_),x) <- Set.maxView as =
 --                       Set.filter (\ (t,u,_) -> not $
---                                       diffUrTime maxT t > 86400 &&
+--                                       diffUrTime maxT t > day &&
 --                                       -- ^ неправильно, надо именно пары
 --                                       -- чистить
 --                                       not (HS.member u ss) && u /= maxU) as
@@ -613,16 +682,10 @@ defaultDiscoveryFeed f =
     , dfNormalizedSubscribers = 0.0
     , dfPostsPerDay           = 0.0
     , dfLastRefreshTime       = UrTime 0 0
+    , dfAveragePostLength     = 0.0
     , dfPaidCountries         = HM.empty
     , dfCountries             = HM.empty
-    , dfReserved1             = 0
-    , dfReserved2             = 0
-    , dfReserved3             = 0
-    , dfReserved4             = 0
     }
-
-instance Resolvable DiscoveryFeed where
-    resolve = maxBy dfLastRefreshTime
 
 defaultUserBackup key@(u,_) =
     UserBackup
@@ -681,10 +744,10 @@ defaultUserUsageFlags =
     { uufPaidTill   = PTUnknown
     , uufCountry    = "-"
     , uufUsageFlags = Set.empty
-    , uufReserved1  = Set.empty
-    , uufReserved2  = Set.empty
-    , uufReserved3  = Set.empty
-    , uufReserved4  = Set.empty
+    , uufReserved1  = 0
+    , uufReserved2  = 0
+    , uufReserved3  = 0
+    , uufReserved4  = 0
     }
 
 instance Resolvable UserUsageFlags where
@@ -699,10 +762,10 @@ defaultUsageFlags t =
     UsageFlags
     { uflTime      = t
     , uflFlags     = HM.empty
-    , uflReserved1 = Set.empty
-    , uflReserved2 = Set.empty
-    , uflReserved3 = Set.empty
-    , uflReserved4 = Set.empty
+    , uflReserved1 = 0
+    , uflReserved2 = 0
+    , uflReserved3 = 0
+    , uflReserved4 = 0
     }
 
 instance Resolvable UsageFlags where
@@ -713,7 +776,14 @@ defaultApiKeys =
     ApiKeys
     { akPocket    = Nothing
     , akPocketRequest = Nothing
-    , akReserved1 = 0
+    , akReserved10 = Nothing
+    , akFacebookAccessToken = Nothing
+    , akTwitterAccessToken = Nothing
+    , akReserved13 = False
+    , akReserved14 = False
+    , akReserved15 = False
+    , akReserved16 = False
+    , akReserved17 = False
     , akReserved2 = 0
     , akReserved3 = 0
     , akReserved4 = 0
@@ -721,11 +791,18 @@ defaultApiKeys =
 
 emptyFilterFeedMasks =
     FilterFeedMasks
-    { ffmLastUpdated = Nothing
-    , ffmFeedMasks   = HM.empty
-    , ffmReserved1   = 0
-    , ffmReserved2   = 0
+    { ffmLastUpdated  = FUTNever
+    , ffmFeedMasks    = IntMap.empty
+    , ffmOldFeedMasks = IntMap.empty
+    , ffmReserved2    = 0
     }
+
+fmPosts = \ case
+    FMError -> ReadSet.empty
+    FMFeedMask p _ -> p
+fmComments = \ case
+    FMError -> Just IntMap.empty
+    FMFeedMask _ c -> c
 
 instance Resolvable Filters where
     resolve = maxBy vt
@@ -735,11 +812,243 @@ defaultFilters u =
     Filters
     { fUser         = u
     , fVersion      = 0
-    , fFilters      = []
+    , fOldFilters   = []
     , fFeedMasks    = emptyFilterFeedMasks
-    , fSmartStreams = []
-    , fReserved1    = 0
-    , fReserved2    = 0
-    , fReserved3    = 0
+    , fOldSmartStreams = []
+    , fOverloadDelay = 0
+    , fNewFilters    = []
+    , fNewSmartStreams = []
     , fReserved4    = 0
     }
+
+instance Resolvable PageInfo where
+    resolve = max
+
+defaultPageInfo url =
+    PageInfo
+    { piUrl               = url
+    , piFetchTime         = UrTime 0 0
+    , piRedownloadOptions = []
+    , piError             = Just (UrTime 0 0, "Uninitialized")
+    , piContentType       = Nothing
+    , piContentLength     = Nothing
+    , piTitle             = []
+    , piDescription       = []
+    , piImage             = []
+    , piIcon              = []
+    , piRedirectUrl       = Nothing
+    , piReserved11        = False
+    , piReserved12        = False
+    , piReserved13        = False
+    , piReserved14        = False
+    , piReserved15        = False
+    , piReserved16        = False
+    , piReserved17        = False
+    , piErrorsCount       = 0
+    , piReserved3         = 0
+    , piReserved4         = 0
+    }
+
+instance Resolvable Favicon where
+    resolve = max
+
+defaultFavicon url =
+    Favicon
+    { faviconSourceUrl         = url
+    , faviconFetchTime         = UrTime 0 0
+    , faviconRedownloadOptions = []
+    , faviconRedirectUrl       = Nothing
+    , faviconFile              = Left (UrTime 0 0, "Uninitialized")
+    , faviconErrorsCount       = 0
+    , faviconReserved2         = 0
+    , faviconReserved3         = 0
+    , faviconReserved4         = 0
+    }
+
+instance Resolvable HotLinks where
+    resolve = maxBy hlsVersion
+
+defaultHotLinks user =
+    HotLinks
+    { hlsUser          = user
+    , hlsHotLinks      = []
+    , hlsVersion       = UrTime 0 0
+    , hlsLastVisit     = UrTime 0 0
+    , hlsHiddenLinks   = IntSet.empty
+    , hlsHotLinksState = IntMap.empty
+    , hlsExcludedFeeds = HS.empty
+    , hlsBlacklist     = []
+    , hlsTimeRange     = week
+    , hlsTimeOffset    = 0
+    , hlsMaxHotLinks   = 50
+    , hlsMinLinks      = 2
+    , hlsUnreadOnly    = False
+    , hlsSortByTime    = False
+    , hlsNewLinksFirst = False
+    , hlsReserved1     = 0
+    , hlsReserved2     = 0
+    , hlsReserved3     = 0
+    , hlsReserved4     = 0
+    }
+
+defaultFeedbackUserInfosList id =
+    FeedbackUserInfoList
+    { fuilId        = id
+    , fuilProcessed = []
+    , fuilOrderEmailsCache = HM.empty
+    , fuilReserved2 = 0
+    , fuilReserved3 = 0
+    , fuilReserved4 = 0
+    }
+
+instance Resolvable FeedbackUserInfosList where
+    resolve a b =
+        a
+        { fuilProcessed =
+            unionByWith fuiId resolve
+            (fuilProcessed a) (fuilProcessed b) }
+
+instance Resolvable FeedbackUserInfo where
+    resolve a b =
+        a
+        { fuiProcessedAt =
+            maxBy (fmap Down) (fuiProcessedAt a) (fuiProcessedAt b)
+        , fuiMailSent =
+            maxBy (fmap $ Down . feedbackEmailTime)
+            (fuiMailSent a) (fuiMailSent b)
+        , fuiTags = union (fuiTags a) (fuiTags b)
+        , fuiRepliedAt =
+            maxBy (fmap Down) (fuiRepliedAt a) (fuiRepliedAt b)
+        , fuiNotes = maxBy T.length (fuiNotes a) (fuiNotes b)
+        }
+
+defaultFtsReceipt =
+    FtsReceipt
+    { frDocumentName     = ""
+    , frNomerZaSmenu     = 0
+    , frTime             = UrTime 0 0
+    , frAddress          = ""
+    , frOrganizationName = ""
+    , frINN              = ""
+    , frTaxSystem        = FRTSUsnDohod
+    , frOperationType    = FROTPrihod
+    , frItems            = []
+    , frTotal            = 0
+    , frTotalVats        = []
+    , frKKTNumber        = ""
+    , frKKTRegNumber     = ""
+    , frFNNumber         = ""
+    , frFPD              = ""
+    , frReceiptSite        = ""
+    , frBuyerEmail       = ""
+    , frSenderEmail      = ""
+    , frFDNumber         = 0
+    , frShiftNumber      = 0
+    , frExchangeRate     = (UrTime 0 0, 0)
+    , frRetailAddress    = ""
+    , frReserved_2       = 0
+    , frReserved_3       = 0
+    , frReserved_4       = 0
+    , frReserved_5       = 0
+    , frReserved_6       = 0
+    , frReserved_7       = 0
+    , frReserved_8       = 0
+    , frReserved_9       = 0
+    , frReserved_10      = 0
+    }
+
+defaultOfdReceipt orderIdRefund
+    = OfdReceipt
+      { orOrderIdRefund     = orderIdRefund
+      , orTransactionID     = ""
+      , orFtsReceipt        = defaultFtsReceipt
+      , orPrintableFtsReceipt = Nothing
+      , orReserved_1        = 0
+      , orReserved_2        = 0
+      , orReserved_3        = 0
+      , orReserved_4        = 0
+      }
+
+instance Resolvable OfdReceipt where
+    resolve = maxBy (frTotal . orFtsReceipt)
+
+defaultEmailVerificationToken k =
+    EmailVerificationToken
+    { evtkToken            = k
+    , evtkExpire           = UrTime 0 0
+    , evtkVerified         = False
+    , evtkEmail            = ""
+    , evtkVerificationType = EVTResetPassword ""
+    , evtkReserved1        = 0
+    , evtkReserved2        = 0
+    , evtkReserved3        = 0
+    , evtkReserved4        = 0
+    }
+
+instance Resolvable EmailVerificationToken where
+    resolve = maxBy evtkExpire
+
+defaultEmailVerification e =
+    EmailVerification
+    { evEmail         = e
+    , evVerified      = []
+    , evSignUpTokens  = []
+    , evChangeEmailTokens = HM.empty
+    , evResetTokens   = []
+    , evReserved1     = 0
+    , evReserved2     = 0
+    , evReserved3     = 0
+    , evReserved4     = 0
+    }
+
+instance Resolvable EmailVerification where
+    resolve a b =
+        a
+        { evVerified = union (evVerified a) (evVerified b)
+        , evSignUpTokens = union (evSignUpTokens a) (evSignUpTokens b)
+        , evChangeEmailTokens =
+            HM.unionWith union (evChangeEmailTokens a) (evChangeEmailTokens b)
+        , evResetTokens = union (evResetTokens a) (evResetTokens b)
+        }
+
+defaultUserSessions u =
+    UserSessions
+    { uSessionsUser      = u
+    , uSessionsSessions  = HS.empty
+    , uSessionsReserved1 = 0
+    , uSessionsReserved2 = 0
+    , uSessionsReserved3 = 0
+    , uSessionsReserved4 = 0
+    }
+
+instance Resolvable UserSessions where
+    resolve a b =
+        a
+        { uSessionsSessions =
+            HS.union (uSessionsSessions a) (uSessionsSessions b)
+        }
+
+defaultUserEmailVerificationTokens u =
+    UserEmailVerificationTokens
+    { uevtUser      = u
+    , uevtTokens    = HM.empty
+    , uevtReserved1 = 0
+    , uevtReserved2 = 0
+    , uevtReserved3 = 0
+    , uevtReserved4 = 0
+    }
+
+instance Resolvable UserEmailVerificationTokens where
+    resolve a b =
+        a
+        { uevtTokens = HM.union (uevtTokens a) (uevtTokens b)
+        }
+
+defaultParserEnvironment k =
+    ParserEnvironment
+    { peKey = k
+    , peValue = Nothing
+    }
+
+instance Resolvable ParserEnvironment where
+    resolve = maxBy peValue
