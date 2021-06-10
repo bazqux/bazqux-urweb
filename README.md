@@ -9,6 +9,11 @@ Ur/Web part of sources is located in the root and `lib` folder. Haskell part is 
 
 Code is quite ugly (quick and dirty hacks, experiments, legacy, Russian comments or no comments at all). But it's a working code used everyday by thousands of people. Some parts are left untouched from the crazy 2013 spring when Google decided to close Google Reader and I needed to do many-many things in 3 months. Some parts are newer and are more readable.
 
+Posts about my experience (a bit dated):
+* r/haskell: [RSS reader written in Haskell and Ur/Web](https://old.reddit.com/r/haskell/comments/1ha5dd/rss_reader_written_in_haskell_and_urweb/)
+* Ur/Web mailing list: [Ur/Web in production](http://www.impredicative.com/pipermail/ur/2014-January/001608.html)
+
+
 Ur/Web <=> Haskell interface
 ------------
 
